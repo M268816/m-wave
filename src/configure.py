@@ -1,43 +1,108 @@
-import json
-import logging
-import os
 from tkinter import filedialog
 import tkinter as tk
-import tkinter.ttk as ttk
+import ttkbootstrap as ttk
 
-class Configure:
-    def __init__(self) -> None:
-        print("Hello, from the configuration!")
-        self.window = tk.Tk()
-        self.window.title("MTL/CMD data append tool.")
 
-        self.label = ttk.Label(self.window, text="This is a label.")
-        self.label.pack()
+class Config:
+    """
+    Returns a tuple of filepaths. (MTL/CVS Location, New Data Location)
+    """
 
-        self.input_string = tk.StringVar(value="This is the default input.")
-        self.input = ttk.Entry(self.window, textvariable=self.input_string)
-        self.input.pack()
+    def __init__(self, parent) -> None:
+        # tk modal/root
+        self.modal = ttk.Toplevel(parent)
+        self.modal.title("Choose file paths.")
+        self.modal.geometry("360x240")
+        self.modal.minsize(200, 200)
+        self.modal.maxsize(500, 500)
 
-        self.pick_file_button = ttk.Button(
-                self.window,
-                text="Select file",
-                command=self.pick_file
-                )
-        self.pick_file_button.pack()
+        # mtl input
+        self.mtl_label = ttk.Label(self.modal, text="MTL/CMD Location.")
+        self.mtl_input_string = tk.StringVar(value="This is the default input.")
+        self.mtl_input = ttk.Entry(
+            self.modal,
+            textvariable=self.mtl_input_string,
+            width=len(self.mtl_input_string.get()),
+        )
+        self.mtl_pick_file_button = ttk.Button(
+            self.modal,
+            text="Select file",
+            command=lambda: self.pick_file(self.mtl_input_string, self.mtl_input),
+        )
 
-    def pick_file(self) -> str:
-        '''
+        # new entries input
+        self.entries_label = ttk.Label(self.modal, text="New entries locaiton.")
+        self.entries_input_string = tk.StringVar(value="This is the default input.")
+        self.entries_input = ttk.Entry(
+            self.modal,
+            textvariable=self.entries_input_string,
+            width=len(self.entries_input_string.get()),
+        )
+        self.entries_pick_file_button = ttk.Button(
+            self.modal,
+            text="Select file",
+            command=lambda: self.pick_file(
+                self.entries_input_string, self.entries_input
+            ),
+        )
+
+        # submit button
+        self.submit_btn = ttk.Button(self.modal, text="Submit", command=self.submit)
+
+        self.format_layout()
+
+    def format_layout(self) -> None:
+        """
+        Format the dialog's layout.
+        """
+        self.mtl_label.pack()
+        self.mtl_input.pack()
+        self.mtl_pick_file_button.pack()
+
+        self.entries_label.pack(pady=(5, 0))
+        self.entries_input.pack()
+        self.entries_pick_file_button.pack()
+
+        self.submit_btn.pack(pady=15)
+
+    def pick_file(
+        self,
+        input_string: tk.StringVar,
+        entry_widget: ttk.Entry,
+        file_type: tuple = ("All Supported", ("*.xlsx", "*.xlsm", "*.csv")),
+    ) -> None:
+        """
         Use filedialog to pick a file name.
-        '''
-        _path = filedialog.askdirectory(title="Select a file.")
-        if _path:
-            return _path
-        else:
-            return ""
+        """
+        _filetypes = [
+            file_type,
+        ]
 
-    def run(self) -> None:
-        self.window.mainloop()
+        _path = filedialog.askopenfilename(title="Select a file.", filetypes=_filetypes)
+
+        if _path:
+            input_string.set(_path)
+            entry_widget.config(width=min(len(_path), 100))
+        else:
+            input_string.set("File not picked!")
+            entry_widget.config(width=min(len(input_string.get()), 100))
+
+    def submit(self) -> None:
+        """
+        Clicking the submit button runs this method.
+        """
+        self.modal.destroy()
+
+    def run(self) -> tuple:
+        self.modal.wait_window()
+
+        _mtl_path = self.mtl_input_string.get()
+        _entry_path = self.entries_input_string.get()
+
+        return (_mtl_path, _entry_path)
+
 
 if __name__ == "__main__":
-    module = Configure()
-    module.run()
+    module = Config(None)
+    for _string in module.run():
+        print(_string)
