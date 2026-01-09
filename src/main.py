@@ -25,8 +25,7 @@ class App:
         self.create_new_data_frame_row()
         self.create_data_type_row()
         self.create_new_data_table()
-
-        # TODO: Use filedialog to pull in the file paths.
+        self.create_submit_button_row()
 
         # TODO: Use pandas to collect the new data, format, and append to the
         # TODO:     MTL database table in excel
@@ -143,8 +142,29 @@ class App:
         self.new_data_table.heading(2, text="SECURITY STRING", anchor=W)
         self.new_data_table.heading(3, text="OTHER", anchor=W)
         self.new_data_table.column(0, anchor=W)
+        self.new_data_table.column(1, anchor=W)
+        self.new_data_table.column(2, anchor=W)
+        self.new_data_table.column(3, anchor=W)
 
         self.new_data_table.pack(fill=BOTH, expand=YES, pady=15)
+        self.insert_row()
+
+    def create_submit_button_row(self) -> None:
+        """
+        Creates the row to manage the bottom submit/cancel buttons.
+        """
+        self.type_variable = ttk.StringVar()
+        btn_frame_row = ttk.Frame(self.mainframe, padding=10)
+        submit_btn = ttk.Button(
+            btn_frame_row,
+            text="Process",
+            bootstyle=SUCCESS,
+            padding=10,
+            width=20,
+            command=lambda: print("Pushed the button!"),
+        )
+        btn_frame_row.pack(fill=X, expand=YES, anchor=S)
+        submit_btn.pack(side=RIGHT, padx=15)
 
     def get_filepath(
         self, entry_widget: ttk.Entry, string_variable: ttk.StringVar
@@ -160,6 +180,21 @@ class App:
             string_variable.set(user_input)
         else:
             string_variable.set("File selection canceled!")
+
+    def insert_row(self) -> None:
+        """
+        Insert a row into the data_table.
+        """
+        # TODO: Actually setup data collection connections to the pandas data
+        _ID = "ID01"
+        _tag = "TAG_01"
+        _sec_string = "LOTS OF INFO WILL GO HERE ENVENTUALLY"
+        _other = "Filling up space"
+        item_id = self.new_data_table.insert(
+            parent="", index="end", values=(_ID, _tag, _sec_string, _other)
+        )
+        self.new_data_table.selection_set(item_id)
+        self.new_data_table.see(item_id)
 
     def run(self) -> None:
         """
