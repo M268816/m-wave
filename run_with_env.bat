@@ -5,4 +5,4 @@ REM activate venv
 call .venv\Scripts\activate
 
 REM run the app
-python -m src.main
+python -m src.mtl_cmd.main

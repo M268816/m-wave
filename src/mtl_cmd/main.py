@@ -111,7 +111,7 @@ class App:
             bootstyle=SECONDARY,
             padding=10,
             width=20,
-            command=lambda: self.get_filepath(new_frame_entry, new_string_var),
+            command=lambda: self.get_filepath(new_string_var),
         )
         new_frame_row.pack(fill=X, expand=YES)
         new_frame_label.pack(side=LEFT)
