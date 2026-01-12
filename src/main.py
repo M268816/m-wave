@@ -6,23 +6,30 @@ from ttkbootstrap.constants import *
 
 class App:
     """
-    MTL/CMD new data formatter.
+    A MTL/CMD format helper process. This program takes in file path information
+    from the user that it can use to format new Aveva PI tag and configuration
+    context information into design document 20471406.
     """
 
     def __init__(self) -> None:
-        # create main tkiner window with bootstrap
+        """
+        This app uses ttkbootstrap for the gui, and pandas for data
+        processing.
+        """
+        # initialize root ttk window
         self.window = ttk.Window(
-            title="Master Tag List new data formatter.",
+            title="Master Tag List / Context Master Data format helper.",
             themename="superhero",
             size=(640, 360),
             minsize=(640, 360),
         )
 
-        # creates the file selection frame and widgets
+        # initialize ttk frames and widgets
         self.create_main_frame()
         self.create_file_frame()
         self.create_mtl_frame_row()
         self.create_new_data_frame_row()
+        self.create_env_type_row()
         self.create_data_type_row()
         self.create_new_data_table()
         self.create_submit_button_row()
@@ -38,7 +45,7 @@ class App:
 
     def create_main_frame(self) -> None:
         """
-        Creates and formats the app's main work space using a frame.
+        Creates and formats the app's main workspace using a frame.
         """
 
         self.mainframe = ttk.Frame(self.window, padding=15)
@@ -46,7 +53,7 @@ class App:
 
     def create_file_frame(self) -> None:
         """
-        Creates and formats the label frame for collecting the file paths from
+        Creates and formats a label frame for collecting the file paths from
         the user.
         """
 
@@ -57,7 +64,8 @@ class App:
 
     def create_mtl_frame_row(self) -> None:
         """
-        Creates the formats the file collection widgets for the file frame.
+        Creates the formats the file path collection widgets for the mtl/cmd
+        file.
         """
         mtl_frame_row = ttk.Frame(self.file_frame, padding=10)
         mtl_frame_label = ttk.Label(
@@ -82,7 +90,8 @@ class App:
 
     def create_new_data_frame_row(self) -> None:
         """
-        Creates the formats the file collection widgets for the file frame.
+        Creates the formats the file path collection widgets for the new data
+        file.
         """
         new_frame_row = ttk.Frame(self.file_frame, padding=10)
         new_frame_label = ttk.Label(
@@ -105,11 +114,33 @@ class App:
         new_frame_entry.pack(side=LEFT, fill=X, expand=YES, padx=10)
         new_frame_button.pack(side=RIGHT)
 
+    def create_env_type_row(self) -> None:
+        """
+        Creates the row to manage the environment type selection.
+        """
+        self.env_selection = ttk.StringVar()
+        env_frame_row = ttk.Frame(self.file_frame, padding=10)
+        env_frame_label = ttk.Label(
+            env_frame_row,
+            text="Data environment:",
+            padding=10,
+        )
+        val_option = ttk.Radiobutton(
+            env_frame_row, text="VAL", variable=self.env_selection, value="mtl"
+        )
+        prod_option = ttk.Radiobutton(
+            env_frame_row, text="PROD", variable=self.env_selection, value="CMD"
+        )
+        env_frame_row.pack(fill=X, expand=YES)
+        env_frame_label.pack(side=LEFT, padx=10)
+        val_option.pack(side=LEFT, padx=10)
+        prod_option.pack(side=LEFT, padx=10)
+
     def create_data_type_row(self) -> None:
         """
         Creates the row to manage the data type selection.
         """
-        self.type_variable = ttk.StringVar()
+        self.type_selection = ttk.StringVar()
         type_frame_row = ttk.Frame(self.file_frame, padding=10)
         type_frame_label = ttk.Label(
             type_frame_row,
@@ -117,18 +148,56 @@ class App:
             padding=10,
         )
         mtl_option = ttk.Radiobutton(
-            type_frame_row, text="MTL", variable=self.type_variable, value="mtl"
+            type_frame_row,
+            text="MTL GxP",
+            variable=self.type_selection,
+            value="mtl",
         )
-        cmd_option = ttk.Radiobutton(
-            type_frame_row, text="CMD", variable=self.type_variable, value="CMD"
+        anlyt_option = ttk.Radiobutton(
+            type_frame_row,
+            text="MTL Analytics",
+            variable=self.type_selection,
+            value="anlyt",
+        )
+        enum_option = ttk.Radiobutton(
+            type_frame_row,
+            text="CMD Enumeration",
+            variable=self.type_selection,
+            value="enum",
+        )
+        cats_option = ttk.Radiobutton(
+            type_frame_row,
+            text="CMD Categories",
+            variable=self.type_selection,
+            value="cats",
+        )
+        table_option = ttk.Radiobutton(
+            type_frame_row,
+            text="CMD Tables",
+            variable=self.type_selection,
+            value="tables",
+        )
+        ef_option = ttk.Radiobutton(
+            type_frame_row,
+            text="CMD Event Frames",
+            variable=self.type_selection,
+            value="ef",
+        )
+        elem_option = ttk.Radiobutton(
+            type_frame_row,
+            text="CMD Elements",
+            variable=self.type_selection,
+            value="elem",
         )
         type_frame_row.pack(fill=X, expand=YES)
         type_frame_label.pack(side=LEFT, padx=10)
         mtl_option.pack(side=LEFT, padx=10)
-        cmd_option.pack(side=LEFT, padx=10)
-        # INFO: Starts with MTL type selected by default
-        # INFO: Change this later maybe?
-        mtl_option.invoke()
+        anlyt_option.pack(side=LEFT, padx=10)
+        enum_option.pack(side=LEFT, padx=10)
+        cats_option.pack(side=LEFT, padx=10)
+        table_option.pack(side=LEFT, padx=10)
+        ef_option.pack(side=LEFT, padx=10)
+        elem_option.pack(side=LEFT, padx=10)
 
     def create_new_data_table(self) -> None:
         """
@@ -165,6 +234,14 @@ class App:
         )
         btn_frame_row.pack(fill=X, expand=YES, anchor=S)
         submit_btn.pack(side=RIGHT, padx=15)
+
+    def select_data_type(self) -> None:
+        """
+        When a data type is selected, change the global selection variable here.
+        """
+        _env = self.env_selection
+        _type = self.type_selection
+        return print(f"Environment: {_env}. Type: {_type}.")
 
     def get_filepath(
         self, entry_widget: ttk.Entry, string_variable: ttk.StringVar
