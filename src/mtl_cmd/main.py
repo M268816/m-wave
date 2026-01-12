@@ -5,19 +5,21 @@
 
 from tkinter.filedialog import askopenfilename as file_dialog
 from ttkbootstrap.constants import *
+from ttkbootstrap.widgets import scrolled as ScrolledFrame
+import tkinter as tk
 import ttkbootstrap as ttk
 
 
 class App:
     """
     A MTL/CMD format helper process. This program takes in file path information
-    from the user that it can use to format new Aveva PI tag and configuration
+    from the user that it uses to format new Aveva PI tag and configuration
     context information into design document 20471406.
     """
 
     def __init__(self) -> None:
         """
-        This app uses ttkbootstrap for the gui, and pandas for data
+        This app uses ttkbootstrap for the gui and pandas for data
         processing.
         """
         # initialize root ttk window
@@ -31,10 +33,9 @@ class App:
         # initialize ttk frames and widgets
         self.create_main_frame()
         self.create_file_frame()
-        self.create_mtl_frame_row()
-        self.create_new_data_frame_row()
-        self.create_env_type_row()
-        self.create_data_type_row()
+        self.create_mtl_row()
+        self.create_new_data_row()
+        self.create_options_row()
         self.create_new_data_table()
         self.create_submit_button_row()
 
@@ -66,160 +67,130 @@ class App:
         )
         self.file_frame.pack(fill=X, anchor=N, expand=YES)
 
-    def create_mtl_frame_row(self) -> None:
+    def create_mtl_row(self) -> None:
         """
         Creates the formats the file path collection widgets for the mtl/cmd
         file.
         """
-        mtl_frame_row = ttk.Frame(self.file_frame, padding=10)
-        mtl_frame_label = ttk.Label(
-            mtl_frame_row,
+        mtl_row = ttk.Frame(self.file_frame, padding=10)
+        mtl_label = ttk.Label(
+            mtl_row,
             text="MTL/CMD File:",
             padding=10,
         )
         mtl_string_var = ttk.StringVar(value="Select a file.")
-        mtl_frame_entry = ttk.Entry(mtl_frame_row, textvariable=mtl_string_var)
-        mtl_frame_button = ttk.Button(
-            mtl_frame_row,
+        mtl_entry = ttk.Entry(mtl_row, textvariable=mtl_string_var)
+        mtl_button = ttk.Button(
+            mtl_row,
             text="Pick file",
             bootstyle=PRIMARY,
             padding=10,
             width=20,
             command=lambda: self.get_filepath(mtl_string_var),
         )
-        mtl_frame_row.pack(fill=X, expand=YES)
-        mtl_frame_label.pack(side=LEFT)
-        mtl_frame_entry.pack(side=LEFT, fill=X, expand=YES, padx=10)
-        mtl_frame_button.pack(side=RIGHT)
+        mtl_row.pack(fill=X, expand=YES)
+        mtl_label.pack(side=LEFT)
+        mtl_entry.pack(side=LEFT, fill=X, expand=YES, padx=10)
+        mtl_button.pack(side=RIGHT)
 
-    def create_new_data_frame_row(self) -> None:
+    def create_new_data_row(self) -> None:
         """
         Creates the formats the file path collection widgets for the new data
         file.
         """
-        new_frame_row = ttk.Frame(self.file_frame, padding=10)
-        new_frame_label = ttk.Label(
-            new_frame_row,
+        new_data_row = ttk.Frame(self.file_frame, padding=10)
+        new_data_label = ttk.Label(
+            new_data_row,
             text="'New Data' File:",
             padding=10,
         )
         new_string_var = ttk.StringVar(value="Select a file.")
-        new_frame_entry = ttk.Entry(new_frame_row, textvariable=new_string_var)
-        new_frame_button = ttk.Button(
-            new_frame_row,
+        new_data_entry = ttk.Entry(new_data_row, textvariable=new_string_var)
+        new_data_button = ttk.Button(
+            new_data_row,
             text="Pick file",
             bootstyle=SECONDARY,
             padding=10,
             width=20,
             command=lambda: self.get_filepath(new_string_var),
         )
-        new_frame_row.pack(fill=X, expand=YES)
-        new_frame_label.pack(side=LEFT)
-        new_frame_entry.pack(side=LEFT, fill=X, expand=YES, padx=10)
-        new_frame_button.pack(side=RIGHT)
+        new_data_row.pack(fill=X, expand=YES)
+        new_data_label.pack(side=LEFT)
+        new_data_entry.pack(side=LEFT, fill=X, expand=YES, padx=10)
+        new_data_button.pack(side=RIGHT)
 
-    def create_env_type_row(self) -> None:
+    def create_env_options(self, row: ttk.Frame) -> None:
         """
-        Creates the row to manage the environment type selection.
+        Creates the environment option radio buttons.
         """
         self.env_selection = ttk.StringVar()
-        env_frame_row = ttk.Frame(self.file_frame, padding=10)
-        env_frame_label = ttk.Label(
-            env_frame_row,
+        row_label = ttk.Label(
+            row,
             text="Data environment:",
             padding=10,
         )
-        val_option = ttk.Radiobutton(
-            env_frame_row, text="VAL", variable=self.env_selection, value="mtl"
-        )
-        prod_option = ttk.Radiobutton(
-            env_frame_row, text="PROD", variable=self.env_selection, value="CMD"
-        )
-        env_frame_row.pack(fill=X, expand=YES)
-        env_frame_label.pack(side=LEFT, padx=10)
-        val_option.pack(side=LEFT, padx=10)
-        prod_option.pack(side=LEFT, padx=10)
+        row_label.pack(side=LEFT, padx=10)
+        self.env_options = [("VAL", "val"), ("PROD", "prod")]
+        for opt_text, opt_value in self.env_options:
+            opt = ttk.Radiobutton(
+                row, variable=self.env_selection, text=opt_text, value=opt_value
+            )
+            opt.pack(side=LEFT, padx=10)
 
-    def create_data_type_row(self) -> None:
+    def create_type_options(self, row: ttk.Frame) -> None:
         """
-        Creates the row to manage the data type selection.
+        Creates the data type option combobox.
         """
         self.type_selection = ttk.StringVar()
-        type_frame_row = ttk.Frame(self.file_frame, padding=10)
-        type_frame_label = ttk.Label(
-            type_frame_row,
+        row_label = ttk.Label(
+            row,
             text="Data Type:",
             padding=10,
         )
-        mtl_option = ttk.Radiobutton(
-            type_frame_row,
-            text="MTL GxP",
-            variable=self.type_selection,
-            value="mtl",
+        row_label.pack(side=LEFT, padx=10)
+        self.type_options = [
+            "MTL GxP",
+            "MTL Analytics",
+            "CMD Enumeration",
+            "CMD Categories",
+            "CMD Tables",
+            "CMD Event Frames",
+            "CMD Elements",
+        ]
+        menu = ttk.OptionMenu(
+            row, self.type_selection, self.type_options[0], *self.type_options
         )
-        anlyt_option = ttk.Radiobutton(
-            type_frame_row,
-            text="MTL Analytics",
-            variable=self.type_selection,
-            value="anlyt",
-        )
-        enum_option = ttk.Radiobutton(
-            type_frame_row,
-            text="CMD Enumeration",
-            variable=self.type_selection,
-            value="enum",
-        )
-        cats_option = ttk.Radiobutton(
-            type_frame_row,
-            text="CMD Categories",
-            variable=self.type_selection,
-            value="cats",
-        )
-        table_option = ttk.Radiobutton(
-            type_frame_row,
-            text="CMD Tables",
-            variable=self.type_selection,
-            value="tables",
-        )
-        ef_option = ttk.Radiobutton(
-            type_frame_row,
-            text="CMD Event Frames",
-            variable=self.type_selection,
-            value="ef",
-        )
-        elem_option = ttk.Radiobutton(
-            type_frame_row,
-            text="CMD Elements",
-            variable=self.type_selection,
-            value="elem",
-        )
-        type_frame_row.pack(fill=X, expand=YES)
-        type_frame_label.pack(side=LEFT, padx=10)
-        mtl_option.pack(side=LEFT, padx=10)
-        anlyt_option.pack(side=LEFT, padx=10)
-        enum_option.pack(side=LEFT, padx=10)
-        cats_option.pack(side=LEFT, padx=10)
-        table_option.pack(side=LEFT, padx=10)
-        ef_option.pack(side=LEFT, padx=10)
-        elem_option.pack(side=LEFT, padx=10)
+        menu.pack(side=LEFT, padx=10)
+
+    def create_options_row(self) -> None:
+        """
+        Creates the row that collects data type options.
+        The data type options determine where data should be placed within
+        the Design Spec Doc.
+        """
+        row = ttk.Frame(self.file_frame, padding=10)
+        row.pack(fill=X, expand=YES)
+        self.create_env_options(row)
+        self.create_type_options(row)
 
     def create_new_data_table(self) -> None:
         """
         Creates a table to preview the new data that will append to the MTL/CMD
         """
+        _columns = [
+            (0, "ID"),
+            (1, "TAG/CONFIG"),
+            (2, "SECURITY STRING"),
+            (3, "OTHER"),
+        ]
         self.new_data_table = ttk.Treeview(
-            self.mainframe, columns=[0, 1, 2, 3], show=HEADINGS
+            self.mainframe, columns=_columns, show=HEADINGS
         )
-        self.new_data_table.heading(0, text="ID", anchor=W)
-        self.new_data_table.heading(1, text="TAG/CONFIG", anchor=W)
-        self.new_data_table.heading(2, text="SECURITY STRING", anchor=W)
-        self.new_data_table.heading(3, text="OTHER", anchor=W)
-        self.new_data_table.column(0, anchor=W)
-        self.new_data_table.column(1, anchor=W)
-        self.new_data_table.column(2, anchor=W)
-        self.new_data_table.column(3, anchor=W)
-
         self.new_data_table.pack(fill=BOTH, expand=YES, pady=15)
+        for i, ii in _columns:
+            self.new_data_table.heading(i, text=ii, anchor=W)
+            self.new_data_table.column(i, anchor=W)
+        # TODO: this is only a testing row for now
         self.insert_row()
 
     def create_submit_button_row(self) -> None:
@@ -234,10 +205,23 @@ class App:
             bootstyle=SUCCESS,
             padding=10,
             width=20,
-            command=lambda: print("Pushed the button!"),
+            command=lambda: print(
+                f"Pushed the button! Env Option: {self.env_selection.get()}. Type Option: {self.type_selection.get()}."
+            ),
         )
         btn_frame_row.pack(fill=X, expand=YES, anchor=S)
         submit_btn.pack(side=RIGHT, padx=15)
+
+    def process(self) -> None:
+        """
+        Run the data transfer process.
+        """
+        if self.type_selection == "MTL Analytics":
+            table = "MTL-Analytics-VAL&PROD"
+        elif self.env_selection == "prod":
+            pass
+        else:  # self.env_selectoin =="val"
+            pass
 
     def select_data_type(self) -> None:
         """
