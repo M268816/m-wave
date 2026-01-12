@@ -14,7 +14,7 @@ maintainers = [
 ]
 keywords = ["CMD", "DDS", "Jaffrey", "MTL", "USJA"]
 classifiers = [
-  "Development Status :: 5 - Alpha",
+  "Development Status :: 3 - Alpha",
   "Programming Language :: Python"
 ]
 dependencies = [
@@ -48,5 +48,5 @@ tomatoes = "spam:main"
 [project.optional-dependencies]
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools >= 65.0.5"]
 build-backend = "setuptools.build_meta"
