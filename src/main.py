@@ -1,7 +1,11 @@
+# Copyright 2022 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# All rights reserved
+#
+# Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+
 from tkinter.filedialog import askopenfilename as file_dialog
-import tkinter as tk
-import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
+import ttkbootstrap as ttk
 
 
 class App:
@@ -73,15 +77,15 @@ class App:
             text="MTL/CMD File:",
             padding=10,
         )
-        mtl_text_variable = ttk.StringVar(value="Select a file.")
-        mtl_frame_entry = ttk.Entry(mtl_frame_row, textvariable=mtl_text_variable)
+        mtl_string_var = ttk.StringVar(value="Select a file.")
+        mtl_frame_entry = ttk.Entry(mtl_frame_row, textvariable=mtl_string_var)
         mtl_frame_button = ttk.Button(
             mtl_frame_row,
             text="Pick file",
             bootstyle=PRIMARY,
             padding=10,
             width=20,
-            command=lambda: self.get_filepath(mtl_frame_entry, mtl_text_variable),
+            command=lambda: self.get_filepath(mtl_string_var),
         )
         mtl_frame_row.pack(fill=X, expand=YES)
         mtl_frame_label.pack(side=LEFT)
@@ -99,15 +103,15 @@ class App:
             text="'New Data' File:",
             padding=10,
         )
-        new_text_variable = ttk.StringVar(value="Select a file.")
-        new_frame_entry = ttk.Entry(new_frame_row, textvariable=new_text_variable)
+        new_string_var = ttk.StringVar(value="Select a file.")
+        new_frame_entry = ttk.Entry(new_frame_row, textvariable=new_string_var)
         new_frame_button = ttk.Button(
             new_frame_row,
             text="Pick file",
             bootstyle=SECONDARY,
             padding=10,
             width=20,
-            command=lambda: self.get_filepath(new_frame_entry, new_text_variable),
+            command=lambda: self.get_filepath(new_frame_entry, new_string_var),
         )
         new_frame_row.pack(fill=X, expand=YES)
         new_frame_label.pack(side=LEFT)
@@ -243,9 +247,7 @@ class App:
         _type = self.type_selection
         return print(f"Environment: {_env}. Type: {_type}.")
 
-    def get_filepath(
-        self, entry_widget: ttk.Entry, string_variable: ttk.StringVar
-    ) -> None:
+    def get_filepath(self, string_variable: ttk.StringVar) -> None:
         """
         Use filedialog to get the path and set to widgets and global variable.
         """
