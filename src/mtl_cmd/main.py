@@ -53,6 +53,7 @@ class App:
         # init ttk variables
         self.selected_data_type = ttk.StringVar()
         self.selected_data_env = ttk.StringVar()
+        self.selected_mtl_version = ttk.StringVar(value="19.0")
         self.input_data_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
         # gui debug
@@ -179,6 +180,12 @@ class App:
         )
         menu.pack(side=LEFT, padx=10)
 
+    def create_version_options(self, row: ttk.Frame) -> None:
+        option_label = ttk.Label(row, text="MTL Version:", padding=10)
+        option_label.pack(side=LEFT, padx=10)
+        entry = ttk.Entry(row, textvariable=self.selected_mtl_version)
+        entry.pack(side=LEFT, padx=10)
+
     def create_file_options_frame(self, parent: ttk.Labelframe) -> None:
         """
         Creates the row that collects data type options.
@@ -189,6 +196,7 @@ class App:
         row.pack(fill=BOTH, expand=YES)
         self.create_env_options(row)
         self.create_type_options(row)
+        self.create_version_options(row)
 
     def create_file_selection_frame(self) -> None:
         """
@@ -217,9 +225,9 @@ class App:
             (3, "SECURITY STRING"),
             (4, "DATATYPE"),
         ]
-        table_frame = ttk.Frame(self.content_frame, style="Debug.TFrame")
+        table_frame = ttk.Frame(self.content_frame, padding=15)
         table_frame.rowconfigure(0, weight=1)
-        table_frame.columnconfigure(1, weight=1)
+        table_frame.columnconfigure(0, weight=1)
         table_frame.pack(fill=BOTH, expand=YES)
         self.preview_table = ttk.Treeview(table_frame, columns=_columns, show=HEADINGS)
         for key, value in _columns:
@@ -234,9 +242,9 @@ class App:
         self.preview_table.configure(
             xscrollcommand=h_scrollbar.set, yscrollcommand=v_scrollbar.set
         )
-        h_scrollbar.grid(row=1, column=1, columnspan=2, sticky="ew")
-        v_scrollbar.grid(row=0, column=0, rowspan=2, sticky="ns")
-        self.preview_table.grid(row=0, column=1, sticky="nsew")
+        self.preview_table.grid(row=0, column=0, sticky="nsew")
+        h_scrollbar.grid(row=1, column=0, columnspan=2, sticky="ew")
+        v_scrollbar.grid(row=0, column=1, rowspan=2, sticky="ns")
 
     def insert_row(self, _id, _tag, _desc, _security, _datatype) -> None:
         """
@@ -278,7 +286,7 @@ class App:
         }
         if self.selected_data_type.get() == "MTL Analytics":
             sheet = "MTL-Analytics-VAL&PROD"
-            return print(f"Sheet Selected: {sheet}")
+            return print(f"Selected: {sheet}, {table_names[sheet]}")
         else:
             sheet = sheet_names[self.selected_data_type.get()]
         if self.selected_data_env.get() == "prod" and sheet:
@@ -287,48 +295,49 @@ class App:
             sheet = sheet + "-VAL"
         if sheet:
             print(f"Sheet Selected: {sheet}")
+            print(f"Table Selected: {table_names[sheet]}")
         else:
             print(f"ERROR SELECTING OPTIONS!")
 
         def subroutine():
+            """
+            Pushes this process to another thread.
+            """
             # load the mtl workbook
-            workbook = load_workbook(self.mtl_file_path.get(), data_only=True)
-            # find the appropriate table for the selected file options
-            worksheet = workbook[sheet]
-            table_name = table_names[sheet]
-            table_range = worksheet.tables[table_name].ref
-            worksheet_data = worksheet[table_range]
-            # convert the data found into a table structure
-            converted_data = [[cell.value for cell in row] for row in worksheet_data]
-            table_header = converted_data[0]
-            table_data = converted_data[1:]
-            # convert the tabled data into a pd dataframe
-            excel_table = pd.DataFrame(table_data, columns=table_header)
-            workbook.close()
-            # testing the table by outputting the dataframe to the preview table
-            print(excel_table)
-            temp_table = excel_table.copy()
-            temp_table = temp_table[
-                ["Name", "Description", "datasecurity", "pointtype"]
-            ]
-            print(temp_table)
-            # debugging, printing all the table headers
-            print("Table Headers:")
-            for i in table_header:
-                print(i)
-            # adding the first few rows of data to the preview table
-            for i in range(50):
-                self.window.after(
-                    0,
-                    lambda: self.insert_row(
+            try:
+                workbook = load_workbook(self.mtl_file_path.get(), data_only=True)
+                # find the appropriate table for the selected file options
+                worksheet = workbook[sheet]
+                table_name = table_names[sheet]
+                table_range = worksheet.tables[table_name].ref
+                worksheet_data = worksheet[table_range]
+                # convert the data found into a table structure
+                converted_data = [
+                    [cell.value for cell in row] for row in worksheet_data
+                ]
+                table_header = converted_data[0]
+                table_data = converted_data[1:]
+                # convert the tabled data into a pd dataframe
+                excel_table = pd.DataFrame(table_data, columns=table_header)
+                workbook.close()
+                # testing the table by outputting the dataframe to the preview table
+                temp_table = excel_table.copy()
+                temp_table = temp_table[
+                    ["Name", "Description", "datasecurity", "pointtype"]
+                ]
+                # adding the first few rows of data to the preview table
+                for i in range(50):
+                    self.insert_row(
                         i,
                         temp_table.iloc[i, 0],
                         temp_table.iloc[i, 1],
                         temp_table.iloc[i, 2],
                         temp_table.iloc[i, 3],
-                    ),
-                )
-            self.window.after(0, self.progress_bar.stop)
+                    )
+            except Exception as e:
+                print(f"Could not load worksheet data.")
+                print(e)
+            self.window.after_idle(self.progress_bar.stop)
 
         self.progress_bar.start(15)
         thread = threading.Thread(target=subroutine, daemon=True)
@@ -338,7 +347,7 @@ class App:
         """
         Creates the row to manage the bottom submit/cancel buttons.
         """
-        row = ttk.Frame(self.content_frame, padding=10)
+        row = ttk.Frame(self.content_frame, padding=15)
         row.pack(fill=X, side=BOTTOM, anchor=S)
         self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE, value=0)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=15, fill=X)
