@@ -1,4 +1,4 @@
-# Copyright 2022 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# Copyriggt 2022 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
@@ -8,18 +8,26 @@ from tkinter.filedialog import askopenfilename as file_dialog
 from ttkbootstrap.constants import (
     BOTH,
     X,
+    Y,
     LEFT,
     RIGHT,
+    BOTTOM,
+    TOP,
     YES,
     N,
+    E,
     S,
     W,
+    HORIZONTAL,
+    VERTICAL,
     PRIMARY,
     SECONDARY,
     SUCCESS,
     HEADINGS,
+    INDETERMINATE,
 )
 import pandas as pd
+import threading
 import ttkbootstrap as ttk
 
 
@@ -67,22 +75,6 @@ class App:
         self.content_frame = ttk.Frame(self.window, padding=15)
         self.content_frame.pack(fill=BOTH, expand=YES)
 
-    def create_file_selection_frame(self) -> None:
-        """
-        Creates and formats a label frame for collecting the file paths from
-        the user.
-        """
-
-        self.file_frame = ttk.Labelframe(
-            self.content_frame,
-            text="Select the working files",
-            padding=15,
-        )
-        self.file_frame.pack(fill=BOTH, anchor=N)
-        self.create_mtl_file_widgets()
-        self.create_input_data_widgets()
-        self.create_file_options_frame()
-
     def get_filepath(self, string_variable: ttk.StringVar) -> None:
         """
         Use file_dialog to get a file path and set it to a ttk variable.
@@ -96,12 +88,12 @@ class App:
         else:
             string_variable.set("File selection canceled!")
 
-    def create_mtl_file_widgets(self) -> None:
+    def create_mtl_file_frame(self, parent: ttk.Labelframe) -> None:
         """
         Creates the formats the file path collection widgets for the mtl/cmd
         file.
         """
-        row = ttk.Frame(self.file_frame, padding=10)
+        row = ttk.Frame(parent, padding=10)
         label = ttk.Label(
             row,
             text="MTL/CMD File:",
@@ -121,15 +113,15 @@ class App:
         entry.pack(side=LEFT, fill=X, expand=YES, padx=10)
         button.pack(side=RIGHT)
 
-    def create_input_data_widgets(self) -> None:
+    def create_input_data_frame(self, parent: ttk.Labelframe) -> None:
         """
         Creates and formats the file path collection widgets for input data
         file.
         """
-        row = ttk.Frame(self.file_frame, padding=10)
+        row = ttk.Frame(parent, padding=10)
         label = ttk.Label(
             row,
-            text="'New Data' File:",
+            text="Input File:",
             padding=10,
         )
         entry = ttk.Entry(row, textvariable=self.input_data_file_path)
@@ -187,20 +179,36 @@ class App:
         )
         menu.pack(side=LEFT, padx=10)
 
-    def create_file_options_frame(self) -> None:
+    def create_file_options_frame(self, parent: ttk.Labelframe) -> None:
         """
         Creates the row that collects data type options.
         The data type options determine where data should be placed within
         the Design Spec Doc.
         """
-        row = ttk.Frame(self.file_frame, padding=10)
-        row.pack(fill=X, expand=YES)
+        row = ttk.Frame(parent, padding=10)
+        row.pack(fill=BOTH, expand=YES)
         self.create_env_options(row)
         self.create_type_options(row)
 
+    def create_file_selection_frame(self) -> None:
+        """
+        Creates and formats a label frame for collecting the file paths from
+        the user.
+        """
+
+        frame = ttk.Labelframe(
+            self.content_frame,
+            text="Select the working files",
+            padding=15,
+        )
+        frame.pack(side=TOP, anchor=N, fill=BOTH)
+        self.create_mtl_file_frame(frame)
+        self.create_input_data_frame(frame)
+        self.create_file_options_frame(frame)
+
     def create_preview_table_frame(self) -> None:
         """
-        Creates a table to preview the new data that will append to the MTL/CMD
+        Creates a table to preview the new data that will append to the MTL/CMD.
         """
         _columns = [
             (0, "ID"),
@@ -209,25 +217,37 @@ class App:
             (3, "SECURITY STRING"),
             (4, "DATATYPE"),
         ]
-        self.new_data_table = ttk.Treeview(
-            self.content_frame, columns=_columns, show=HEADINGS
+        table_frame = ttk.Frame(self.content_frame, style="Debug.TFrame")
+        table_frame.rowconfigure(0, weight=1)
+        table_frame.columnconfigure(1, weight=1)
+        table_frame.pack(fill=BOTH, expand=YES)
+        self.preview_table = ttk.Treeview(table_frame, columns=_columns, show=HEADINGS)
+        for key, value in _columns:
+            self.preview_table.heading(key, text=value, anchor=W)
+            self.preview_table.column(key, anchor=W, minwidth=50, stretch=False)
+        h_scrollbar = ttk.Scrollbar(
+            table_frame, orient=HORIZONTAL, command=self.preview_table.xview
         )
-        self.new_data_table.pack(fill=BOTH, expand=YES, pady=15)
-        for i, ii in _columns:
-            self.new_data_table.heading(i, text=ii, anchor=W)
-            self.new_data_table.column(i, anchor=W)
-        self.insert_row(0, "TEST", "THIS IS A TEST", "SRSLY JUST A TEST", "STRING")
+        v_scrollbar = ttk.Scrollbar(
+            table_frame, orient=VERTICAL, command=self.preview_table.yview
+        )
+        self.preview_table.configure(
+            xscrollcommand=h_scrollbar.set, yscrollcommand=v_scrollbar.set
+        )
+        h_scrollbar.grid(row=1, column=1, columnspan=2, sticky="ew")
+        v_scrollbar.grid(row=0, column=0, rowspan=2, sticky="ns")
+        self.preview_table.grid(row=0, column=1, sticky="nsew")
 
     def insert_row(self, _id, _tag, _desc, _security, _datatype) -> None:
         """
         Insert a row into the data_table.
         """
         # TODO: Actually setup data collection connections to the pandas data
-        new_item = self.new_data_table.insert(
+        new_item = self.preview_table.insert(
             parent="", index="end", values=(_id, _tag, _desc, _security, _datatype)
         )
-        self.new_data_table.selection_set(new_item)
-        self.new_data_table.see(new_item)
+        self.preview_table.selection_set(new_item)
+        self.preview_table.see(new_item)
 
     def process(self) -> None:
         """
@@ -269,39 +289,59 @@ class App:
             print(f"Sheet Selected: {sheet}")
         else:
             print(f"ERROR SELECTING OPTIONS!")
-        # Gather the proper data and tables
-        workbook = load_workbook(self.mtl_file_path.get(), data_only=True)
-        worksheet = workbook[sheet]
-        table_name = table_names[sheet]
-        table_range = worksheet.tables[table_name].ref
-        worksheet_data = worksheet[table_range]
-        converted_data = [[cell.value for cell in row] for row in worksheet_data]
-        table_header = converted_data[0]
-        table_data = converted_data[1:]
-        excel_table = pd.DataFrame(table_data, columns=table_header)
-        workbook.close()
-        print(excel_table)
-        temp_table = excel_table.copy()
-        temp_table = temp_table[["Name", "Description", "datasecurity", "pointtype"]]
-        print(temp_table)
-        for i in table_header:
-            print(i)
-        for i in range(16):
-            self.insert_row(
-                i,
-                temp_table.iloc[i, 0],
-                temp_table.iloc[i, 1],
-                temp_table.iloc[i, 2],
-                temp_table.iloc[i, 3],
-            )
+
+        def subroutine():
+            # load the mtl workbook
+            workbook = load_workbook(self.mtl_file_path.get(), data_only=True)
+            # find the appropriate table for the selected file options
+            worksheet = workbook[sheet]
+            table_name = table_names[sheet]
+            table_range = worksheet.tables[table_name].ref
+            worksheet_data = worksheet[table_range]
+            # convert the data found into a table structure
+            converted_data = [[cell.value for cell in row] for row in worksheet_data]
+            table_header = converted_data[0]
+            table_data = converted_data[1:]
+            # convert the tabled data into a pd dataframe
+            excel_table = pd.DataFrame(table_data, columns=table_header)
+            workbook.close()
+            # testing the table by outputting the dataframe to the preview table
+            print(excel_table)
+            temp_table = excel_table.copy()
+            temp_table = temp_table[
+                ["Name", "Description", "datasecurity", "pointtype"]
+            ]
+            print(temp_table)
+            # debugging, printing all the table headers
+            print("Table Headers:")
+            for i in table_header:
+                print(i)
+            # adding the first few rows of data to the preview table
+            for i in range(50):
+                self.window.after(
+                    0,
+                    lambda: self.insert_row(
+                        i,
+                        temp_table.iloc[i, 0],
+                        temp_table.iloc[i, 1],
+                        temp_table.iloc[i, 2],
+                        temp_table.iloc[i, 3],
+                    ),
+                )
+            self.window.after(0, self.progress_bar.stop)
+
+        self.progress_bar.start(15)
+        thread = threading.Thread(target=subroutine, daemon=True)
+        thread.start()
 
     def create_footer_frame(self) -> None:
         """
         Creates the row to manage the bottom submit/cancel buttons.
         """
-        self.type_variable = ttk.StringVar()
-        row = ttk.Frame(self.content_frame, padding=10, style="Debug.TFrame")
-        row.pack(fill=X, expand=YES, anchor=S)
+        row = ttk.Frame(self.content_frame, padding=10)
+        row.pack(fill=X, side=BOTTOM, anchor=S)
+        self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE, value=0)
+        self.progress_bar.pack(side=LEFT, expand=YES, padx=15, fill=X)
         submit_btn = ttk.Button(
             row,
             text="Process",
@@ -310,7 +350,8 @@ class App:
             width=20,
             command=lambda: self.process(),
         )
-        submit_btn.pack(side=RIGHT, padx=15)
+        submit_btn.pack(side=RIGHT, padx=15, fill=Y)
+        row.configure()
 
     def run(self) -> None:
         """
