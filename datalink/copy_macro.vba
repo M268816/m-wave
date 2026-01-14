@@ -3,6 +3,7 @@ Sub ConvertTableToCSV()
     ' Macro: ConvertTableToCSV
     ' Purpose: Convert all table data to CSV format and copy to clipboard
     ' This bypasses Excel's cell truncation issue when copying through Citrix
+    ' Modeled from Claude Sonnet
     '===========================================================================
     
     Dim ws As Worksheet
