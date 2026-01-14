@@ -24,6 +24,7 @@ from ttkbootstrap.constants import (
     SECONDARY,
     SUCCESS,
     HEADINGS,
+    DETERMINATE,
     INDETERMINATE,
 )
 import pandas as pd
@@ -81,7 +82,7 @@ class App:
         Use file_dialog to get a file path and set it to a ttk variable.
         """
         file_types = [
-            ("Supported files", ("*.xlsx", "*.xlsm", "*.csv")),
+            ("Supported files", ("*.xlsx", "*.xlsm")),
         ]
         user_input = file_dialog(title="Select a file", filetypes=file_types)
         if user_input:
@@ -301,32 +302,48 @@ class App:
 
         def subroutine():
             """
-            Pushes this process to another thread.
+            Pushes the process of loading the information to input to another
+            thread.
             """
-            # load the mtl workbook
             try:
-                workbook = load_workbook(self.mtl_file_path.get(), data_only=True)
+                # load the mtl workbook
+                mtl_workbook = load_workbook(self.mtl_file_path.get(), data_only=True)
                 # find the appropriate table for the selected file options
-                worksheet = workbook[sheet]
-                table_name = table_names[sheet]
-                table_range = worksheet.tables[table_name].ref
-                worksheet_data = worksheet[table_range]
-                # convert the data found into a table structure
-                converted_data = [
-                    [cell.value for cell in row] for row in worksheet_data
+                mtl_sheetname = sheet
+                mtl_worksheet = mtl_workbook[mtl_sheetname]
+                mtl_table_name = table_names[mtl_sheetname]
+                mtl_table_range = mtl_worksheet.tables[mtl_table_name].ref
+                mtl_table_data = mtl_worksheet[mtl_table_range]
+                # convert the worksheet's table data string into a table
+                mtl_conversion = [
+                    [cell.value for cell in row] for row in mtl_table_data
                 ]
-                table_header = converted_data[0]
-                table_data = converted_data[1:]
+                # return the header columns
+                mtl_headers = mtl_conversion[0]
+                mtl_rows = mtl_conversion[1:]  # Not needed for inputting data
                 # convert the tabled data into a pd dataframe
-                excel_table = pd.DataFrame(table_data, columns=table_header)
-                workbook.close()
+                mtl_df = pd.DataFrame(mtl_rows, columns=mtl_headers)
+                print("MTL Table Debug:")
+                print(mtl_df)
+                mtl_workbook.close()
                 # testing the table by outputting the dataframe to the preview table
-                temp_table = excel_table.copy()
+                input_workbook = load_workbook(
+                    self.input_data_file_path.get(), data_only=True
+                )
+                input_worksheet = input_workbook.active
+                input_conversion = list(input_worksheet.values)
+                input_header = input_conversion[0]
+                input_rows = input_conversion[1:]
+                input_table = pd.DataFrame(input_rows, columns=input_header)
+                input_workbook.close()
+                print("Input data debug:")
+                print(input_table)
+                temp_table = input_table.copy()
                 temp_table = temp_table[
                     ["Name", "Description", "datasecurity", "pointtype"]
                 ]
                 # adding the first few rows of data to the preview table
-                for i in range(50):
+                for i in range(len(temp_table)):
                     self.insert_row(
                         i,
                         temp_table.iloc[i, 0],
@@ -349,7 +366,7 @@ class App:
         """
         row = ttk.Frame(self.content_frame, padding=15)
         row.pack(fill=X, side=BOTTOM, anchor=S)
-        self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE, value=0)
+        self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=15, fill=X)
         submit_btn = ttk.Button(
             row,
