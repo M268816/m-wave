@@ -15,14 +15,16 @@ class Reporting:
     """
 
     def __init__(
-        self, timestamp: str | None = None, output_dir: str | None = None
+        self, name: str, timestamp: str | None = None, output_dir: str | None = None
     ) -> None:
         if timestamp is None:
             timestamp = datetime.now().strftime(DATETIME_FORMAT)
         if output_dir is None:
             output_dir = "."
         Path(output_dir).mkdir(parents=True, exist_ok=True)
-        self.filename = f"{str(Path(output_dir))}/{timestamp}_process_report.txt"
+        self.file_path = f"{str(Path(output_dir))}/"
+        self.report_name = f"{timestamp}_{name}"
+        self.filename = f"{self.file_path}{self.report_name}.txt"
         self.report_lines = []
 
     def _add_line(self, msg: str, msg_type: str | None = None) -> None:
@@ -52,6 +54,11 @@ class Reporting:
         logger.exception(msg)
         self._add_line(msg, "EXCEPTION")
 
+    def warning(self, msg: str) -> None:
+        print(msg)
+        logger.warning(msg)
+        self._add_line(msg, "WARNING")
+
     def save(self) -> None:
         try:
             with open(self.filename, "w", encoding="utf-8") as file:
@@ -66,16 +73,9 @@ class Reporting:
 
 
 if __name__ == "__main__":
-    test = Reporting()
-    test.info("Saving to default dir.")
+    test = Reporting("reporting_test", output_dir="test_reporting")
+    test.info("Saving to test_reporting dir.")
     test.debug("Debugging")
     test.error("Error")
     test.exception("Exception!")
     test.save()
-
-    test_2 = Reporting(output_dir="test_reporting")
-    test_2.info("Saving to test_reporting dir.")
-    test_2.debug("Debugging")
-    test_2.error("Error")
-    test_2.exception("Exception!")
-    test_2.save()
