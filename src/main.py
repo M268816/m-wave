@@ -6,7 +6,10 @@
 import logging
 import threading
 import ttkbootstrap as ttk
+from datetime import datetime
+from pathlib import Path
 from src.process import Process
+from src.reporting import Reporting
 from tkinter.filedialog import askopenfilename as open_file
 from ttkbootstrap.constants import (
     BOTH,
@@ -28,10 +31,17 @@ from ttkbootstrap.constants import (
 )
 
 # Logging initialization
-logger = logging.getLogger(__name__)
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
+DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
+OUTPUT_DIR = "logs"
+LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
+LOG_FILENAME = f"{str(Path(OUTPUT_DIR))}/{LOG_DATETIME}_app.log"
+
+Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+
+logger = logging.getLogger(__name__)
 logging.basicConfig(
-    filename="error.log",
+    filename=LOG_FILENAME,
     filemode="w",
     format=FORMAT,
     encoding="utf-8",
@@ -51,7 +61,8 @@ class App:
     """
 
     def __init__(self) -> None:
-        logger.info("App starting...")
+        self.report = Reporting("main", output_dir=OUTPUT_DIR)
+        self.report.info("App starting...")
         # Initialize the root ttk window
         self.window = ttk.Window(
             title="Workbook Automation & Verificaiton Engine for the Master Context Register (WAVE-MCR)",
@@ -59,29 +70,29 @@ class App:
             size=(1280, 720),
             minsize=(1175, 450),
         )
-        logger.info("GUI window created.")
+        self.report.info("GUI window created.")
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
         self.name_filter = ttk.StringVar(value="NONE")
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_data_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
-        logger.info("TTK object variables created.")
+        self.report.info("TTK object variables created.")
         # Init other app variables
         self.process = Process()
         self.process_thread = None
         self.worksheet_metadata = self.process.worksheet_metadata
-        logger.info("App variables created.")
+        self.report.info("App variables created.")
         # Debug gui setup
         self.debug_style = ttk.Style()
         self.debug_style.configure("Debug.TFrame", background="white")
-        logger.info("Debug GUI setup.")
+        self.report.info("Debug GUI setup.")
         # Initialize ttkboostrap frames and widgets
         self.create_main_content_frame()
         self.create_file_select_frame()
         self.create_option_frame()
         self.create_footer_frame()
-        logger.info("Frames and widgets created.")
+        self.report.info("Frames and widgets created.")
 
     def get_filepath(
         self, string_variable: ttk.StringVar, file_types: list[tuple] | None = None
@@ -161,7 +172,7 @@ class App:
         """
         selected_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(selected_value)
-        print(f"Selected: {selected_value}")
+        self.report.info(f"Selected: {selected_value}")
 
     def create_option_frame(self) -> None:
         """
@@ -181,7 +192,7 @@ class App:
         name_label.pack(side=LEFT, padx=10)
         name_entry = ttk.Entry(opt_row, textvariable=self.name_filter)
         name_entry.pack(side=LEFT, padx=10)
-        logger.info(f"Default name filter: {name_entry.get()}")
+        self.report.info(f"Default name filter: {name_entry.get()}")
 
         # Create the combo box widget for selecting the MTL/CMD data table.
         cbox_label = ttk.Label(
@@ -200,7 +211,7 @@ class App:
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self.on_combobox_select)
         default_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(default_value)
-        logger.info(f"Default MTL/CMD Table Selected: {default_value}")
+        self.report.info(f"Default MTL/CMD Table Selected: {default_value}")
 
         # Create the label widget that displays the compatable MTL/CMD version.
         version_label = ttk.Label(
@@ -215,7 +226,7 @@ class App:
         Run the data transfer/compare process.
         """
         if self.process_thread and self.process_thread.is_alive():
-            logger.warning("Process already running!")
+            self.report.warning("Process already running!")
             return
 
         self.validate_btn.config(state=DISABLED)
@@ -226,8 +237,9 @@ class App:
             Pushes the process of loading the information to input to another
             thread.
             """
-            logger.info("Starting subroutine...")
+            self.report.info("Starting subroutine...")
             try:
+                self.process.rename_report(self.name_filter.get())
                 if is_appending:
                     logging.info("Appending data...")
                     self.process.append()
@@ -239,11 +251,9 @@ class App:
                         self.mtl_file_path.get(),
                         self.selected_data_table.get(),
                     )
-                self.window.after(
-                    0, lambda: logger.info("Proccess complted successfully.")
-                )
+                self.window.after(0, lambda: self.report.info("Subroutine Completed."))
             except Exception as e:
-                logger.exception(f"Subroutine process error:\n{e}")
+                self.report.exception(f"Subroutine process error:\n{e}")
             finally:
                 self.window.after(0, self.progress_bar.stop)
                 self.window.after(0, lambda: self.validate_btn.config(state=NORMAL))
