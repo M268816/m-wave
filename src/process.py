@@ -177,7 +177,7 @@ class Process:
                 ).columns.tolist()
             for col in columns:
                 if col in df_copy.columns:
-                    # Replace all whitespace (spaces, tabs, newlines) with single space
+                    # Replace all whitespace with a single space
                     df_copy[col] = df_copy[col].str.replace(r"\s+", " ", regex=True)
                     # Strip leading/trailing whitespace
                     df_copy[col] = df_copy[col].str.strip()
@@ -317,9 +317,11 @@ class Process:
         self.report.info(f"{df_2_name} shape: {shape_2[0]} rows × {shape_2[1]} columns")
 
         if shape_1[0] == 0 or shape_2[0] == 0:
+            self.report.error(f"{'!'*80}")
+            self.report.error("VALIDATION FAILED.")
             self.report.error("A dataframe with no rows was found.")
             self.report.error("Check your filter object name, and input files.")
-            self.report.error("Validation Cancelled.")
+            self.report.error(f"{'!'*80}")
             return None
 
         if shape_1[0] != shape_2[0]:
@@ -372,11 +374,11 @@ class Process:
             rows_only_in_df_2 = df_2[df_2[key_column].isin(only_in_df_2)]
 
             # Log findings
-            self.report.info(f"{'*'*80}")
-            self.report.info("Row differences found!")
-            self.report.info("Validation FAILED.")
-            self.report.info("Review the following files and correct inconsistencies.")
-            self.report.info(f"{'='*80}")
+            self.report.error(f"{'!'*80}")
+            self.report.error("VALIDATION FAILED.")
+            self.report.error("Row differences found!")
+            self.report.error("Review the following files and correct inconsistencies.")
+            self.report.error(f"{'!'*80}")
             self.report.info(f"ROW DIFFERENCES (based on '{key_column}' column)")
             self.report.info(f"{'='*80}")
 
@@ -391,12 +393,16 @@ class Process:
                     for col in rows_only_in_df_1.columns:
                         self.report.info(f"  {col}: {row[col]}")
                     self.report.info(f"{'-'*40}")
-                rows_only_in_df_1.to_csv(f"rows_only_in_{df_1_name}.csv", index=False)
-                self.report.info(f"Exported to: rows_only_in_{df_1_name}_dataframe.csv")
-                self.report.info(f"{'+'*80}")
+                rows_only_in_df_1.to_csv(
+                    f"{self.report.file_path}rows_only_in_{df_1_name}.csv", index=False
+                )
+                self.report.info(
+                    f"Exported to: {self.report.file_path}rows_only_in_{df_1_name}_dataframe.csv"
+                )
+                self.report.info(f"{'='*80}")
             else:
                 self.report.info(f"No rows found exclusively in {df_1_name}")
-                self.report.info(f"{'+'*80}")
+                self.report.info(f"{'='*80}")
 
             if len(only_in_df_2) > 0:
                 self.report.info(
@@ -409,12 +415,16 @@ class Process:
                     for col in rows_only_in_df_2.columns:
                         self.report.info(f"  {col}: {row[col]}")
                     self.report.info(f"{'-'*40}")
-                rows_only_in_df_2.to_csv(f"rows_only_in_{df_2_name}.csv", index=False)
-                self.report.info(f"Exported to: rows_only_in_{df_2_name}_dataframe.csv")
-                self.report.info(f"{'+'*80}")
+                rows_only_in_df_2.to_csv(
+                    f"{self.report.file_path}rows_only_in_{df_2_name}.csv", index=False
+                )
+                self.report.info(
+                    f"Exported to: {self.report.file_path}rows_only_in_{df_2_name}_dataframe.csv"
+                )
+                self.report.info(f"{'='*80}")
             else:
                 self.report.info(f"No rows found exclusively in {df_2_name}")
-                self.report.info(f"{'+'*80}")
+                self.report.info(f"{'='*80}")
 
             # Log common rows
             common_keys = keys_1 & keys_2
@@ -446,8 +456,11 @@ class Process:
             if data_is_equal:
                 self.report.info("Data structure is Equal!")
             else:
+                self.report.error(f"{'!'*80}")
+                self.report.error("VALIDATION FAILED.")
                 self.report.error("Data structure is Not Equal!")
                 self.report.error("Check the following data for inconsistencies.")
+                self.report.error(f"{'!'*80}")
 
             # If data frame shapes do not match
             self.report.info("Checking data frame shapes.")
@@ -455,7 +468,7 @@ class Process:
                 self.report.error(
                     "DataFrames of the supplied data have different shapes."
                 )
-                self.report.error("VALIDATION CANCELLED.")
+                self.report.error("VALIDATION FAILED.")
                 self.report.error(
                     "Review supplied comparison data and make the appropriate changes."
                 )
@@ -484,19 +497,75 @@ class Process:
             if diff.empty:
                 self.report.info("No differences found in common rows!")
                 self.report.info(f"Validation of {df_1_name} to {df_2_name} is sound!")
-                self.report.info(f"See reporting for detailed breakdown.")
-                df_1.to_csv(f"validated_{df_1_name}_dataframe.csv", index=True)
-                df_2.to_csv(f"validated_{df_2_name}_dataframe.csv", index=True)
-            else:
-                self.report.info(f"Found {len(diff)} rows with differences:")
-                self.report.info(f"\n{diff}")
-                diff.to_csv(f"{self.report.report_name}_differences.csv", index=True)
-                self.report.info(
-                    f"Exported to: {self.report.report_name}_differences.csv"
+                self.report.info(f"See reporting for detailed breakdown:")
+                df_1_report_name = (
+                    f"{self.report.file_path}validated_{df_1_name}_dataframe.csv"
                 )
-                df_1.to_csv(f"errored_{df_1_name}_dataframe.csv", index=True)
-                df_2.to_csv(f"errored_{df_2_name}_dataframe.csv", index=True)
+                df_2_report_name = (
+                    f"{self.report.file_path}validated_{df_2_name}_dataframe.csv"
+                )
+                self.report.info(f"Report saved to: {df_1_report_name}")
+                self.report.info(f"Report saved to: {df_2_report_name}")
+                df_1.to_csv(df_1_report_name, index=True)
+                df_2.to_csv(df_2_report_name, index=True)
+            else:
+                self.report.info(f"Found differences in {len(diff)} rows!:")
+                self.report.info(f"\n{diff}")
+                self.report.info(f"{'='*80}")
+                self.report.info("DETAILED DIFFERENCES:")
+                self.report.info(f"{'='*80}")
+                # Iterate through each row that has differences
+                for row_idx in diff.index:
+                    self.report.info(f"{'-'*60}")
+                    self.report.info(f"Row: {row_idx}")
 
+                    # Get the actual row data from both dataframes for context
+                    # Check if the index exists in both (it should for compared rows)
+                    if row_idx in df_1.index and row_idx in df_2.index:
+                        # Show identifying information (e.g., Name column)
+                        if "Name" in df_1.columns:
+                            name_val = df_1.loc[row_idx, "Name"]
+                            self.report.info(f"  Name: {name_val}")
+
+                    # Iterate through columns that have differences
+                    for col in diff.columns.levels[0]:  # Get the base column names
+                        # Check if this column has a difference for this row
+                        if (col, df_1_name) in diff.columns and (
+                            col,
+                            df_2_name,
+                        ) in diff.columns:
+                            val_1 = diff.loc[row_idx, (col, df_1_name)]
+                            val_2 = diff.loc[row_idx, (col, df_2_name)]
+
+                            # Only report if at least one value is not null/blank
+                            if pd.notna(val_1) or pd.notna(val_2):
+                                # Handle None/NaN display
+                                display_val_1 = (
+                                    val_1 if pd.notna(val_1) else "<No Data>"
+                                )
+                                display_val_2 = (
+                                    val_2 if pd.notna(val_2) else "<No Data>"
+                                )
+
+                                self.report.info(f"  Column: {col}")
+                                self.report.info(f"    {df_1_name}: {display_val_1}")
+                                self.report.info(f"    {df_2_name}: {display_val_2}")
+                self.report.info(f"{'='*80}")
+                difference_filename = (
+                    f"{self.report.file_path}{self.report.report_name}_differences.csv"
+                )
+                errored_filename_df1 = (
+                    f"{self.report.file_path}errored_{df_1_name}_dataframe.csv"
+                )
+                errored_filename_df2 = (
+                    f"{self.report.file_path}errored_{df_2_name}_dataframe.csv"
+                )
+                diff.to_csv(difference_filename, index=True)
+                self.report.info(f"Difference report saved to: {difference_filename}")
+                df_1.to_csv(errored_filename_df1, index=True)
+                self.report.info(f"{df_1_name} report saved to: {difference_filename}")
+                df_1.to_csv(errored_filename_df2, index=True)
+                self.report.info(f"{df_2_name} report saved to: {difference_filename}")
         except Exception as e:
             self.report.exception(f"Could not log comparison data:\n{e}")
 
