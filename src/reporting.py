@@ -4,7 +4,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
+DATETIME_FORMAT = "%Y%m%dT%H%M%Sms%f"
 
 
 class Reporting:

@@ -32,10 +32,10 @@ from ttkbootstrap.constants import (
 
 # Logging initialization
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
-DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
+DATETIME_FORMAT = "%Y%m%d_%H%M%Sms%f"
 OUTPUT_DIR = "logs"
 LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
-LOG_FILENAME = f"{str(Path(OUTPUT_DIR))}/{LOG_DATETIME}_app.log"
+LOG_FILENAME = f"{str(Path(OUTPUT_DIR))}/{LOG_DATETIME}_general.log"
 
 Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
