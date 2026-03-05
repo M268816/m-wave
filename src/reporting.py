@@ -4,7 +4,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DATETIME_FORMAT = "%Y%m%dT%H%M%Sms%f"
+DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%S-%f"
 
 
 class Reporting:
@@ -22,9 +22,11 @@ class Reporting:
         if output_dir is None:
             output_dir = "."
         Path(output_dir).mkdir(parents=True, exist_ok=True)
-        self.file_path = f"{str(Path(output_dir))}/"
-        self.report_name = f"{timestamp}_{name}"
-        self.filename = f"{self.file_path}{self.report_name}.txt"
+        self.name = name
+        self.dir_path = f"{str(Path(output_dir))}/"
+        self.report_name = f"{timestamp}_{name.replace(' ', '_')}"
+        self.file_name = f"{self.dir_path}{self.report_name}"
+        self.full_path = f"{self.file_name}.log"
         self.report_lines = []
 
     def _add_line(self, msg: str, msg_type: str | None = None) -> None:
@@ -34,36 +36,47 @@ class Reporting:
         line = f"{timestamp}:{msg_type}::{msg}"
         self.report_lines.append(line)
 
-    def debug(self, msg: str) -> None:
+    def debug(self, msg: str, log_only: bool = False) -> None:
         print(msg)
         logger.debug(msg)
+        if log_only:
+            return None
         self._add_line(msg, "DEBUG")
 
-    def error(self, msg: str) -> None:
+    def error(self, msg: str, log_only: bool = False) -> None:
         print(msg)
         logger.error(msg)
+        if log_only:
+            return None
         self._add_line(msg, "ERROR")
 
-    def info(self, msg: str) -> None:
-        print(msg)
-        logger.info(msg)
-        self._add_line(msg, "INFO")
-
-    def exception(self, msg: str) -> None:
+    def exception(self, msg: str, log_only: bool = False) -> None:
         print(msg)
         logger.exception(msg)
+        if log_only:
+            return None
         self._add_line(msg, "EXCEPTION")
 
-    def warning(self, msg: str) -> None:
+    def info(self, msg: str, log_only: bool = False) -> None:
+        print(msg)
+        logger.info(msg)
+        if log_only:
+            return None
+        self._add_line(msg, "INFO")
+
+    def warning(self, msg: str, log_only: bool = False) -> None:
         print(msg)
         logger.warning(msg)
+        if log_only:
+            return None
         self._add_line(msg, "WARNING")
 
     def save(self) -> None:
         try:
-            with open(self.filename, "w", encoding="utf-8") as file:
+            notice = f"{self.name} report saved to: {self.full_path}"
+            self._add_line(notice, "INFO")
+            with open(self.full_path, "w", encoding="utf-8") as file:
                 file.write("\n".join(self.report_lines))
-            notice = f"Report saved to {self.filename}"
             print(notice)
             logger.info(notice)
         except Exception as e:
@@ -75,6 +88,7 @@ class Reporting:
 if __name__ == "__main__":
     test = Reporting("reporting_test", output_dir="test_reporting")
     test.info("Saving to test_reporting dir.")
+    test.info("Only shown in logging, not reporting", True)
     test.debug("Debugging")
     test.error("Error")
     test.exception("Exception!")
