@@ -9,17 +9,20 @@ from tkinter.filedialog import askopenfilename as open_file
 
 logger = logging.getLogger(__name__)
 
+STATIC_DIR = "reports/"
+
 
 class TableType(int, Enum):
     UNKNOWN = 0
     ANALYTICS = 1
-    GXP = 2
-    ENUM_SET = 3
-    CATEGORIES = 4
-    TABLES = 5
-    EVENT_FRAME = 6
-    ELEMENT_TEMPLATE = 7
-    ELEMENT = 8
+    DIGITAL_SET = 2
+    GXP = 3
+    ENUM_SET = 4
+    CATEGORIES = 5
+    TABLES = 6
+    EVENT_FRAME = 7
+    ELEMENT_TEMPLATE = 8
+    ELEMENT = 9
 
 
 @dataclass
@@ -29,8 +32,8 @@ class TableInfo:
     """
 
     table_id: str
-    can_process: bool = False
     type: TableType = TableType.UNKNOWN
+    can_process: bool = False
 
 
 class Process:
@@ -50,32 +53,49 @@ class Process:
     """
 
     def __init__(self, report_name: str = "generic_process_report") -> None:
-        self.report_output_path = f"{datetime.now().isoformat()}_{report_name}"
+        self.report_output_path = STATIC_DIR
         self.report = Reporting(report_name, output_dir=self.report_output_path)
-        self.process_time = datetime.now().isoformat()
+        self.process_time = datetime.now().isoformat().replace(":", "_")
         self.worksheet_metadata = {
-            "MTL-Analytics-VAL&PROD": TableInfo("Table5", type=TableType.ANALYTICS),
-            "MTL GxP-VAL": TableInfo("Table2", type=TableType.GXP),
-            "MTL GxP-PROD": TableInfo("Table3", type=TableType.GXP),
-            "CMD-Enumeration Sets-VAL": TableInfo("Table6", type=TableType.ENUM_SET),
-            "CMD-Enumeration Sets-PROD": TableInfo("Table7", type=TableType.ENUM_SET),
-            "CMD Categories-VAL": TableInfo("Table8", type=TableType.CATEGORIES),
-            "CMD Categories-PROD": TableInfo("Table9", type=TableType.CATEGORIES),
-            "CMD Tables-VAL": TableInfo("Table10", type=TableType.TABLES),
-            "CMD Tables-PROD": TableInfo("Table1012", type=TableType.TABLES),
+            "MTL-Digital Sets-VAL&PROD": TableInfo(
+                "Table5", TableType.DIGITAL_SET, can_process=True
+            ),
+            "MTL GxP-VAL": TableInfo("Table2", TableType.GXP, can_process=True),
+            "MTL GxP-PROD": TableInfo("Table3", TableType.GXP, can_process=True),
+            "MTL-Analytics-VAL&PROD": TableInfo(
+                "Table4", TableType.ANALYTICS, can_process=True
+            ),
+            "CMD-Enumeration Sets-VAL": TableInfo(
+                "Table6", TableType.ENUM_SET, can_process=True
+            ),
+            "CMD-Enumeration Sets-PROD": TableInfo(
+                "Table7", TableType.ENUM_SET, can_process=True
+            ),
+            "CMD Categories-VAL": TableInfo(
+                "Table8", TableType.CATEGORIES, can_process=True
+            ),
+            "CMD Categories-PROD": TableInfo(
+                "Table9", TableType.CATEGORIES, can_process=True
+            ),
+            "CMD Tables-VAL": TableInfo("Table10", TableType.TABLES, can_process=False),
+            "CMD Tables-PROD": TableInfo(
+                "Table1012", TableType.TABLES, can_process=False
+            ),
             "CMD-Event Frame Templates-VAL": TableInfo(
-                "Table14", True, type=TableType.EVENT_FRAME
+                "Table14", TableType.EVENT_FRAME, can_process=True
             ),
             "CMD-Event Frame Templates-PROD": TableInfo(
-                "Table1416", True, type=TableType.EVENT_FRAME
+                "Table1416", TableType.EVENT_FRAME, can_process=True
             ),
             "CMD-Element Templates-VAL": TableInfo(
-                "Table12", True, type=TableType.ELEMENT_TEMPLATE
+                "Table12", TableType.ELEMENT_TEMPLATE, can_process=True
             ),
             "CMD-Element Templates-PROD": TableInfo(
-                "Table13", True, type=TableType.ELEMENT_TEMPLATE
+                "Table13", TableType.ELEMENT_TEMPLATE, can_process=True
             ),
-            "CMD-Elements-Build": TableInfo("Table11", type=TableType.ELEMENT),
+            "CMD-Elements-Build": TableInfo(
+                "Table11", TableType.ELEMENT, can_process=False
+            ),
         }
         self.can_process_worksheets = {
             sheetname
@@ -87,7 +107,12 @@ class Process:
         """
         Renames the report.
         """
-        self.report_output_path = f"{datetime.now().isoformat()}_{new_name}"
+        formatted_name = f"{STATIC_DIR}{new_name.replace(' ', '_')}"
+        formatted_datetime = (
+            datetime.now().isoformat().replace(".", "_").replace(":", "_")
+        )
+        new_path = f"{formatted_name}_{formatted_datetime}"
+        self.report_output_path = new_path
         self.report = Reporting(new_name, output_dir=self.report_output_path)
 
     def _get_excel_table(
@@ -142,7 +167,6 @@ class Process:
             self.report.info(f"{'='*80}")
             self.report.info(f"COMPARISON REPORT FOR: {df_1_name} vs {df_2_name}")
             self.report.info(f"{'='*80}")
-
             # Initial equality check
             data_is_equal = df_1.equals(df_2)
             if data_is_equal:
@@ -219,7 +243,7 @@ class Process:
                             name_val = df_1.loc[row_idx, "Name"]
                             self.report.error(f"  Name: {name_val}")
                     # Iterate through columns that have differences
-                    for col in row_diff.columns.levels[0]:  # Get the base column names
+                    for col in row_diff.columns.levels[0]:  # type: ignore
                         # Check if this column has a difference for this row
                         if (col, df_1_name) in row_diff.columns and (
                             col,
@@ -425,6 +449,41 @@ class Process:
             self.report.exception(f"Could not normalize whitespace:\n{e}")
             return df
 
+    def _classic_data_check(
+        self, df: pd.DataFrame, table_type: TableType
+    ) -> pd.DataFrame:
+        """
+        Helper function that checks the table type and determines weather or not
+        to add classic columns to the table if not already present.
+        """
+        classic_gxp_columns = {
+            "Asset Details",
+            "convers",
+            "filtercode",
+            "instrumenttag",
+            "location1",
+            "location2",
+            "location3",
+            "location4",
+            "location5",
+            "squareroot",
+            "srcptid",
+            "totalcode",
+            "userint1",
+            "userint2",
+            "userreal1",
+            "userreal2",
+        }
+        _df = df.copy()
+        if table_type == TableType.GXP:
+            if classic_gxp_columns.issubset(set(_df.columns)):
+                return _df
+            else:
+                for col in classic_gxp_columns:
+                    if col not in _df.columns:
+                        _df[col] = None
+        return _df
+
     def _format_dataframe(
         self, table_type: TableType, df: pd.DataFrame, name_filter: str | None = None
     ) -> pd.DataFrame:
@@ -443,15 +502,26 @@ class Process:
                 "Sort Order": ["Name"],
                 "Sort Direction": [True],  # is ascending order
             },
+            TableType.DIGITAL_SET: {
+                "Object Type Order": {"DigitalStateSet": 0, "DigitalState": 1},
+                "Sort Order": ["type_order", "EnumerationValue"],
+                "Sort Direction": [True, True],  # is ascending order
+            },
             TableType.ELEMENT: {
                 "Object Type Order": {"Element": 0, "Attribute": 1},
                 "Sort Order": ["Parent", "type_order", "Name"],
                 "Sort Direction": [True, False, True],  # is ascending order
             },
             TableType.ELEMENT_TEMPLATE: {
-                "Object Type Order": None,
-                "Sort Order": ["ObjectType", "Name"],
-                "Sort Direction": [False, True],  # is ascending order
+                "Object Type Order": {
+                    "ElementTemplate": 0,
+                    "AttributeTemplate": 1,
+                    "AnalysisTemplate": 2,
+                    "NotificationRuleTemplate": 3,
+                    "TemplateAnalysisRule": 4,
+                },
+                "Sort Order": ["type_order", "Parent", "Name"],
+                "Sort Direction": [True, True, True],  # is ascending order
             },
             TableType.ENUM_SET: {
                 "Object Type Order": {"EnumerationSet": 0, "EnumerationValue": 1},
@@ -460,8 +530,8 @@ class Process:
             },
             TableType.EVENT_FRAME: {
                 "Object Type Order": {"EventFrameTemplate": 0, "AttributeTemplate": 1},
-                "Sort Order": ["Parent", "type_order", "Name"],
-                "Sort Direction": [True, False, True],  # is ascending order
+                "Sort Order": ["type_order", "Parent", "Name"],
+                "Sort Direction": [True, True, True],  # is ascending order
             },
             TableType.GXP: {
                 "Object Type Order": None,
@@ -476,7 +546,8 @@ class Process:
         }
         name_filter = name_filter or None
         try:
-            self.report.info("Formatting dataframe...")
+            # Check for classic data points, needed for GXP for sure.
+            df = self._classic_data_check(df, table_type)
             # Setting the table configuration data
             config = config_map[table_type]
             self.report.info(f"Configuration loaded: {config}")
@@ -485,19 +556,22 @@ class Process:
             # Setting the object type ordering filter
             type_order = config["Object Type Order"]
             if name_filter:
-                if table_type in (TableType.ELEMENT_TEMPLATE, TableType.EVENT_FRAME):
-                    # Filter mask includes name and parent columns
-                    mask = df["Name"].str.contains(
-                        name_filter, case=False, na=False
-                    ) | df["Parent"].str.contains(name_filter, case=False, na=False)
-                elif table_type == TableType.ELEMENT:
+                if table_type == TableType.ELEMENT:
                     # Filter mask includes name and template columns
                     mask = df["Name"].str.contains(
                         name_filter, case=False, na=False
                     ) | df["Template"].str.contains(name_filter, case=False, na=False)
-                else:
-                    # Else, just check the name column
+                elif table_type in (
+                    TableType.GXP,
+                    TableType.CATEGORIES,
+                    TableType.ANALYTICS,
+                ):
                     mask = df["Name"].str.contains(name_filter, case=False, na=False)
+                else:
+                    # Else, just check the name column and parent
+                    mask = df["Name"].str.contains(
+                        name_filter, case=False, na=False
+                    ) | df["Parent"].str.contains(name_filter, case=False, na=False)
                 # Applying the name filter here
                 output = df.loc[mask].copy()
             else:
@@ -519,7 +593,21 @@ class Process:
             # reset the index
             output = output.reset_index(drop=True)
             # Changing these columns to int helps some data comparison errors.
-            numeric_columns = ["AttributeDisplayDigits", "PortMaxConnections"]
+            numeric_columns = [
+                "AttributeDisplayDigits",
+                "PortMaxConnections",
+                "displaydigits",
+                "future",
+                "archiving",
+                "compressing",
+                "compmax",
+                "compmin",
+                "excmax",
+                "excmin",
+                "scan",
+                "shutdown",
+                "step",
+            ]
 
             for column in numeric_columns:
                 if column in output.columns:
@@ -545,9 +633,10 @@ class Process:
                     "": None,
                     " ": None,
                     "None": None,
-                    "null": None,
                     "NULL": None,
+                    "null": None,
                     "NaN": None,
+                    "nan": None,
                 }
             )
             # Change everything to strings for faster comparisons
@@ -582,16 +671,46 @@ class Process:
             # drop the version column, new data will not have a version
             mtl_dataframe = mtl_dataframe.drop(columns=["Version"], errors="ignore")
             # read the input csv
-            input_csv = pd.read_csv(
-                input_file,
-                na_values=["None", "none", "NULL", "null", ""],
-                keep_default_na=True,
-            )
+            try:
+                input_csv = pd.read_csv(
+                    input_file,
+                    na_values=["None", "none", "NULL", "null", ""],
+                    keep_default_na=True,
+                    encoding="utf-8",
+                )
+            except Exception as e:
+                self.report.exception(f"Could not read supplied CSV file:\n{e}")
+                self.report.warning("Will attempt to convert known problem symbols...")
+                try:
+                    input_csv = pd.read_csv(
+                        input_file,
+                        na_values=["None", "none", "NULL", "null", ""],
+                        keep_default_na=True,
+                        encoding="latin-1",
+                    )
+                    input_csv = input_csv.replace("�C", "°C", regex=False)
+                    input_csv = input_csv.replace("�F", "°F", regex=False)
+                    fixed_name = f"{input_file}_fixed.csv"
+                    input_csv.to_csv(fixed_name, encoding="utf-8-sig")
+                    input_csv = pd.read_csv(
+                        fixed_name,
+                        na_values=["None", "none", "NULL", "null", ""],
+                        keep_default_na=True,
+                    )
+                    self.report.info("Conversion completed!")
+                    self.report.info(f"Converted input saved to: {fixed_name}")
+                except Exception as e:
+                    self.report.exception(
+                        f"Conversion attempt failed. Report this error and supply log data to developer."
+                    )
+                    return None
             # sort and format the data
             worksheet_type = self.worksheet_metadata[mtl_worksheet_name].type
+            self.report.info("Formatting MTL dataframe...")
             mtl_dataframe = self._format_dataframe(
                 worksheet_type, mtl_dataframe, name_filter
             )
+            self.report.info("Formatting Input dataframe...")
             input_dataframe = self._format_dataframe(
                 worksheet_type, input_csv, name_filter
             )
@@ -638,6 +757,34 @@ class Process:
         logger.critical(f"This function has not yet been created.")
         return None
 
+    def test(self):
+        name = "Jaffrey Equipment"
+        worksheet = "CMD-Element Templates-VAL"
+        logger.debug("=== Process class test function started. ===")
+        logger.debug(f"=== Name column tested: {name} ===")
+        logger.debug(f"Worksheet tested: {worksheet}")
+        excel_filetypes = [
+            ("Supported files", ("*.xlsx", "*.xlsm")),
+        ]
+        input_filetypes = [
+            ("Input files", ("*.csv")),
+        ]
+        test_input = open_file(
+            title="Select your new data file.",
+            filetypes=input_filetypes,
+        )
+        test_mtl = open_file(
+            title="Select the MTL/CMD file.", filetypes=excel_filetypes
+        )
+        logger.debug(f"Input path: {test_input}")
+        logger.debug(f"MTL Path: {test_mtl}")
+        self.compare(
+            name,
+            test_input,
+            test_mtl,
+            worksheet,
+        )
+
 
 if __name__ == "__main__":
     FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
@@ -649,3 +796,4 @@ if __name__ == "__main__":
         level=logging.DEBUG,
     )
     process = Process()
+    process.test()
