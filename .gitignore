@@ -2,6 +2,7 @@
 test_files/
 logs/
 src/test_reporting/
+reports/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
