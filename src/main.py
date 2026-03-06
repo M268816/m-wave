@@ -11,6 +11,7 @@ from pathlib import Path
 from src.process import Process
 from src.reporting import Reporting
 from tkinter.filedialog import askopenfilename as open_file
+from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.constants import (
     BOTH,
     NORMAL,
@@ -61,11 +62,12 @@ class App:
     """
 
     def __init__(self) -> None:
+        self.modal = Messagebox()
         self.report = Reporting("main", output_dir=OUTPUT_DIR)
         self.report.info("App starting...")
         # Initialize the root ttk window
         self.window = ttk.Window(
-            title="Workbook Automation & Verificaiton Engine for the Master Context Register (WAVE-MCR)",
+            title="Workbook Automation & Verification Engine for the Master Context Register (WAVE-MCR)",
             themename="superhero",
             size=(1280, 720),
             minsize=(1175, 450),
@@ -73,7 +75,7 @@ class App:
         self.report.info("GUI window created.")
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
-        self.name_filter = ttk.StringVar(value="NONE")
+        self.name_filter = ttk.StringVar(value=None)
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_data_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
@@ -225,7 +227,17 @@ class App:
         """
         Run the data transfer/compare process.
         """
+        # Validate file paths
+        if (
+            self.mtl_file_path.get() == "Select a file."
+            or self.input_data_file_path.get() == "Select a file."
+        ):
+            self.modal.show_error(
+                "Please select both input files.", "File select error."
+            )
+            return
         if self.process_thread and self.process_thread.is_alive():
+            self.modal.show_error("Process already running!")
             self.report.warning("Process already running!")
             return
 
