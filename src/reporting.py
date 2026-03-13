@@ -1,7 +1,14 @@
+# stdlib
 import logging
 from datetime import datetime
 from pathlib import Path
+
+# third party
+import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox as modal
+
+# local
+from src.paths import BASE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -18,23 +25,22 @@ class Reporting:
     def __init__(
         self,
         name: str,
+        parent_window: ttk.Window,
         use_timestamps: bool = True,
         timestamp: str | None = None,
-        output_dir: str | None = None,
-        parent_window=None,
+        output_dir: Path | None = None,
     ) -> None:
         if timestamp is None:
             timestamp = datetime.now().strftime(DATETIME_FORMAT)
         if output_dir is None:
-            output_dir = "."
+            output_dir = BASE_DIR
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         self.use_timestamps = use_timestamps
         self.parent = parent_window
         self.name = name
-        self.dir_path = f"{str(Path(output_dir))}/"
         self.report_name = f"{timestamp}_{name.replace(' ', '_')}"
-        self.file_name = f"{self.dir_path}{self.report_name}"
-        self.full_path = f"{self.file_name}.log"
+        self.report_path = output_dir / self.report_name
+        self.file_name = self.report_path.with_suffix(".log")
         self.report_lines = []
 
     def _add_line(self, msg: str, msg_type: str | None = None) -> None:
@@ -53,12 +59,15 @@ class Reporting:
 
     def debug(self, msg: str, log_only: bool = True, popup: bool = False) -> None:
         """
-        Print, log and report debug information.
+        Print, log and report debug information. Only posts to log by default.
         """
         print(msg)
         logger.debug(msg)
-        if popup:
-            modal.show_warning(msg, title="DEBUG", parent=self.parent)
+        if popup and self.parent:
+            self.parent.after(
+                0,
+                lambda m=msg: modal.show_warning(m, title="DEBUG", parent=self.parent),
+            )
         if not log_only:
             self._add_line(msg, "DEBUG")
 
@@ -68,19 +77,28 @@ class Reporting:
         """
         print(msg)
         logger.error(msg)
-        if popup:
-            modal.show_error(msg, title="ERROR", parent=self.parent)
+        if popup and self.parent:
+            self.parent.after(
+                0,
+                lambda m=msg: modal.show_error(m, title="ERROR", parent=self.parent),
+            )
         if not log_only:
             self._add_line(msg, "ERROR")
 
     def exception(self, msg: str, log_only: bool = True, popup: bool = False) -> None:
         """
         Print, log and report exceptions. This will also display the exception path.
+        By default it will only append to the logging file.
         """
         print(msg)
         logger.exception(msg)
-        if popup:
-            modal.show_error(msg, title="An exception was thrown.", parent=self.parent)
+        if popup and self.parent:
+            self.parent.after(
+                0,
+                lambda m=msg: modal.show_error(
+                    m, title="An exception was thrown!", parent=self.parent
+                ),
+            )
         if not log_only:
             self._add_line(msg, "EXCEPTION")
 
@@ -90,8 +108,13 @@ class Reporting:
         """
         print(msg)
         logger.info(msg)
-        if popup:
-            modal.show_info(msg, title="Information", parent=self.parent)
+        if popup and self.parent:
+            self.parent.after(
+                0,
+                lambda m=msg: modal.show_info(
+                    m, title="You should know...", parent=self.parent
+                ),
+            )
         if not log_only:
             self._add_line(msg, "INFO")
 
@@ -101,8 +124,13 @@ class Reporting:
         """
         print(msg)
         logger.warning(msg)
-        if popup:
-            modal.show_warning(msg, title="Warning!", parent=self.parent)
+        if popup and self.parent:
+            self.parent.after(
+                0,
+                lambda m=msg: modal.show_warning(
+                    m, title="Warning!", parent=self.parent
+                ),
+            )
         if not log_only:
             self._add_line(msg, "WARNING")
 
@@ -112,8 +140,13 @@ class Reporting:
         """
         print(msg)
         logger.critical(msg)
-        if popup:
-            modal.show_warning(msg, title="CRITICAL FAILURE!", parent=self.parent)
+        if popup and self.parent:
+            self.parent.after(
+                0,
+                lambda m=msg: modal.show_error(
+                    m, title="CRITICAL FAILURE!", parent=self.parent
+                ),
+            )
         if not log_only:
             self._add_line(msg, "CRITICAL")
 
@@ -159,11 +192,16 @@ class Reporting:
         Saves the report to a file.
         """
         try:
-            notice = f"{self.name} report saved to: {self.full_path}"
-            if popup:
-                modal.show_info(notice, title="Saving...", parent=self.parent)
+            notice = f"{self.name} report saved to: {self.report_path}"
+            if popup and self.parent:
+                self.parent.after(
+                    0,
+                    lambda m=notice: modal.show_info(
+                        m, title="Saving...", parent=self.parent
+                    ),
+                )
             self._add_line(notice, "INFO")
-            with open(self.full_path, "w", encoding="utf-8") as file:
+            with open(self.file_name, "w", encoding="utf-8") as file:
                 file.write("\n".join(self.report_lines))
             print(notice)
             logger.info(notice)
@@ -174,13 +212,11 @@ class Reporting:
 
 
 if __name__ == "__main__":
-    import ttkbootstrap as ttk
+    from src.paths import REPORTS_DIR
 
     window = ttk.Window(themename="superhero")
 
-    test = Reporting(
-        "reporting_test", output_dir="test_reporting", parent_window=window
-    )
+    test = Reporting("reporting_test", window, output_dir=REPORTS_DIR)
     test.info("Saving to test_reporting dir.")
     test.info("Only shown in logging, not reporting", log_only=True)
     test.info("Showing popup!", popup=True)
