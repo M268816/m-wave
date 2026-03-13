@@ -11,7 +11,6 @@ from pathlib import Path
 from src.process import Process
 from src.reporting import Reporting
 from tkinter.filedialog import askopenfilename as open_file
-from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.constants import (
     BOTH,
     NORMAL,
@@ -62,39 +61,39 @@ class App:
     """
 
     def __init__(self) -> None:
-        self.modal = Messagebox()
-        self.report = Reporting("main", output_dir=OUTPUT_DIR)
-        self.report.info("App starting...")
         # Initialize the root ttk window
         self.window = ttk.Window(
-            title="Workbook Automation & Verification Engine for the Master Context Register (WAVE-MCR)",
+            title="λ Workbook Automation & Verification Engine (WAVE)",
             themename="superhero",
             size=(1280, 720),
             minsize=(1175, 450),
         )
-        self.report.info("GUI window created.")
+        self.report = Reporting(
+            "main", output_dir=OUTPUT_DIR, parent_window=self.window
+        )
+        self.report.info("App starting...", log_only=True)
+        self.report.info("GUI window created.", log_only=True)
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
         self.name_filter = ttk.StringVar(value=None)
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_data_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
-        self.report.info("TTK object variables created.")
+        self.report.info("TTK object variables created.", log_only=True)
         # Init other app variables
         self.process = Process()
         self.process_thread = None
         self.worksheet_metadata = self.process.worksheet_metadata
-        self.report.info("App variables created.")
+        self.report.info("App variables created.", log_only=True)
         # Debug gui setup
         self.debug_style = ttk.Style()
         self.debug_style.configure("Debug.TFrame", background="white")
-        self.report.info("Debug GUI setup.")
         # Initialize ttkboostrap frames and widgets
         self.create_main_content_frame()
         self.create_file_select_frame()
         self.create_option_frame()
         self.create_footer_frame()
-        self.report.info("Frames and widgets created.")
+        self.report.info("Frames and widgets created.", log_only=True)
 
     def get_filepath(
         self, string_variable: ttk.StringVar, file_types: list[tuple] | None = None
@@ -174,7 +173,7 @@ class App:
         """
         selected_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(selected_value)
-        self.report.info(f"Selected: {selected_value}")
+        self.report.info(f"Selected: {selected_value}", log_only=True)
 
     def create_option_frame(self) -> None:
         """
@@ -194,7 +193,7 @@ class App:
         name_label.pack(side=LEFT, padx=10)
         name_entry = ttk.Entry(opt_row, textvariable=self.name_filter)
         name_entry.pack(side=LEFT, padx=10)
-        self.report.info(f"Default name filter: {name_entry.get()}")
+        self.report.info(f"Default name filter: {name_entry.get()}", log_only=True)
 
         # Create the combo box widget for selecting the MTL/CMD data table.
         cbox_label = ttk.Label(
@@ -213,7 +212,9 @@ class App:
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self.on_combobox_select)
         default_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(default_value)
-        self.report.info(f"Default MTL/CMD Table Selected: {default_value}")
+        self.report.info(
+            f"Default MTL/CMD Table Selected: {default_value}", log_only=True
+        )
 
         # Create the label widget that displays the compatable MTL/CMD version.
         version_label = ttk.Label(
@@ -225,20 +226,17 @@ class App:
 
     def _process_handler(self, is_appending: bool = False) -> None:
         """
-        Run the data transfer/compare process.
+        Run the data transfer/validate process.
         """
         # Validate file paths
         if (
             self.mtl_file_path.get() == "Select a file."
             or self.input_data_file_path.get() == "Select a file."
         ):
-            self.modal.show_error(
-                "Please select both input files.", "File select error."
-            )
+            self.report.error("Please select both input files.", popup=True)
             return
         if self.process_thread and self.process_thread.is_alive():
-            self.modal.show_error("Process already running!")
-            self.report.warning("Process already running!")
+            self.report.warning("Process already running!", popup=True)
             return
 
         self.validate_btn.config(state=DISABLED)
@@ -249,23 +247,25 @@ class App:
             Pushes the process of loading the information to input to another
             thread.
             """
-            self.report.info("Starting subroutine...")
+            self.report.info("Starting subroutine...", log_only=True)
             try:
                 self.process.rename_report(self.name_filter.get())
                 if is_appending:
                     logging.info("Appending data...")
                     self.process.append()
                 else:
-                    logging.info("Comparing data...")
-                    self.process.compare(
+                    logging.info("Validating comparison data...")
+                    self.process.validate(
                         self.name_filter.get(),
                         self.input_data_file_path.get(),
                         self.mtl_file_path.get(),
                         self.selected_data_table.get(),
                     )
-                self.window.after(0, lambda: self.report.info("Subroutine Completed."))
+                self.window.after(
+                    0, lambda: self.report.info("Subroutine Completed.", popup=True)
+                )
             except Exception as e:
-                self.report.exception(f"Subroutine process error:\n{e}")
+                self.report.exception(f"Subroutine process error:\n{e}", popup=True)
             finally:
                 self.window.after(0, self.progress_bar.stop)
                 self.window.after(0, lambda: self.validate_btn.config(state=NORMAL))
