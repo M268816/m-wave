@@ -71,20 +71,21 @@ class App:
         self.report = Reporting(
             "main", output_dir=OUTPUT_DIR, parent_window=self.window
         )
-        self.report.info("App starting...", log_only=True)
-        self.report.info("GUI window created.", log_only=True)
+        self.report.title("TK INITIALIZATION")
+        self.report.debug("App starting...", log_only=True)
+        self.report.debug("GUI window created.", log_only=True)
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
         self.name_filter = ttk.StringVar(value=None)
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_data_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
-        self.report.info("TTK object variables created.", log_only=True)
+        self.report.debug("TTK object variables created.", log_only=True)
         # Init other app variables
         self.process = Process()
         self.process_thread = None
         self.worksheet_metadata = self.process.worksheet_metadata
-        self.report.info("App variables created.", log_only=True)
+        self.report.debug("App variables created.", log_only=True)
         # Debug gui setup
         self.debug_style = ttk.Style()
         self.debug_style.configure("Debug.TFrame", background="white")
@@ -93,7 +94,7 @@ class App:
         self.create_file_select_frame()
         self.create_option_frame()
         self.create_footer_frame()
-        self.report.info("Frames and widgets created.", log_only=True)
+        self.report.debug("Frames and widgets created.", log_only=True)
 
     def get_filepath(
         self, string_variable: ttk.StringVar, file_types: list[tuple] | None = None
@@ -173,7 +174,7 @@ class App:
         """
         selected_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(selected_value)
-        self.report.info(f"Selected: {selected_value}", log_only=True)
+        self.report.debug(f"Selected: {selected_value}", log_only=True)
 
     def create_option_frame(self) -> None:
         """
@@ -193,7 +194,7 @@ class App:
         name_label.pack(side=LEFT, padx=10)
         name_entry = ttk.Entry(opt_row, textvariable=self.name_filter)
         name_entry.pack(side=LEFT, padx=10)
-        self.report.info(f"Default name filter: {name_entry.get()}", log_only=True)
+        self.report.debug(f"Default name filter: {name_entry.get()}", log_only=True)
 
         # Create the combo box widget for selecting the MTL/CMD data table.
         cbox_label = ttk.Label(
@@ -212,7 +213,7 @@ class App:
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self.on_combobox_select)
         default_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(default_value)
-        self.report.info(
+        self.report.debug(
             f"Default MTL/CMD Table Selected: {default_value}", log_only=True
         )
 
@@ -232,6 +233,8 @@ class App:
         if (
             self.mtl_file_path.get() == "Select a file."
             or self.input_data_file_path.get() == "Select a file."
+            or self.mtl_file_path.get() == "File selection canceled!"
+            or self.input_data_file_path.get() == "File selection canceled!"
         ):
             self.report.error("Please select both input files.", popup=True)
             return
@@ -247,14 +250,16 @@ class App:
             Pushes the process of loading the information to input to another
             thread.
             """
-            self.report.info("Starting subroutine...", log_only=True)
+            self.report.debug("Starting subroutine...", log_only=True)
             try:
-                self.process.rename_report(self.name_filter.get())
+                report_name = self.name_filter.get() or "Full_Test"
+                self.report.debug(f"Report name should be: {report_name}")
+                self.process.rename_report(report_name)
                 if is_appending:
-                    logging.info("Appending data...")
+                    self.report.debug("Appending data...")
                     self.process.append()
                 else:
-                    logging.info("Validating comparison data...")
+                    self.report.debug("Validating comparison data...")
                     self.process.validate(
                         self.name_filter.get(),
                         self.input_data_file_path.get(),
@@ -262,7 +267,7 @@ class App:
                         self.selected_data_table.get(),
                     )
                 self.window.after(
-                    0, lambda: self.report.info("Subroutine Completed.", popup=True)
+                    0, lambda: self.report.debug("Subroutine Completed.", popup=True)
                 )
             except Exception as e:
                 self.report.exception(f"Subroutine process error:\n{e}", popup=True)
