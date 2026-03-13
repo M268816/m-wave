@@ -3,13 +3,13 @@
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
+# stdlib
 import logging
 import threading
-import ttkbootstrap as ttk
 from datetime import datetime
-from pathlib import Path
-from src.process import Process
-from src.reporting import Reporting
+
+# third party
+import ttkbootstrap as ttk
 from tkinter.filedialog import askopenfilename as open_file
 from ttkbootstrap.constants import (
     BOTH,
@@ -30,14 +30,17 @@ from ttkbootstrap.constants import (
     INDETERMINATE,
 )
 
+# local
+from src.paths import ASSETS_DIR, LOGS_DIR, REPORTS_DIR
+from src.process import Process
+from src.reporting import Reporting
+
 # Logging initialization
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
 DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%S-%f"
-OUTPUT_DIR = "logs"
+LOGO_PATH = ASSETS_DIR / "logo.png"
 LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
-LOG_FILENAME = f"{str(Path(OUTPUT_DIR))}/{LOG_DATETIME}_general.log"
-
-Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}.log"
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -68,15 +71,17 @@ class App:
             size=(1280, 720),
             minsize=(1175, 450),
         )
+        self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
+        self.window.iconphoto(False, self.icon)
         self.report = Reporting(
-            "main", output_dir=OUTPUT_DIR, parent_window=self.window
+            "main", output_dir=REPORTS_DIR, parent_window=self.window
         )
         self.report.title("TK INITIALIZATION")
         self.report.debug("App starting...", log_only=True)
         self.report.debug("GUI window created.", log_only=True)
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
-        self.name_filter = ttk.StringVar(value=None)
+        self.name_filter = ttk.StringVar(value="")
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_data_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
@@ -95,6 +100,10 @@ class App:
         self.create_option_frame()
         self.create_footer_frame()
         self.report.debug("Frames and widgets created.", log_only=True)
+        self.report.info(
+            f"This app is compatible with MTL/CMD Version: {MTL_VERSION}.\nOther versions may fail.",
+            popup=True,
+        )
 
     def get_filepath(
         self, string_variable: ttk.StringVar, file_types: list[tuple] | None = None
@@ -163,7 +172,7 @@ class App:
             padding=10,
             width=20,
             command=lambda: self.get_filepath(
-                self.input_data_file_path, [("Supported files", ("*.csv"))]
+                self.input_data_file_path, [("Supported files", ("*.csv",))]
             ),
         )
         input_button.pack(side=RIGHT)
@@ -217,10 +226,10 @@ class App:
             f"Default MTL/CMD Table Selected: {default_value}", log_only=True
         )
 
-        # Create the label widget that displays the compatable MTL/CMD version.
+        # Create the label widget that displays the compatible MTL/CMD version.
         version_label = ttk.Label(
             opt_row,
-            text=f"Required MTL/CMD Version: {self.mtl_version.get()}",
+            text=f"Compatible MTL/CMD Version: {self.mtl_version.get()}",
             padding=10,
         )
         version_label.pack(side=RIGHT, padx=10)
@@ -252,15 +261,15 @@ class App:
             """
             self.report.debug("Starting subroutine...", log_only=True)
             try:
-                report_name = self.name_filter.get() or "Full_Test"
-                self.report.debug(f"Report name should be: {report_name}")
-                self.process.rename_report(report_name)
+                new_report_name = self.name_filter.get() or "Full_Test"
+                self.report.debug(f"Report name should be: {new_report_name}")
+                self.process.rename_report(new_report_name)
                 if is_appending:
                     self.report.debug("Appending data...")
                     self.process.append()
                 else:
                     self.report.debug("Validating comparison data...")
-                    self.process.validate(
+                    self.process.compare_datasets(
                         self.name_filter.get(),
                         self.input_data_file_path.get(),
                         self.mtl_file_path.get(),
