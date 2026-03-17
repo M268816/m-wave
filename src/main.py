@@ -4,6 +4,7 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
+import json
 import logging
 import threading
 from datetime import datetime
@@ -31,16 +32,16 @@ from ttkbootstrap.constants import (
 )
 
 # local
-from src.paths import ASSETS_DIR, LOGS_DIR, REPORTS_DIR
+from src.paths import ASSETS_DIR, CONFIG_PATH, LOGS_DIR, REPORTS_DIR
 from src.process import Process
 from src.reporting import Reporting
 
 # Logging initialization
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
-DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%S-%f"
+DATETIME_FORMAT = "%Y_%m_%dT%H-%M-%S"  # add %f for ms
 LOGO_PATH = ASSETS_DIR / "logo.png"
 LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
-LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}.log"
+LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}_general_error.log"
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -52,7 +53,9 @@ logging.basicConfig(
 )
 
 # The current version of the MTL this application is built for
-MTL_VERSION = "20.0"
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    _config = json.load(f)
+MTL_VERSION = _config["mtl_version"]
 
 
 class App:
@@ -60,7 +63,7 @@ class App:
     A MTL/CMD format helper process. This program takes in file path information
     from the user and uses it to either format new Aveva PI tag and configuration
     context information into or compare and validate data between csv input data
-    aginst design document 20471406.
+    against design document 20471406.
     """
 
     def __init__(self) -> None:
@@ -73,24 +76,25 @@ class App:
         )
         self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
         self.window.iconphoto(False, self.icon)
-        self.report = Reporting(
-            "main", output_dir=REPORTS_DIR, parent_window=self.window
-        )
+        # Init Reporting
+        self.report = Reporting(self.window, REPORTS_DIR)
         self.report.title("TK INITIALIZATION")
-        self.report.debug("App starting...", log_only=True)
-        self.report.debug("GUI window created.", log_only=True)
+        self.report.debug("App starting...")
+        self.report.debug("GUI window created.")
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
         self.name_filter = ttk.StringVar(value="")
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_data_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
-        self.report.debug("TTK object variables created.", log_only=True)
+        self.report.debug("TTK object variables created.")
         # Init other app variables
-        self.process = Process()
         self.process_thread = None
-        self.worksheet_metadata = self.process.worksheet_metadata
-        self.report.debug("App variables created.", log_only=True)
+        self.report.debug("App variables created.")
+        self.worksheets = {
+            name: entry["table_id"]
+            for name, entry in _config["worksheet_metadata"].items()
+        }
         # Debug gui setup
         self.debug_style = ttk.Style()
         self.debug_style.configure("Debug.TFrame", background="white")
@@ -99,9 +103,10 @@ class App:
         self.create_file_select_frame()
         self.create_option_frame()
         self.create_footer_frame()
-        self.report.debug("Frames and widgets created.", log_only=True)
+        self.report.debug("Frames and widgets created.")
+        # Version heads up at init
         self.report.info(
-            f"This app is compatible with MTL/CMD Version: {MTL_VERSION}.\nOther versions may fail.",
+            f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}.\nOther versions may fail.",
             popup=True,
         )
 
@@ -212,7 +217,7 @@ class App:
             padding=10,
         )
         cbox_label.pack(side=LEFT, padx=10)
-        self.cbox_options = list(self.worksheet_metadata.keys())
+        self.cbox_options = list(self.worksheets.keys())
         self.mtl_table_cbox = ttk.Combobox(
             opt_row,
             values=self.cbox_options,
@@ -262,25 +267,26 @@ class App:
             self.report.debug("Starting subroutine...", log_only=True)
             try:
                 new_report_name = self.name_filter.get() or "Full_Test"
+                self.report.create_report(new_report_name)
                 self.report.debug(f"Report name should be: {new_report_name}")
-                self.process.rename_report(new_report_name)
+                process = Process(self.report)
                 if is_appending:
                     self.report.debug("Appending data...")
-                    self.process.append()
+                    process.append()
                 else:
                     self.report.debug("Validating comparison data...")
-                    self.process.compare_datasets(
+                    process.compare_datasets(
                         self.name_filter.get(),
                         self.input_data_file_path.get(),
                         self.mtl_file_path.get(),
                         self.selected_data_table.get(),
                     )
-                self.window.after(
-                    0, lambda: self.report.debug("Subroutine Completed.", popup=True)
-                )
             except Exception as e:
                 self.report.exception(f"Subroutine process error:\n{e}", popup=True)
             finally:
+                self.window.after(
+                    0, lambda: self.report.info("Subroutine Completed.", popup=True)
+                )
                 self.window.after(0, self.progress_bar.stop)
                 self.window.after(0, lambda: self.validate_btn.config(state=NORMAL))
 
@@ -313,7 +319,7 @@ class App:
         )
         self.validate_btn.pack(side=RIGHT, padx=10, fill=Y)
         self.append_btn.pack(side=RIGHT, padx=15, fill=Y)
-        row.configure()
+        # row.configure()
 
     def run(self) -> None:
         """

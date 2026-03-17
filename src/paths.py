@@ -1,3 +1,8 @@
+# Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# All rights reserved
+#
+# Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+
 # stdlib
 import sys
 from pathlib import Path
@@ -71,4 +76,5 @@ BASE_DIR = APP_DIRS["base"]
 LOGS_DIR = APP_DIRS["logs"]
 REPORTS_DIR = APP_DIRS["reports"]
 ASSETS_DIR = APP_DIRS["assets"]
+CONFIG_PATH = ASSETS_DIR / "config.json"
 TEMP_DIR = APP_DIRS["temp"]

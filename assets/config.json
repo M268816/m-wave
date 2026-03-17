@@ -1,0 +1,188 @@
+{
+  "mtl_version": "20.0",
+  "worksheet_metadata": {
+    "MTL-Digital Sets-VAL&PROD": {
+      "table_id": "Table5",
+      "type": "DIGITAL_SET",
+      "can_process": true
+    },
+    "MTL GxP-VAL": {
+      "table_id": "Table2",
+      "type": "GXP",
+      "can_process": true
+    },
+    "MTL GxP-PROD": {
+      "table_id": "Table3",
+      "type": "GXP",
+      "can_process": true
+    },
+    "MTL-Analytics-VAL&PROD": {
+      "table_id": "Table4",
+      "type": "ANALYTICS",
+      "can_process": true
+    },
+    "CMD-Enumeration Sets-VAL": {
+      "table_id": "Table6",
+      "type": "ENUM_SET",
+      "can_process": true
+    },
+    "CMD-Enumeration Sets-PROD": {
+      "table_id": "Table7",
+      "type": "ENUM_SET",
+      "can_process": true
+    },
+    "CMD Categories-VAL": {
+      "table_id": "Table8",
+      "type": "CATEGORIES",
+      "can_process": true
+    },
+    "CMD Categories-PROD": {
+      "table_id": "Table9",
+      "type": "CATEGORIES",
+      "can_process": true
+    },
+    "CMD Tables-VAL": {
+      "table_id": "Table10",
+      "type": "TABLES",
+      "can_process": false
+    },
+    "CMD Tables-PROD": {
+      "table_id": "Table1012",
+      "type": "TABLES",
+      "can_process": false
+    },
+    "CMD-Event Frame Templates-VAL": {
+      "table_id": "Table14",
+      "type": "EVENT_FRAME",
+      "can_process": true
+    },
+    "CMD-Event Frame Templates-PROD": {
+      "table_id": "Table1416",
+      "type": "EVENT_FRAME",
+      "can_process": true
+    },
+    "CMD-Element Templates-VAL": {
+      "table_id": "Table12",
+      "type": "ELEMENT_TEMPLATE",
+      "can_process": true
+    },
+    "CMD-Element Templates-PROD": {
+      "table_id": "Table13",
+      "type": "ELEMENT_TEMPLATE",
+      "can_process": true
+    },
+    "CMD-Elements-Build": {
+      "table_id": "Table11",
+      "type": "ELEMENT",
+      "can_process": false
+    }
+  },
+  "table_formatting": {
+    "ANALYTICS": {
+      "object_type_order": null,
+      "sort_order": ["Name"],
+      "sort_direction": [true]
+    },
+    "CATEGORIES": {
+      "object_type_order": null,
+      "sort_order": ["Name"],
+      "sort_direction": [true]
+    },
+    "DIGITAL_SET": {
+      "object_type_order": {
+        "DigitalStateSet": 0,
+        "DigitalState": 1
+      },
+      "sort_order": ["type_order", "EnumerationValue"],
+      "sort_direction": [true, true]
+    },
+    "ELEMENT": {
+      "object_type_order": {
+        "Element": 0,
+        "Attribute": 1
+      },
+      "sort_order": ["Parent", "type_order", "Name"],
+      "sort_direction": [true, false, true]
+    },
+    "ELEMENT_TEMPLATE": {
+      "object_type_order": {
+        "ElementTemplate": 0,
+        "AttributeTemplate": 1,
+        "AnalysisTemplate": 2,
+        "NotificationRuleTemplate": 3,
+        "TemplateAnalysisRule": 4
+      },
+      "sort_order": ["type_order", "Parent", "Name"],
+      "sort_direction": [true, true, true]
+    },
+    "ENUM_SET": {
+      "object_type_order": {
+        "EnumerationSet": 0,
+        "EnumerationValue": 1
+      },
+      "sort_order": ["Parent", "type_order", "Name"],
+      "sort_direction": [true, true, true]
+    },
+    "EVENT_FRAME": {
+      "object_type_order": {
+        "EventFrameTemplate": 0,
+        "AttributeTemplate": 1
+      },
+      "sort_order": ["type_order", "Parent", "Name"],
+      "sort_direction": [true, true, true]
+    },
+    "GXP": {
+      "object_type_order": null,
+      "sort_order": ["Name"],
+      "sort_direction": [true]
+    },
+    "TABLES": {
+      "object_type_order": {
+        "Table": 0,
+        "TableColumn": 1,
+        "TableDataItem": 2
+      },
+      "sort_order": ["Parent", "type_order", "Name"],
+      "sort_direction": [true, true, true]
+    }
+  },
+  "dataframe_formatting": {
+    "numeric_columns": [
+      "archiving",
+      "AttributeDisplayDigits",
+      "compdev",
+      "compressing",
+      "compmax",
+      "compmin",
+      "displaydigits",
+      "excmax",
+      "excmin",
+      "future",
+      "PortMaxConnections",
+      "scan",
+      "shutdown",
+      "span",
+      "step",
+      "typicalvalue",
+      "zero"
+    ],
+    "classic_gxp_columns": [
+      "Asset Details",
+      "convers",
+      "filtercode",
+      "instrumenttag",
+      "location1",
+      "location2",
+      "location3",
+      "location4",
+      "location5",
+      "squareroot",
+      "srcptid",
+      "totalcode",
+      "userint1",
+      "userint2",
+      "userreal1",
+      "userreal2"
+    ]
+  }
+}

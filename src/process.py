@@ -1,4 +1,10 @@
+# Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# All rights reserved
+#
+# Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+
 # stdlib
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -7,12 +13,15 @@ from enum import Enum
 # third party
 import pandas as pd
 import openpyxl as xl
+import ttkbootstrap as ttk
 
 # local
-from src.paths import REPORTS_DIR
+from src.paths import CONFIG_PATH, REPORTS_DIR
 from src.reporting import Reporting
 
 logger = logging.getLogger(__name__)
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    _config = json.load(f)
 
 
 class TableType(int, Enum):
@@ -56,120 +65,36 @@ class Process:
     """
 
     def __init__(
-        self, report_name: str = "name_not_set", use_timestamps: bool = False
+        self,
+        report: Reporting,
     ) -> None:
-        self.use_timestamps: bool = use_timestamps
-        self.report = Reporting(
-            report_name, output_dir=REPORTS_DIR, use_timestamps=self.use_timestamps
-        )
-        self.process_time = datetime.now().isoformat().replace(":", "_")
+        self.report = report
+        # Pull external config
         self.worksheet_metadata = {
-            "MTL-Digital Sets-VAL&PROD": TableInfo(
-                "Table5", TableType.DIGITAL_SET, can_process=True
-            ),
-            "MTL GxP-VAL": TableInfo("Table2", TableType.GXP, can_process=True),
-            "MTL GxP-PROD": TableInfo("Table3", TableType.GXP, can_process=True),
-            "MTL-Analytics-VAL&PROD": TableInfo(
-                "Table4", TableType.ANALYTICS, can_process=True
-            ),
-            "CMD-Enumeration Sets-VAL": TableInfo(
-                "Table6", TableType.ENUM_SET, can_process=True
-            ),
-            "CMD-Enumeration Sets-PROD": TableInfo(
-                "Table7", TableType.ENUM_SET, can_process=True
-            ),
-            "CMD Categories-VAL": TableInfo(
-                "Table8", TableType.CATEGORIES, can_process=True
-            ),
-            "CMD Categories-PROD": TableInfo(
-                "Table9", TableType.CATEGORIES, can_process=True
-            ),
-            "CMD Tables-VAL": TableInfo("Table10", TableType.TABLES, can_process=False),
-            "CMD Tables-PROD": TableInfo(
-                "Table1012", TableType.TABLES, can_process=False
-            ),
-            "CMD-Event Frame Templates-VAL": TableInfo(
-                "Table14", TableType.EVENT_FRAME, can_process=True
-            ),
-            "CMD-Event Frame Templates-PROD": TableInfo(
-                "Table1416", TableType.EVENT_FRAME, can_process=True
-            ),
-            "CMD-Element Templates-VAL": TableInfo(
-                "Table12", TableType.ELEMENT_TEMPLATE, can_process=True
-            ),
-            "CMD-Element Templates-PROD": TableInfo(
-                "Table13", TableType.ELEMENT_TEMPLATE, can_process=True
-            ),
-            "CMD-Elements-Build": TableInfo(
-                "Table11", TableType.ELEMENT, can_process=False
-            ),
+            sheet_name: TableInfo(
+                table_id=entry["table_id"],
+                type=TableType[entry["type"]],
+                can_process=entry["can_process"],
+            )
+            for sheet_name, entry in _config["worksheet_metadata"].items()
         }
-        self.formatting_configuration = {
-            TableType.ANALYTICS: {
-                "Object Type Order": None,
-                "Sort Order": ["Name"],
-                "Sort Direction": [True],  # is ascending order
-            },
-            TableType.CATEGORIES: {
-                "Object Type Order": None,
-                "Sort Order": ["Name"],
-                "Sort Direction": [True],  # is ascending order
-            },
-            TableType.DIGITAL_SET: {
-                "Object Type Order": {"DigitalStateSet": 0, "DigitalState": 1},
-                "Sort Order": ["type_order", "EnumerationValue"],
-                "Sort Direction": [True, True],  # is ascending order
-            },
-            TableType.ELEMENT: {
-                "Object Type Order": {"Element": 0, "Attribute": 1},
-                "Sort Order": ["Parent", "type_order", "Name"],
-                "Sort Direction": [True, False, True],  # is ascending order
-            },
-            TableType.ELEMENT_TEMPLATE: {
-                "Object Type Order": {
-                    "ElementTemplate": 0,
-                    "AttributeTemplate": 1,
-                    "AnalysisTemplate": 2,
-                    "NotificationRuleTemplate": 3,
-                    "TemplateAnalysisRule": 4,
-                },
-                "Sort Order": ["type_order", "Parent", "Name"],
-                "Sort Direction": [True, True, True],  # is ascending order
-            },
-            TableType.ENUM_SET: {
-                "Object Type Order": {"EnumerationSet": 0, "EnumerationValue": 1},
-                "Sort Order": ["Parent", "type_order", "Name"],
-                "Sort Direction": [True, True, True],  # is ascending order
-            },
-            TableType.EVENT_FRAME: {
-                "Object Type Order": {"EventFrameTemplate": 0, "AttributeTemplate": 1},
-                "Sort Order": ["type_order", "Parent", "Name"],
-                "Sort Direction": [True, True, True],  # is ascending order
-            },
-            TableType.GXP: {
-                "Object Type Order": None,
-                "Sort Order": ["Name"],
-                "Sort Direction": [True],  # is ascending order
-            },
-            TableType.TABLES: {
-                "Object Type Order": {"Table": 0, "TableColumn": 1, "TableDataItem": 2},
-                "Sort Order": ["Parent", "type_order", "Name"],
-                "Sort Direction": [True, True, True],  # is ascending order
-            },
+        self.table_formatting = {
+            TableType[key]: {
+                "Object Type Order": entry["object_type_order"],
+                "Sort Order": entry["sort_order"],
+                "Sort Direction": entry["sort_direction"],
+            }
+            for key, entry in _config["table_formatting"].items()
         }
+        # dataframe_formatting holds lists like,
+        #   "numeric_columns"
+        #   "classic_gxp_columns"
+        self.dataframe_formatting = _config["dataframe_formatting"]
         self.can_process_worksheets = {
             sheetname
             for sheetname, table in self.worksheet_metadata.items()
             if table.can_process
         }
-
-    def rename_report(self, new_name: str) -> None:
-        """
-        Renames the report.
-        """
-        self.report = Reporting(
-            new_name, output_dir=REPORTS_DIR, use_timestamps=self.use_timestamps
-        )
 
     def _get_mtl_table(
         self,
@@ -180,12 +105,12 @@ class Process:
         """
         Returns a data frame from a named excel table in the MTL, or None if it fails.
         """
-        workbook = xl.load_workbook(file_name, data_only=True)
         try:
+            workbook = xl.load_workbook(file_name, data_only=True)
+            self.report.info("Loaded workbook.")
             self.report.info(
                 f"Extracting excel table {table_id} from worksheet {worksheet_name}..."
             )
-            self.report.info("Loaded workbook.")
             worksheet = workbook[worksheet_name]
             # return the cell range of the named table
             data_range = worksheet.tables[table_id].ref
@@ -199,14 +124,15 @@ class Process:
             # create the data frame
             dataframe = pd.DataFrame(rows, columns=headers)  # type: ignore
             self.report.info("Data frame created.")
-            self.report.info("Workbook closed.")
             return dataframe
         except Exception as e:
             error_msg = f"Could not extract excel table into a data frame:\n{e}"
             self.report.exception(error_msg, popup=True)
             return None
         finally:
-            workbook.close()
+            if "workbook" in dir():
+                workbook.close()
+                self.report.info("Workbook closed.")
 
     def _get_input_table(
         self,
@@ -226,7 +152,8 @@ class Process:
             )
             return df
         except Exception as e:
-            self.report.exception(f"Could not read supplied CSV file:\n{e}")
+            self.report.warning("Could not read supplied CSV file!")
+            self.report.exception(f"\n{e}")
             self.report.warning("Will attempt to convert known problem symbols...")
             try:
                 df = pd.read_csv(
@@ -237,10 +164,11 @@ class Process:
                 )
                 df = df.replace("�C", "°C", regex=False)
                 df = df.replace("�F", "°F", regex=False)
-                fixed_name = REPORTS_DIR / f"{filter}_fixed.csv"
-                df.to_csv(fixed_name, encoding="utf-8-sig")
+                fixed_name = f"{filter}_fixed.csv"
+                fixed_file = self.report.report_folder / fixed_name
+                df.to_csv(fixed_file, encoding="utf-8-sig")
                 df = pd.read_csv(
-                    fixed_name,
+                    fixed_file,
                     na_values=["None", "none", "NULL", "null", ""],
                     keep_default_na=True,
                 )
@@ -249,7 +177,7 @@ class Process:
                 return df
             except Exception as e:
                 error_msg = "Conversion attempt failed. Please report this error."
-                self.report.exception(error_msg, popup=True)
+                self.report.critical(error_msg, popup=True)
                 return None
 
     def _report_comparison(
@@ -302,22 +230,20 @@ class Process:
                 self.report.info("No differences found in common rows!")
                 self.report.info(f"Comparison of {df_1_name} to {df_2_name} is sound!")
                 self.report.info(
-                    "See these reported table files for detailed breakdown:"
+                    "See these reported table files for the detailed breakdown:"
                 )
-                df_1_report_name = (
-                    f"{self.report.report_name}_{df_1_name}_good_comparison.csv"
-                )
-                df_2_report_name = (
-                    f"{self.report.report_name}_{df_2_name}_good_comparison.csv"
+                df_1_report_name = f"{df_1_name}_good_comparison.csv"
+                df_2_report_name = f"{df_2_name}_good_comparison.csv"
+                df_1_report_file = self.report.report_folder / df_1_report_name
+                df_2_report_file = self.report.report_folder / df_2_report_name
+                self.report.info(
+                    f"{df_1_name} comparison proof saved to: {df_1_report_file}"
                 )
                 self.report.info(
-                    f"{df_1_name} comparison proof saved to: {df_1_report_name}"
+                    f"{df_2_name} comparison proof saved to: {df_2_report_file}"
                 )
-                self.report.info(
-                    f"{df_2_name} comparison proof saved to: {df_2_report_name}"
-                )
-                df_1.to_csv(df_1_report_name, index=True)
-                df_2.to_csv(df_2_report_name, index=True)
+                df_1.to_csv(df_1_report_file, index=True)
+                df_2.to_csv(df_2_report_file, index=True)
             else:
                 self.report.highlight_error("Row difference found!")
                 self.report.error(f"Found differences in {len(row_diff)} rows!:")
@@ -355,18 +281,17 @@ class Process:
                                 self.report.error(f"    {df_1_name}: {display_val_1}")
                                 self.report.error(f"    {df_2_name}: {display_val_2}")
                 self.report.error(f"{'='*80}")
-                comparison_filename = f"{self.report.report_name}_comparison.csv"
-                errored_filename_df1 = (
-                    f"{self.report.report_name}_{df_1_name}_bad_comparison.csv"
-                )
-                errored_filename_df2 = (
-                    f"{self.report.report_name}_{df_2_name}_bad_comparison.csv"
-                )
-                row_diff.to_csv(comparison_filename, index=True)
+                comparison_filename = f"{self.report.cleaned_name}_comparison.csv"
+                comparison_filepath = self.report.report_folder / comparison_filename
+                errored_filename_df1 = f"{df_1_name}_bad_comparison.csv"
+                errored_filename_df2 = f"{df_2_name}_bad_comparison.csv"
+                errored_filepath_df1 = self.report.report_folder / errored_filename_df1
+                errored_filepath_df2 = self.report.report_folder / errored_filename_df2
+                row_diff.to_csv(comparison_filepath, index=True)
                 self.report.info(f"Comparison table saved to: {comparison_filename}")
-                df_1.to_csv(errored_filename_df1, index=True)
+                df_1.to_csv(errored_filepath_df1, index=True)
                 self.report.info(f"{df_1_name} table saved to: {errored_filename_df1}")
-                df_2.to_csv(errored_filename_df2, index=True)
+                df_2.to_csv(errored_filepath_df2, index=True)
                 self.report.info(f"{df_2_name} table saved to: {errored_filename_df2}")
         except Exception as e:
             error_msg = f"Could not log comparison data:\n{e}"
@@ -409,10 +334,9 @@ class Process:
                     for col in df_1_only_rows.columns:
                         self.report.error(f"  {col}: {row[col]}")
                     self.report.error(f"{'-'*40}")
-                df_1_rows_filename = (
-                    f"{self.report.report_name}_{df_1_name}_only_rows.csv"
-                )
-                df_1_only_rows.to_csv(df_1_rows_filename, index=False)
+                df_1_rows_filename = f"rows_only_within_{df_1_name}.csv"
+                df_1_rows_filepath = self.report.report_folder / df_1_rows_filename
+                df_1_only_rows.to_csv(df_1_rows_filepath, index=False)
                 self.report.error(f"Exported to: {df_1_rows_filename}")
             else:
                 self.report.info(f"No rows found exclusively in {df_1_name}")
@@ -428,10 +352,10 @@ class Process:
                     for col in df_2_only_rows.columns:
                         self.report.error(f"  {col}: {row[col]}")
                     self.report.error(f"{'-'*40}")
-                df_2_rows_filename = (
-                    f"{self.report.report_name}_{df_2_name}_only_rows.csv"
-                )
-                df_2_only_rows.to_csv(df_2_rows_filename, index=False)
+                df_2_rows_filename = f"rows_only_within_{df_2_name}.csv"
+
+                df_2_rows_filepath = self.report.report_folder / df_2_rows_filename
+                df_2_only_rows.to_csv(df_2_rows_filepath, index=False)
                 self.report.error(f"Exported to: {df_2_rows_filename}")
             else:
                 self.report.info(f"No rows found exclusively in {df_2_name}")
@@ -537,30 +461,13 @@ class Process:
         Helper function that checks the table type and determines whether or not
         to add classic columns to the table if not already present.
         """
-        classic_gxp_columns = {
-            "Asset Details",
-            "convers",
-            "filtercode",
-            "instrumenttag",
-            "location1",
-            "location2",
-            "location3",
-            "location4",
-            "location5",
-            "squareroot",
-            "srcptid",
-            "totalcode",
-            "userint1",
-            "userint2",
-            "userreal1",
-            "userreal2",
-        }
         _df = df.copy()
+        classic_columns = set(self.dataframe_formatting["classic_gxp_columns"])
         if table_type == TableType.GXP:
-            if classic_gxp_columns.issubset(set(_df.columns)):
+            if classic_columns.issubset(set(_df.columns)):
                 return _df
             else:
-                for col in classic_gxp_columns:
+                for col in classic_columns:
                     if col not in _df.columns:
                         _df[col] = None
         return _df
@@ -577,10 +484,10 @@ class Process:
             # Check for classic data points, needed for GXP for sure.
             df = self._classic_data_check(df, table_type)
             # Setting the table configuration data
-            config = self.formatting_configuration[table_type]
+            config = self.table_formatting[table_type]
             self.report.debug(f"Configuration loaded: {config}")
             self.report.info(f"Object table type: {table_type.name}")
-            self.report.info(f"Object name filer: {name_filter}")
+            self.report.info(f"Object name filter: {name_filter}")
             # Setting the object type ordering filter
             type_order = config["Object Type Order"]
             if name_filter:
@@ -621,27 +528,7 @@ class Process:
             # Reset the index
             output = output.reset_index(drop=True)
             # Changing these columns to int helps some data comparison errors.
-            numeric_columns = [
-                "archiving",
-                "AttributeDisplayDigits",
-                "compdev",
-                "compressing",
-                "compmax",
-                "compmin",
-                "displaydigits",
-                "excmax",
-                "excmin",
-                "future",
-                "PortMaxConnections",
-                "scan",
-                "shutdown",
-                "span",
-                "step",
-                "typicalvalue",
-                "zero",
-            ]
-
-            for column in numeric_columns:
+            for column in self.dataframe_formatting["numeric_columns"]:
                 if column in output.columns:
                     # Convert strings to numbers
                     converted_vals = pd.to_numeric(output[column], errors="coerce")
@@ -698,7 +585,7 @@ class Process:
             self.report.highlight_titled_error(
                 "✗ This table does not yet have the capability to process data.",
             )
-            self.report.save()
+            self.report.save_report()
             return None
 
         mtl_table_id = self.worksheet_metadata[mtl_worksheet_name].table_id
@@ -715,7 +602,7 @@ class Process:
         mtl_dataframe = self._get_mtl_table(mtl_file, mtl_worksheet_name, mtl_table_id)
         if mtl_dataframe is None:
             self.report.highlight_titled_error("✗ MTL data could not be extracted.")
-            self.report.save()
+            self.report.save_report()
             return None
         self.report.info(
             f"✓ MTL extracted successfully with {mtl_dataframe.shape[0]} rows and {mtl_dataframe.shape[1]} columns."
@@ -726,7 +613,7 @@ class Process:
         input_dataframe = self._get_input_table(input_file, name_filter)
         if input_dataframe is None:
             self.report.highlight_titled_error("✗ Input CSV could not be extracted.")
-            self.report.save()
+            self.report.save_report()
             return None
         self.report.info(
             f"✓ Input CSV extracted successfully with {input_dataframe.shape[0]} rows and {input_dataframe.shape[1]} columns."
@@ -744,7 +631,7 @@ class Process:
         )
         if mtl_dataframe is None:
             self.report.highlight_titled_error("✗ MTL data formatting failed.")
-            self.report.save()
+            self.report.save_report()
             return None
         self.report.info("✓ MTL formatted successfully!")
         self.report.info("✓ MTL shape after formatting:")
@@ -760,18 +647,19 @@ class Process:
             self.report.highlight_titled_error(
                 "✗ Could not format the Input data frame."
             )
+            self.report.save_report()
             return None
         self.report.info("✓ Input CSV formatted successfully!")
         self.report.info("✓ Input CSV shape after formatting:")
         self.report.info(f"✓         Rows: {input_dataframe.shape[0]}")
         self.report.info(f"✓      Columns: {input_dataframe.shape[1]}")
 
-        self.report.title("Phase 3: Aligning data structures.")
+        self.report.title("Phase 3: Conforming input columns to MTL standard.")
 
         try:
             # Ensure input data is using the same columns as the mtl
             # by filtering the input columns by the mtl columns
-            self.report.info("Aligning column structures...")
+            self.report.info("Aligning columns...")
             input_dataframe = input_dataframe[mtl_dataframe.columns]
             self.report.info("✓ Columns aligned to MTL formatting!")
             self.report.info(f"✓ {len(mtl_dataframe.columns)} columns set.")
@@ -786,14 +674,16 @@ class Process:
                     )
             self.report.info("✓ Data types aligned!")
         except KeyError as e:
-            self.report.highlight_titled_error(
+            error_msg = (
                 f"✗ Column mismatch: Input file is missing required columns.\n{e}"
             )
-            self.report.save()
+            self.report.highlight_titled_error(error_msg)
+            self.report.error(error_msg)
+            self.report.save_report()
             return None
         except Exception as e:
             self.report.highlight_titled_error(f"✗ Data alignment failed:\n{e}")
-            self.report.save()
+            self.report.save_report()
             return None
 
         self.report.title("Phase 4: Running validation checks.")
@@ -811,7 +701,7 @@ class Process:
                 self.report.highlight_titled_error(
                     "✗ Shape comparison detected empty data frames."
                 )
-                self.report.save()
+                self.report.save_report()
                 return None
 
             # Find missing rows if shapes differ
@@ -831,23 +721,22 @@ class Process:
             self.report.info(
                 "Review the generated .LOG and CSV files for detailed results."
             )
-            self.report.save()
+            self.report.save_report()
             return True
 
         except Exception as e:
             self.report.highlight_titled_error("Validation process failed!")
-            self.report.exception(
+            self.report.critical(
                 f"Unexpected error during validation:\n{e}", popup=True
             )
-            self.report.save()
+            self.report.save_report()
             return None
 
     def append(self) -> None:
         """
         Add or append new data to the MTL/CMD file.
         """
-        logger.critical("This function has not yet been created.")
-        return None
+        raise NotImplementedError("append() has not yet been implemented.")
 
 
 if __name__ == "__main__":
@@ -859,6 +748,9 @@ if __name__ == "__main__":
         encoding="utf-8",
         level=logging.DEBUG,
     )
-    process = Process()
+    window = ttk.Window()
+    report = Reporting(window, REPORTS_DIR)
+    report.create_report("debug")
+    process = Process(report)
     process.report.error("This module should not be run as a script.")
     exit()
