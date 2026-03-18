@@ -50,7 +50,7 @@ class Reporting:
         Private function that adds a single string line to the report buffer.
         """
         if msg_type is None:
-            msg_type = "INFO"
+            msg_type = "UNKNOWN"
 
         timestamp = datetime.now().strftime(DATETIME_FORMAT)
         ts_line = f"{timestamp}:{msg_type}::{msg}"
@@ -68,20 +68,20 @@ class Reporting:
         self.name = new_name
         # NOTE: "my report"
         self.cleaned_name = self.name.replace(" ", "_")
-        # "my_report"
+        # NOTE: "my_report"
         self.report_name = f"{self.timestamp}_{self.cleaned_name}"
-        # NOTE: "13_01_2026T11-58-48_my_report"
+        # NOTE: "TIMESTAMP_my_report"
 
-        self.report_folder = self.output_dir / self.cleaned_name
+        self.report_folder = self.output_dir / self.report_name
         if update_dirs:
             self.report_folder.mkdir(parents=True, exist_ok=True)
-            # NOTE: "BASE_DIR\my_report"
+        # NOTE: "BASE_DIR\TIMESTAMP_my_report"
 
-        report_path = self.report_folder / self.report_name
-        # NOTE: "BASE_DIR\my_report\13_01_2026T11-58-48_my_report"
+        report_path = self.report_folder / self.cleaned_name
+        # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report"
 
         self.file_name = report_path.with_suffix(".log")
-        # NOTE: "BASE_DIR\my_report\13_01_2026T11-58-48_my_report.log"
+        # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report.log"
 
     def debug(self, msg: str, log_only: bool = True, popup: bool = False) -> None:
         """
