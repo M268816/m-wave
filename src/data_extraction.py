@@ -9,6 +9,7 @@ import openpyxl as xl
 
 # local
 from src.reporting import Reporting
+from src.metadata import WORKSHEET_METADATA
 
 
 class DataExtractor:
@@ -22,18 +23,18 @@ class DataExtractor:
 
     def extract_mtl_table(
         self,
-        file_name: str,
+        file_path: str,
         worksheet_name: str,
-        table_id: str,
     ) -> pd.DataFrame | None:
         """
         Returns a data frame from a named excel table in the MTL.
         Will raise an exception if it fails.
         """
         workbook = None
+        table_id = WORKSHEET_METADATA[worksheet_name].table_id
         try:
             self.report.info("Extracting the MTL table...")
-            workbook = xl.load_workbook(file_name, data_only=True)
+            workbook = xl.load_workbook(file_path, data_only=True)
             self.report.info("Loaded workbook.")
             self.report.info(
                 f"Extracting excel table {table_id} from worksheet {worksheet_name}..."
@@ -64,7 +65,7 @@ class DataExtractor:
     def extract_input_csv(
         self,
         file_path: str,
-        filter: str,
+        filter_str: str,
     ) -> pd.DataFrame | None:
         """
         Returns a data frame from an input csv file.
@@ -80,7 +81,7 @@ class DataExtractor:
                 encoding="utf-8",
             )
             return df
-        except Exception as e:
+        except UnicodeDecodeError as e:
             self.report.warning("Could not read supplied CSV file!")
             self.report.exception(f"\n{e}")
             self.report.warning("Will attempt to convert known problem symbols...")
@@ -93,9 +94,9 @@ class DataExtractor:
                 )
                 df = df.replace("�C", "°C", regex=False)
                 df = df.replace("�F", "°F", regex=False)
-                fixed_name = f"{filter}_fixed.csv"
+                fixed_name = f"{filter_str}_fixed.csv"
                 fixed_file = self.report.report_folder / fixed_name
-                df.to_csv(fixed_file, encoding="utf-8-sig")
+                df.to_csv(fixed_file, encoding="utf-8-sig", index=False)
                 df = pd.read_csv(
                     fixed_file,
                     na_values=["None", "none", "NULL", "null", ""],
@@ -108,3 +109,26 @@ class DataExtractor:
                 error_msg = "Conversion attempt failed. Please report this error."
                 self.report.critical(error_msg, popup=True)
                 return None
+
+    def could_extract(
+        self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None
+    ) -> bool:
+        if mtl_dataframe is None:
+            self.report.highlight_titled_error("✗ MTL data could not be extracted.")
+            return False
+        if input_dataframe is None:
+            self.report.highlight_titled_error("✗ Input CSV could not be extracted.")
+            return False
+        self.report.info("✓ MTL extracted successfully!")
+        mtl_row_count = mtl_dataframe.shape[0]
+        mtl_col_count = mtl_dataframe.shape[1]
+        self.report.info(
+            f"✓ The MTL has {mtl_row_count} rows and {mtl_col_count} columns."
+        )
+        self.report.info("✓ Input csv extracted successfully!")
+        input_row_count = input_dataframe.shape[0]
+        input_col_count = input_dataframe.shape[1]
+        self.report.info(
+            f"✓ The Input csv has {input_row_count} rows and {input_col_count} columns."
+        )
+        return True

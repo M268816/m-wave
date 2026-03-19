@@ -32,13 +32,13 @@ from ttkbootstrap.constants import (
 )
 
 # local
+from src.metadata import DATETIME_FORMAT
 from src.paths import ASSETS_DIR, CONFIG_PATH, LOGS_DIR, REPORTS_DIR
 from src.process import Process
 from src.reporting import Reporting
 
 # Logging initialization
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
-DATETIME_FORMAT = "%Y_%m_%dT%H-%M-%S"  # add %f for ms
 LOGO_PATH = ASSETS_DIR / "logo.png"
 LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
 LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}_general_error.log"
@@ -78,7 +78,6 @@ class App:
         self.window.iconphoto(False, self.icon)
         # Init Reporting
         self.report = Reporting(self.window, REPORTS_DIR)
-        self.report.title("TK INITIALIZATION")
         self.report.debug("App starting...")
         self.report.debug("GUI window created.")
         # Init ttk variables
@@ -106,7 +105,7 @@ class App:
         self.report.debug("Frames and widgets created.")
         # Version heads up at init
         self.report.info(
-            f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}.\nOther versions may fail.",
+            f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}. Other versions may fail.",
             popup=True,
         )
 

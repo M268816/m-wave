@@ -12,9 +12,10 @@ from pathlib import Path
 import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox as modal
 
-logger = logging.getLogger(__name__)
+# local
+from src.metadata import DATETIME_FORMAT
 
-DATETIME_FORMAT = "%Y_%m_%dT%H-%M-%S"  # add %f for ms
+logger = logging.getLogger(__name__)
 
 
 class Reporting:
@@ -53,8 +54,8 @@ class Reporting:
             msg_type = "UNKNOWN"
 
         timestamp = datetime.now().strftime(DATETIME_FORMAT)
-        ts_line = f"{timestamp}:{msg_type}::{msg}"
-        line = f"{msg_type}::{msg}"
+        ts_line = f"{timestamp}:{' '*abs(7-len(msg_type))}{msg_type}::{msg}"
+        line = f"{' '*abs(7-len(msg_type))}{msg_type}::{msg}"
 
         if self.use_timestamps:
             self.report_lines.append(ts_line)
@@ -183,39 +184,51 @@ class Reporting:
     def title(self, message: str) -> None:
         """
         Helper function to record a title.
+        Uses a heavy rounded box.
         """
-        self.info(f"{'='*80}")
-        self.info(message)
-        self.info(f"{'='*80}")
+        m_len = len(message)
+        self.info(f"╔═{'═'*m_len}═╗")
+        self.info(f"║ {message} ║")
+        self.info(f"╚═{'═'*m_len}═╝")
 
     def subtitle(self, message: str) -> None:
         """
         Helper function to record a subtitle.
+        Uses a light single-line box (less prominent than title).
         """
-        self.info(f"{'-'*60}")
-        self.info(message)
-        self.info(f"{'-'*60}")
+        m_len = len(message)
+        self.info(f"┌─{'─'*m_len}─┐")
+        self.info(f"│ {message} │")
+        self.info(f"└─{'─'*m_len}─┘")
 
     def highlight_error(self, message: str, is_critical: bool = False) -> None:
         """
         Helper function to highlight an error within the process.
+        Uses a double-line box to stand out.
         """
         func = self.critical if is_critical else self.error
-        func(f"!{'~'*58}!")
-        func(message)
-        func(f"!{'~'*58}!")
+        m_len = len(message)
+        func(f"X═{'═'*m_len}═X")
+        func(f"║ {message} ║")
+        func(f"X═{'═'*m_len}═X")
 
     def highlight_titled_error(
         self, message: str, title: str = "COMPARISON FAILED", is_critical: bool = False
     ) -> None:
         """
-        Helper function to highlight an error and a title
+        Helper function to highlight an error and a title.
+        Uses a heavy double-line box, with a separator between title and message.
         """
         func = self.critical if is_critical else self.error
-        func(f"{'!'*80}")
-        func(title.upper())
-        func(message)
-        func(f"{'!'*80}")
+
+        t = title.upper()
+        w = max(len(t), len(message))  # inner text width (excluding the spaces we add)
+
+        func(f"X═{'═'*w}═X")
+        func(f"║ {t}{' '*(w - len(t))} ║")
+        func(f"╠═{'═'*w}═╣")
+        func(f"║ {message}{' '*(w - len(message))} ║")
+        func(f"X═{'═'*w}═X")
 
     def save_report(self, popup: bool = False) -> None:
         """

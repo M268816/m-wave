@@ -22,18 +22,19 @@ logger = logging.getLogger(__name__)
 
 class Process:
     """
-    The theoretical process of this app is to pull the MTL excel file from mango,
-    and pull the relevant data from PI builder into a CSV.
-    The input csv data should be collected with all possible columns.
-    This process will then filter down the csv columns to the matching MTL table
-    columns.
-    Then, the input data can either be compared against the MTL data,
-    or the input data can be appended to the MTL for quick formatting and
-    validation comparisons.
-    To 'append' data, the input csv should include the full data pulled from
-    PI Builder to keep the ultra specific sorting rules of the MTL.
-    Appending will then compare the old data to the new and supply a list of
-    found changes.
+    The processes of this app have the ability to retrieve named table data from the
+    MTL/CMD excel sheet and PI Builder data in CSV format.
+
+    This process will extract the data in to pandas data frames then format and sort
+    each data frame to the user selected MTL table.
+
+    The process will then either:
+        compare the data:
+            by filtering the data frames to a user submitted object string, or a full
+            comparison will be conducted if no filter is given.
+        append new data to the MTL:
+            !!! Not yet implemented. !!!
+            by comparing the MTL and either updating existing rows, or adding new rows.
     """
 
     def __init__(
@@ -41,16 +42,27 @@ class Process:
         report: Reporting,
     ) -> None:
         self.report = report
-        self.worksheet_metadata = WORKSHEET_METADATA
         self.data_extractor = DataExtractor(self.report)
         self.data_formatter = DataFormatter(self.report)
         self.data_comparator = DataComparator(self.report)
 
+    def _can_process(self, worksheet_name: str) -> bool:
+        """
+        Check a MTL worksheet by name and determine if it can be processed.
+        """
+        if not WORKSHEET_METADATA[worksheet_name].can_process:
+            self.report.highlight_titled_error(
+                "✗ This table does not yet have the capability to process data.",
+            )
+            self.report.save_report()
+            return False
+        return True
+
     def compare_datasets(
         self,
         filter_str: str,
-        input_file: str,
-        mtl_file: str,
+        input_filepath: str,
+        mtl_filepath: str,
         mtl_worksheet_name: str,
     ) -> bool | None:
         """
@@ -62,75 +74,76 @@ class Process:
             # NOTE: START THE COMPARISON
             self.report.title(f"COMPARISON STARTED FOR: {filter_str or 'None'}")
 
-            # Check if the table cane processed.
-            if not self.data_comparator.can_process(mtl_worksheet_name):
+            # Check if the table can processed.
+            if not self._can_process(mtl_worksheet_name):
                 return None
-
-            # Gather MTL Table metadata
-            mtl_table_id = self.worksheet_metadata[mtl_worksheet_name].table_id
-            mtl_worksheet_type = self.worksheet_metadata[mtl_worksheet_name].type
-
-            self.report.debug(f"Selected worksheet: {mtl_worksheet_name}")
-            self.report.debug(f"Table type: {mtl_worksheet_type.name}")
-            self.report.debug(f"Filtering data with string: {filter_str or 'None'}")
 
             # NOTE: EXTRACTION PHASE
             self.report.title(
                 "Extraction Phase: Extracting data sources into data frames."
             )
             mtl_dataframe = self.data_extractor.extract_mtl_table(
-                mtl_file, mtl_worksheet_name, mtl_table_id
+                mtl_filepath, mtl_worksheet_name
             )
             input_dataframe = self.data_extractor.extract_input_csv(
-                input_file, filter_str
+                input_filepath, filter_str
             )
-            if not self.data_comparator.could_extract(mtl_dataframe, input_dataframe):
+            if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
                 return None
 
             # NOTE: FORMATTING PHASE 1
-            self.report.title(
-                "Formatting Phase (1 of 2): Preparing data for comparison."
-            )
+            self.report.title("Formatting Phase: Preparing data for comparison.")
 
-            # Format the dataframes to the worksheet table type.
+            # Format the data frames to the worksheet table type.
             self.report.info("Formatting MTL dataframe...")
             mtl_dataframe = self.data_formatter.format(
-                mtl_worksheet_type, mtl_dataframe, filter_str  # type: ignore
+                mtl_worksheet_name, mtl_dataframe, filter_str  # type: ignore
             )
             self.report.info("Formatting INPUT CSV dataframe...")
             input_dataframe = self.data_formatter.format(
-                mtl_worksheet_type, input_dataframe, filter_str
+                mtl_worksheet_name, input_dataframe, filter_str
             )
 
-            if not self.data_comparator.could_format(mtl_dataframe, input_dataframe):
+            if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
                 return None
 
-            # NOTE: FORMATTING PHASE 2
+            # NOTE: COMPARISON PHASE 1: GENERAL
             self.report.title(
-                "Formatting Phase (2 of 2): Conforming input columns to MTL standard."
+                "Comparison Phase (1 of 2): General Data Frame Shape Comparison"
             )
-            conform_result = self.data_formatter.conform_columns(
+            shape_comparison = self.data_comparator.compare_shapes(
+                mtl_dataframe, input_dataframe
+            )
+            if shape_comparison is None:
+                return None
+            self.report.info("Shape comparison compleated:")
+            for key, value in shape_comparison.items():
+                self.report.info(f"    {key}: {value}")
+
+            # NOTE: COMPARISON PHASE 2: COLUMNS
+            self.report.title(
+                "Comparison Phase (2 of 3): Comparing columns and making adjustments."
+            )
+            conform_result = self.data_comparator.conform_columns(
                 mtl_dataframe, input_dataframe
             )
             if conform_result is None:
                 return None
+
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
 
-            # NOTE: COMPARISON PHASE
-            self.report.title("Comparison Phase: Comparing data frames.")
-            shape_comparison = self.data_comparator.compare_shapes(
-                mtl_dataframe, input_dataframe, "MTL", "Input CSV"
+            # NOTE: COMPARISON PHASE 3: ROWS
+            self.report.title("Comparison Phase (3 of 3): Comparing data frames.")
+            row_comparison = self.data_comparator.compare_rows(
+                mtl_dataframe,
+                input_dataframe,
             )
-            if shape_comparison is None:
+            if row_comparison is None:
                 return None
 
-            # NOTE: REPORTING PHASE
-            self.report.title("Reporting Phase: Detailed report of any issues.")
-            self.data_comparator.comparison_report(
-                mtl_dataframe, input_dataframe, "MTL", "Input"
-            )
-            self.report.title("FINISHED")
+            # NOTE: REPORT PHASE
+            self.report.title("Final Reports")
             self.report.info("Comparison checks completed.")
             self.report.info(
                 "Review the generated .LOG and CSV files for detailed results."
