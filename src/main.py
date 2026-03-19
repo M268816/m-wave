@@ -32,7 +32,7 @@ from ttkbootstrap.constants import (
 )
 
 # local
-from src.metadata import DATETIME_FORMAT, MTL_VERSION
+from src.metadata import DATETIME_FORMAT, MTL_VERSION, WORKSHEET_METADATA
 from src.paths import ASSETS_DIR, CONFIG_PATH, LOGS_DIR, REPORTS_DIR
 from src.process import Process
 from src.reporting import Reporting
@@ -87,7 +87,7 @@ class App:
         self.report.debug("App variables created.")
         self.worksheets = {
             name: entry["table_id"]
-            for name, entry in _config["worksheet_metadata"].items()
+            for name, entry in WORKSHEET_METADATA.items()
         }
         # Debug gui setup
         self.debug_style = ttk.Style()
