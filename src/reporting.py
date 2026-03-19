@@ -67,6 +67,7 @@ class Reporting:
         Name the report and by default initialize the directories.
         """
         self.name = new_name
+        self.report_lines = []
         # NOTE: "my report"
         self.cleaned_name = self.name.replace(" ", "_")
         # NOTE: "my_report"

@@ -116,7 +116,7 @@ class Process:
             )
             if shape_comparison is None:
                 return None
-            self.report.info("Shape comparison compleated:")
+            self.report.info("Shape comparison completed:")
             for key, value in shape_comparison.items():
                 self.report.info(f"    {key}: {value}")
 

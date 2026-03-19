@@ -60,3 +60,5 @@ TABLE_FORMATTING = {
 DATAFRAME_FORMATTING = _config["dataframe_formatting"]
 
 DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
+
+MTL_VERSION = _config["mtl_version"]

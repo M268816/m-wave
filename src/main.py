@@ -32,7 +32,7 @@ from ttkbootstrap.constants import (
 )
 
 # local
-from src.metadata import DATETIME_FORMAT
+from src.metadata import DATETIME_FORMAT, MTL_VERSION
 from src.paths import ASSETS_DIR, CONFIG_PATH, LOGS_DIR, REPORTS_DIR
 from src.process import Process
 from src.reporting import Reporting
@@ -51,11 +51,6 @@ logging.basicConfig(
     encoding="utf-8",
     level=logging.DEBUG,
 )
-
-# The current version of the MTL this application is built for
-with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-    _config = json.load(f)
-MTL_VERSION = _config["mtl_version"]
 
 
 class App:

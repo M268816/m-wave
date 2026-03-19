@@ -180,7 +180,7 @@ class DataComparator:
             _input = _input[_mtl.columns]
             self.report.info("✓ Input data columns have aligned to the MTL columns!")
             self.report.info(f"✓ {len(_mtl.columns)} columns set.")
-            self.report.info("Columns used withn this comparison:")
+            self.report.info("Columns used within this comparison:")
             for index, col in enumerate(_input.columns):
                 self.report.info(f"    {index}:{col}")
             # Ensure the column data types are the same by matching the input
