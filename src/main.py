@@ -4,7 +4,6 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
-import json
 import logging
 import threading
 from datetime import datetime
@@ -33,7 +32,7 @@ from ttkbootstrap.constants import (
 
 # local
 from src.metadata import DATETIME_FORMAT, MTL_VERSION, WORKSHEET_METADATA
-from src.paths import ASSETS_DIR, CONFIG_PATH, LOGS_DIR, REPORTS_DIR
+from src.paths import ASSETS_DIR, LOGS_DIR, REPORTS_DIR
 from src.process import Process
 from src.reporting import Reporting
 
@@ -86,8 +85,7 @@ class App:
         self.process_thread = None
         self.report.debug("App variables created.")
         self.worksheets = {
-            name: entry["table_id"]
-            for name, entry in WORKSHEET_METADATA.items()
+            name: table_id for name, table_id in WORKSHEET_METADATA.items()
         }
         # Debug gui setup
         self.debug_style = ttk.Style()
@@ -250,7 +248,8 @@ class App:
             self.report.warning("Process already running!", popup=True)
             return
 
-        self.validate_btn.config(state=DISABLED)
+        self.compare_btn.config(state=DISABLED)
+        self.append_btn.config(state=DISABLED)
         self.progress_bar.start()
 
         def subroutine():
@@ -266,7 +265,12 @@ class App:
                 process = Process(self.report)
                 if is_appending:
                     self.report.debug("Appending data...")
-                    process.append()
+                    process.append_input(
+                        self.name_filter.get(),
+                        self.input_data_file_path.get(),
+                        self.mtl_file_path.get(),
+                        self.selected_data_table.get(),
+                    )
                 else:
                     self.report.debug("Validating comparison data...")
                     process.compare_datasets(
@@ -282,7 +286,8 @@ class App:
                     0, lambda: self.report.info("Subroutine Completed.", popup=True)
                 )
                 self.window.after(0, self.progress_bar.stop)
-                self.window.after(0, lambda: self.validate_btn.config(state=NORMAL))
+                self.window.after(0, lambda: self.compare_btn.config(state=NORMAL))
+                self.window.after(0, lambda: self.append_btn.config(state=NORMAL))
 
         self.process_thread = threading.Thread(target=subroutine, daemon=True)
         self.process_thread.start()
@@ -295,9 +300,9 @@ class App:
         row.pack(fill=BOTH, side=BOTTOM, anchor=S)
         self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=15, fill=X)
-        self.validate_btn = ttk.Button(
+        self.compare_btn = ttk.Button(
             row,
-            text="Validate",
+            text="Compare",
             bootstyle=SUCCESS,
             padding=10,
             width=20,
@@ -309,9 +314,8 @@ class App:
             padding=10,
             width=25,
             command=lambda: self._process_handler(is_appending=True),
-            state=DISABLED,
         )
-        self.validate_btn.pack(side=RIGHT, padx=10, fill=Y)
+        self.compare_btn.pack(side=RIGHT, padx=10, fill=Y)
         self.append_btn.pack(side=RIGHT, padx=15, fill=Y)
         # row.configure()
 

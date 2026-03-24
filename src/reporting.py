@@ -32,9 +32,11 @@ class Reporting:
         use_timestamps: bool = False,
         timestamp: datetime | None = None,
     ) -> None:
-        self.name = None
-        self.file_name = None
-        self.report_name = None
+        self.name = ""
+        self.cleaned_name = ""
+        self.report_name = ""
+        self.file_path = Path()
+        self.report_folder = Path()
         self.parent_window = parent_window
         self.output_dir = output_dir
         self.use_timestamps = use_timestamps
@@ -82,7 +84,7 @@ class Reporting:
         report_path = self.report_folder / self.cleaned_name
         # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report"
 
-        self.file_name = report_path.with_suffix(".log")
+        self.file_path = report_path.with_suffix(".log")
         # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report.log"
 
     def debug(self, msg: str, log_only: bool = True, popup: bool = False) -> None:
@@ -235,10 +237,10 @@ class Reporting:
         """
         Saves the report to a file.
         """
-        if self.file_name is None:
+        if self.file_path is None:
             raise RuntimeError("create_report() must be called before save_report().")
         try:
-            notice = f"{self.name} report saved to: {self.report_name}"
+            notice = f"{self.name} report saved to: {self.file_path}"
             if popup and self.parent_window:
                 self.parent_window.after(
                     0,
@@ -247,7 +249,7 @@ class Reporting:
                     ),
                 )
             self._add_line(notice, "INFO")
-            with open(self.file_name, "w", encoding="utf-8") as file:
+            with open(self.file_path, "w", encoding="utf-8") as file:
                 file.write("\n".join(self.report_lines))
             print(notice)
             logger.info(notice)

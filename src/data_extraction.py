@@ -55,6 +55,7 @@ class DataExtractor:
             return dataframe
         except Exception as e:
             error_msg = f"Could not extract excel table into a data frame:\n{e}"
+            self.report.highlight_error("Could not extract the MTL table.")
             self.report.exception(error_msg, popup=True)
             return None
         finally:
@@ -80,6 +81,7 @@ class DataExtractor:
                 keep_default_na=True,
                 encoding="utf-8",
             )
+            self.report.info("Input extraction was successful!")
             return df
         except UnicodeDecodeError as e:
             self.report.warning("Could not read supplied CSV file!")
@@ -107,6 +109,7 @@ class DataExtractor:
                 return df
             except Exception as e:
                 error_msg = "Conversion attempt failed. Please report this error."
+                self.report.highlight_error("Could not convert bad input data.")
                 self.report.critical(error_msg, popup=True)
                 return None
 
@@ -114,10 +117,14 @@ class DataExtractor:
         self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None
     ) -> bool:
         if mtl_dataframe is None:
-            self.report.highlight_titled_error("✗ MTL data could not be extracted.")
+            self.report.highlight_titled_error(
+                " MTL data could not be extracted. Check your selected MTL table."
+            )
             return False
         if input_dataframe is None:
-            self.report.highlight_titled_error("✗ Input CSV could not be extracted.")
+            self.report.highlight_titled_error(
+                " Input CSV could not be extracted. Check your selected MTL table"
+            )
             return False
         self.report.info("✓ MTL extracted successfully!")
         mtl_row_count = mtl_dataframe.shape[0]

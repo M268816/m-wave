@@ -10,10 +10,11 @@ import logging
 import ttkbootstrap as ttk
 
 # local
+from src.data_appender import DataAppender
 from src.data_extraction import DataExtractor
 from src.data_formatter import DataFormatter
 from src.data_comparator import DataComparator
-from src.metadata import WORKSHEET_METADATA
+from src.metadata import MTL_VERSION, TABLE_FORMATTING, WORKSHEET_METADATA
 from src.paths import REPORTS_DIR
 from src.reporting import Reporting
 
@@ -42,6 +43,7 @@ class Process:
         report: Reporting,
     ) -> None:
         self.report = report
+        self.data_appender = DataAppender(self.report)
         self.data_extractor = DataExtractor(self.report)
         self.data_formatter = DataFormatter(self.report)
         self.data_comparator = DataComparator(self.report)
@@ -54,6 +56,7 @@ class Process:
             self.report.highlight_titled_error(
                 "✗ This table does not yet have the capability to process data.",
             )
+            self.report.error("Stopping process...")
             self.report.save_report()
             return False
         return True
@@ -72,7 +75,9 @@ class Process:
         # TODO: Filter down Input columns to MTL columns
         try:
             # NOTE: START THE COMPARISON
-            self.report.title(f"COMPARISON STARTED FOR: {filter_str or 'None'}")
+            self.report.title(
+                f"COMPARISON STARTED FOR: {filter_str or 'None'} within {mtl_worksheet_name}"
+            )
 
             # Check if the table can processed.
             if not self._can_process(mtl_worksheet_name):
@@ -101,28 +106,17 @@ class Process:
             )
             self.report.info("Formatting INPUT CSV dataframe...")
             input_dataframe = self.data_formatter.format(
-                mtl_worksheet_name, input_dataframe, filter_str
+                mtl_worksheet_name,
+                input_dataframe,
+                filter_str,
             )
 
             if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
                 return None
 
-            # NOTE: COMPARISON PHASE 1: GENERAL
+            # NOTE: COMPARISON PHASE 1: COLUMNS
             self.report.title(
-                "Comparison Phase (1 of 2): General Data Frame Shape Comparison"
-            )
-            shape_comparison = self.data_comparator.compare_shapes(
-                mtl_dataframe, input_dataframe
-            )
-            if shape_comparison is None:
-                return None
-            self.report.info("Shape comparison completed:")
-            for key, value in shape_comparison.items():
-                self.report.info(f"    {key}: {value}")
-
-            # NOTE: COMPARISON PHASE 2: COLUMNS
-            self.report.title(
-                "Comparison Phase (2 of 3): Comparing columns and making adjustments."
+                "Comparison Phase (1 of 3): Comparing columns and making adjustments."
             )
             conform_result = self.data_comparator.conform_columns(
                 mtl_dataframe, input_dataframe
@@ -133,8 +127,21 @@ class Process:
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
 
+            # NOTE: COMPARISON PHASE 2: GENERAL
+            self.report.title(
+                "Comparison Phase (2 of 3): General Data Frame Comparison, Sanity Check"
+            )
+            shape_comparison = self.data_comparator.compare_shapes(
+                mtl_dataframe, input_dataframe
+            )
+            if shape_comparison is None:
+                return None
+            self.report.info("Shape comparison completed:")
+            for key, value in shape_comparison.items():
+                self.report.info(f"    {key}: {value}")
+
             # NOTE: COMPARISON PHASE 3: ROWS
-            self.report.title("Comparison Phase (3 of 3): Comparing data frames.")
+            self.report.title("Comparison Phase (3 of 3): Comparing row data.")
             row_comparison = self.data_comparator.compare_rows(
                 mtl_dataframe,
                 input_dataframe,
@@ -143,8 +150,7 @@ class Process:
                 return None
 
             # NOTE: REPORT PHASE
-            self.report.title("Final Reports")
-            self.report.info("Comparison checks completed.")
+            self.report.subtitle("Comparison checks completed.")
             self.report.info(
                 "Review the generated .LOG and CSV files for detailed results."
             )
@@ -158,11 +164,132 @@ class Process:
         finally:
             self.report.save_report()
 
-    def append(self) -> None:
+    def append_input(
+        self,
+        filter_str: str,
+        input_filepath: str,
+        mtl_filepath: str,
+        mtl_worksheet_name: str,
+    ) -> bool | None:
         """
-        Add or append new data to the MTL/CMD file.
+        Compare the supplied PI builder data and the MTL/CMD.
+        Returns None if process fails.
         """
-        raise NotImplementedError("append() has not yet been implemented.")
+        # TODO: Filter down Input columns to MTL columns
+        try:
+            # NOTE: START THE COMPARISON
+            self.report.title(
+                f"APPENDING: {filter_str or 'None'} to {mtl_worksheet_name}"
+            )
+
+            # Check if the table can processed.
+            if not self._can_process(mtl_worksheet_name):
+                return None
+
+            # NOTE: EXTRACTION PHASE
+            self.report.title(
+                "Extraction Phase: Extracting data sources into data frames."
+            )
+            mtl_dataframe = self.data_extractor.extract_mtl_table(
+                mtl_filepath, mtl_worksheet_name
+            )
+            input_dataframe = self.data_extractor.extract_input_csv(
+                input_filepath, filter_str
+            )
+            if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
+                return None
+
+            # NOTE: FORMATTING PHASE 1
+            self.report.title("Formatting Phase: Preparing data for comparison.")
+
+            # Format the data frames to the worksheet table type.
+            self.report.info("Formatting MTL dataframe...")
+            mtl_dataframe = self.data_formatter.format(
+                mtl_worksheet_name, mtl_dataframe, name_filter=None, use_version=True  # type: ignore
+            )
+            self.report.info("Formatting INPUT CSV dataframe...")
+            input_dataframe = self.data_formatter.format(
+                mtl_worksheet_name, input_dataframe, filter_str, use_version=True
+            )
+
+            if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
+                return None
+
+            # NOTE: COMPARISON PHASE 1: COLUMNS
+            self.report.title(
+                "Comparison Phase (1 of 2): Comparing columns and making adjustments."
+            )
+            conform_result = self.data_comparator.conform_columns(
+                mtl_dataframe, input_dataframe
+            )
+            if conform_result is None:
+                return None
+
+            # Apply the conforming process to the working data frames.
+            mtl_dataframe, input_dataframe = conform_result
+
+            # NOTE: COMPARISON PHASE 2: GENERAL
+            self.report.title(
+                "Comparison Phase (2 of 2): General Data Frame Comparison, Sanity Check"
+            )
+            shape_comparison = self.data_comparator.compare_shapes(
+                mtl_dataframe, input_dataframe
+            )
+            if shape_comparison is None:
+                return None
+            self.report.info("Shape comparison completed:")
+            for key, value in shape_comparison.items():
+                self.report.info(f"    {key}: {value}")
+
+            # NOTE: APPEND PHASE
+            self.report.title("Append Phase: Appending input csv to MTL.")
+            appended_dataframe = self.data_appender.upsert(
+                mtl_dataframe, input_dataframe, mtl_worksheet_name
+            )
+            if appended_dataframe is None:
+                return None
+
+            # NOTE: FORMAT NEW APPENDED DATAFRAME TO ALIGN WITH OLD MTL FORMATTING.
+            self.report.title(
+                "Refromatting Phase: Aligning new data to the old MTL fomat."
+            )
+            appended_dataframe = self.data_formatter.format(
+                mtl_worksheet_name,
+                appended_dataframe,
+                name_filter=None,
+                use_version=True,
+            )
+            if appended_dataframe is None:
+                return None
+
+            # NOTE: REPORT PHASE
+            self.report.title("Appending completed.")
+            self.data_appender.export_to_csv(appended_dataframe)
+            self.report.info(
+                "Review the generated .LOG and CSV files for detailed results."
+            )
+
+            # TEST: Export to Excel
+            self.report.title("Attempting to create an appended version of the MTL.")
+            self.data_appender.rebuild_named_table_in_place(
+                mtl_filepath,
+                mtl_worksheet_name,
+                WORKSHEET_METADATA[mtl_worksheet_name].table_id,
+                appended_dataframe,
+                self.report.report_folder / "MTL_Updated.xlsx",
+            )
+
+            # FINALLY
+            return True
+
+        except Exception as e:
+            self.report.exception(
+                f"Unexpected error during append logic:\n{e}", popup=True
+            )
+            return None
+
+        finally:
+            self.report.save_report()
 
 
 if __name__ == "__main__":

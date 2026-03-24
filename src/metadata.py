@@ -50,6 +50,7 @@ WORKSHEET_METADATA = {
 
 TABLE_FORMATTING = {
     TableType[key]: {
+        "Merge On": entry["merge_on"],
         "Object Type Order": entry["object_type_order"],
         "Sort Order": entry["sort_order"],
         "Sort Direction": entry["sort_direction"],

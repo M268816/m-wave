@@ -11,6 +11,7 @@ import pandas as pd
 # local
 from src.metadata import (
     DATAFRAME_FORMATTING,
+    MTL_VERSION,
     TABLE_FORMATTING,
     WORKSHEET_METADATA,
     TableType,
@@ -86,11 +87,31 @@ class DataFormatter:
                         _df[col] = None
         return _df
 
+    def _drop_na_rows(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+        """
+        Drop rows that do not have proper keys assigned. Most likely picked up from
+        bad PI Builder exports or misaligned MTL Tables.
+        """
+        self.report.info("Dropping possible empty rows.")
+        _df = df.copy()
+        keys = [this_key for this_key in keys if this_key in _df.columns]
+
+        if not keys:
+            return _df
+
+        if len(keys) == 1:
+            _df = _df.dropna(subset=keys)
+            return _df
+        else:
+            keep_mask = _df[keys].notna().any(axis=1)
+            return _df.loc[keep_mask].copy()
+
     def format(
         self,
         table_name: str,
         df: pd.DataFrame | None,
         name_filter: str | None = None,
+        use_version: bool = False,
     ) -> pd.DataFrame | None:
         """
         Helper function that formats and sorts data frames for equality comparisons.
@@ -102,10 +123,19 @@ class DataFormatter:
             return None
         name_filter = name_filter or None
         table_type = WORKSHEET_METADATA[table_name].type
+        merge_keys = TABLE_FORMATTING[table_type]["Merge On"]
         try:
-            # self.report.info("Formatting MTL dataframe...")
-            # Remove version column if it exists
-            df = df.drop(columns=["Version"], errors="ignore")
+            # inputs need to add the current version
+            if use_version:
+                if "Version" not in df.columns:
+                    df["Version"] = MTL_VERSION
+            else:
+                df = df.drop(columns=["Version"], errors="ignore")
+
+            # Remove blank columns if they exist
+            df = df.drop(
+                columns=["", " ", None, "none", "nan", "None"], errors="ignore"
+            )
             # Check for classic data points, needed for GXP for sure.
             df = self._classic_data_check(df, table_name)
             # Setting the table configuration data
@@ -152,6 +182,8 @@ class DataFormatter:
                 output = output.drop(columns=["type_order"])
             # Reset the index
             output = output.reset_index(drop=True)
+            # Remove blank rows
+            output = self._drop_na_rows(output, merge_keys)
             # Changing these columns to int helps some data comparison errors.
             for column in DATAFRAME_FORMATTING["numeric_columns"]:
                 if column in output.columns:

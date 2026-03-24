@@ -79,16 +79,19 @@
   },
   "table_formatting": {
     "ANALYTICS": {
+      "merge_on": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "CATEGORIES": {
+      "merge_on": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "DIGITAL_SET": {
+      "merge_on": ["Parent", "Name"],
       "object_type_order": {
         "DigitalStateSet": 0,
         "DigitalState": 1
@@ -97,6 +100,7 @@
       "sort_direction": [true, true]
     },
     "ELEMENT": {
+      "merge_on": ["Parent", "Name"],
       "object_type_order": {
         "Element": 0,
         "Attribute": 1
@@ -105,6 +109,7 @@
       "sort_direction": [true, false, true]
     },
     "ELEMENT_TEMPLATE": {
+      "merge_on": ["Parent", "Name"],
       "object_type_order": {
         "ElementTemplate": 0,
         "AttributeTemplate": 1,
@@ -116,6 +121,7 @@
       "sort_direction": [true, true, true]
     },
     "ENUM_SET": {
+      "merge_on": ["Parent", "Name"],
       "object_type_order": {
         "EnumerationSet": 0,
         "EnumerationValue": 1
@@ -124,6 +130,7 @@
       "sort_direction": [true, true, true]
     },
     "EVENT_FRAME": {
+      "merge_on": ["Parent", "Name"],
       "object_type_order": {
         "EventFrameTemplate": 0,
         "AttributeTemplate": 1
@@ -132,11 +139,13 @@
       "sort_direction": [true, true, true]
     },
     "GXP": {
+      "merge_on": ["Selected(x)", "Name", "ObjectType"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "TABLES": {
+      "merge_on": ["Parent", "Name"],
       "object_type_order": {
         "Table": 0,
         "TableColumn": 1,

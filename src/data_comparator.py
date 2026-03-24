@@ -51,14 +51,14 @@ class DataComparator:
                 )
                 # Iterate through the data frame rows
                 for index, row in mtl_only_rows.iterrows():
-                    self.report.error(f"Row {index}:")
+                    self.report.error(f"Row index {index}:")
                     for col in mtl_only_rows.columns:
-                        self.report.error(f"  {col}: {row[col]}")
+                        self.report.error(f"    {col}: {row[col]}")
                     self.report.error(f"{'-'*40}")
                 df_1_rows_filename = "rows_only_within_MTL.csv"
                 df_1_rows_filepath = self.report.report_folder / df_1_rows_filename
                 mtl_only_rows.to_csv(df_1_rows_filepath, index=False)
-                self.report.error(f"Exported to: {df_1_rows_filename}")
+                self.report.subtitle(f"Exported to: {df_1_rows_filepath}")
             else:
                 self.report.info("No rows found exclusively in MTL")
             # If df_2 has keys not in df_1
@@ -77,7 +77,9 @@ class DataComparator:
 
                 df_2_rows_filepath = self.report.report_folder / df_2_rows_filename
                 input_only_rows.to_csv(df_2_rows_filepath, index=False)
-                self.report.error(f"Exported to: {df_2_rows_filename}")
+                self.report.subtitle(
+                    f"Exported difference proof to: {df_2_rows_filepath}"
+                )
             else:
                 self.report.info("No rows found exclusively in the Input csv.")
             # Log number of common rows
@@ -171,12 +173,12 @@ class DataComparator:
 
             # Ensure df data is using the same columns as the mtl
             # by filtering the df columns by the mtl columns
-            self.report.info("Aligning columns...")
             column_difference = set(_input.columns) ^ set(_mtl.columns)
             if column_difference:
                 self.report.warning("The current difference in columns are:")
                 for i, col in enumerate(column_difference):
                     self.report.warning(f"    {i}:{col}")
+            self.report.info("Aligning columns...")
             _input = _input[_mtl.columns]
             self.report.info("✓ Input data columns have aligned to the MTL columns!")
             self.report.info(f"✓ {len(_mtl.columns)} columns set.")
@@ -221,8 +223,9 @@ class DataComparator:
         input_df = input_dataframe.copy()
         row_diff = comparison
 
-        self.report.highlight_error("Row difference found!")
+        self.report.highlight_error("Row content difference(s) found!")
         self.report.error(f"Found differences in {len(row_diff)} rows!:")
+        self.report.error(f"{'='*80}")
         self.report.subtitle("DETAILING ROW DIFFERENCES:")
         # Iterate through each row that has differences
         for row_idx in row_diff.index:
@@ -254,6 +257,7 @@ class DataComparator:
                         self.report.error(f"           MTL: {display_val_1}")
                         self.report.error(f"         Input: {display_val_2}")
                         self.report.error(f"{'─'*30}")
+        self.report.error(f"{'─'*30}")
         self.report.error(f"{'='*80}")
         comparison_filename = f"{self.report.cleaned_name}_comparison.csv"
         comparison_filepath = self.report.report_folder / comparison_filename
@@ -267,6 +271,7 @@ class DataComparator:
         self.report.info(f"MTL table saved to: {errored_filename_df1}")
         input_df.to_csv(errored_filepath_df2, index=True)
         self.report.info(f"Input table saved to: {errored_filename_df2}")
+        self.report.error(f"{'='*80}")
 
         return mtl_df, input_df
 
@@ -292,6 +297,7 @@ class DataComparator:
 
         try:
             # If rows are empty fail the comparison
+            self.report.info("Checking row counts...")
             if mtl_rows == 0 or input_rows == 0:
                 self.report.highlight_titled_error(
                     "✗ Shape comparison detected empty data frames rows."
@@ -301,8 +307,10 @@ class DataComparator:
                     "✗ Check your object filter or supplied files.", popup=True
                 )
                 return None
+            self.report.info("Row count good!")
 
             # If rows differ, report difference
+            self.report.info("Checking row count differences...")
             if mtl_rows != input_rows:
                 min_rows = min(mtl_rows, input_rows)
                 self.report.highlight_error("Data frame rows do not align!")
@@ -325,14 +333,16 @@ class DataComparator:
                 # TODO: implement better column key logic see above # TODO: 001
                 self._report_missing_rows(mtl_df, input_df, "Name")
             else:
-                self.report.info("Rows compared successfully!")
+                self.report.info("Rows counts compared successfully!")
+                self.report.info("Comparing row contents...")
                 row_comparison = mtl_df.compare(
                     input_df, align_axis=1, result_names=("MTL", "Input")
                 )
 
             if row_comparison.empty:
                 self.report.info("No differences found in common rows!")
-                self.report.info("Comparison of the MTL to the Input CSV is sound!")
+                self.report.info(f"{'🎉'*20}")
+                self.report.title("Comparison of the MTL to the Input CSV is sound!")
                 self.report.info(
                     "See these reported table files for the detailed breakdown:"
                 )
@@ -346,9 +356,11 @@ class DataComparator:
                 )
                 mtl_df.to_csv(mtl_report_file, index=True)
                 input_df.to_csv(input_report_file, index=True)
+                return True
             else:
                 self._report_row_differences(mtl_df, input_df, row_comparison)
                 return True
         except Exception as e:
             error_msg = f"Unexpected error during reporting:\n{e}"
             self.report.exception(error_msg, popup=True)
+            return None
