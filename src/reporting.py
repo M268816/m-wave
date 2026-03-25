@@ -5,6 +5,7 @@
 
 # stdlib
 import logging
+from queue import Queue
 from datetime import datetime
 from pathlib import Path
 
@@ -14,8 +15,10 @@ from ttkbootstrap.dialogs import Messagebox as modal
 
 # local
 from src.metadata import DATETIME_FORMAT
+from src.paths import ASSET_DIR
 
 logger = logging.getLogger(__name__)
+LOGO_PATH = ASSET_DIR / "logo.png"
 
 
 class Reporting:
@@ -38,6 +41,7 @@ class Reporting:
         self.file_path = Path()
         self.report_folder = Path()
         self.parent_window = parent_window
+        self.parent_window.iconphoto(False, LOGO_PATH)
         self.output_dir = output_dir
         self.use_timestamps = use_timestamps
 
@@ -47,6 +51,41 @@ class Reporting:
             self.timestamp = datetime.now().strftime(DATETIME_FORMAT)
 
         self.report_lines = []
+        self._modal_queue = Queue()
+        self._modal_busy = False
+
+    def _show_next_modal(self):
+        """
+        Processes the modal queue one at a time. FIFO.
+        Each modal will schedule the next only after it is dismissed.
+        """
+        if self._modal_queue.empty():
+            self._modal_busy = False
+            return
+
+        self._modal_busy = True
+
+        # Unpacks stored tuple
+        func, msg, title = self._modal_queue.get()
+
+        def dismiss():
+            self.parent_window.after(0, self._show_next_modal)
+
+        def show_next():
+            func(msg, title=title, parent=self.parent_window)
+            dismiss()
+
+        # Recursive call
+        self.parent_window.after(0, show_next)
+
+    def _queue_modal(self, func, msg: str, title: str) -> None:
+        """
+        Queue a modal dialog and start processing modals if not already busy.
+        """
+        if self.parent_window:
+            self._modal_queue.put((func, msg, title))
+            if not self._modal_busy:
+                self.parent_window.after(0, self._show_next_modal)
 
     def _add_line(self, msg: str, msg_type: str | None = None) -> None:
         """
@@ -56,8 +95,8 @@ class Reporting:
             msg_type = "UNKNOWN"
 
         timestamp = datetime.now().strftime(DATETIME_FORMAT)
-        ts_line = f"{timestamp}:{' '*abs(7-len(msg_type))}{msg_type}::{msg}"
-        line = f"{' '*abs(7-len(msg_type))}{msg_type}::{msg}"
+        ts_line = f"{timestamp}:{' '*abs(7-len(msg_type))}{msg_type}> {msg}"
+        line = f"{' '*abs(7-len(msg_type))}{msg_type}> {msg}"
 
         if self.use_timestamps:
             self.report_lines.append(ts_line)
@@ -68,11 +107,14 @@ class Reporting:
         """
         Name the report and by default initialize the directories.
         """
-        self.name = new_name
         self.report_lines = []
+
+        self.name = new_name
         # NOTE: "my report"
+
         self.cleaned_name = self.name.replace(" ", "_")
         # NOTE: "my_report"
+
         self.report_name = f"{self.timestamp}_{self.cleaned_name}"
         # NOTE: "TIMESTAMP_my_report"
 
@@ -93,13 +135,8 @@ class Reporting:
         """
         print(msg)
         logger.debug(msg)
-        if popup and self.parent_window:
-            self.parent_window.after(
-                0,
-                lambda m=msg: modal.show_warning(
-                    m, title="DEBUG", parent=self.parent_window
-                ),
-            )
+        if popup:
+            self._queue_modal(modal.show_error, msg, "Debugger")
         if not log_only:
             self._add_line(msg, "DEBUG")
 
@@ -109,13 +146,8 @@ class Reporting:
         """
         print(msg)
         logger.error(msg)
-        if popup and self.parent_window:
-            self.parent_window.after(
-                0,
-                lambda m=msg: modal.show_error(
-                    m, title="ERROR", parent=self.parent_window
-                ),
-            )
+        if popup:
+            self._queue_modal(modal.show_error, msg, "An error has occurred!")
         if not log_only:
             self._add_line(msg, "ERROR")
 
@@ -126,13 +158,8 @@ class Reporting:
         """
         print(msg)
         logger.exception(msg)
-        if popup and self.parent_window:
-            self.parent_window.after(
-                0,
-                lambda m=msg: modal.show_error(
-                    m, title="An exception was thrown!", parent=self.parent_window
-                ),
-            )
+        if popup:
+            self._queue_modal(modal.show_error, msg, "An exception was thrown!")
         if not log_only:
             self._add_line(msg, "EXCEPTION")
 
@@ -142,13 +169,8 @@ class Reporting:
         """
         print(msg)
         logger.info(msg)
-        if popup and self.parent_window:
-            self.parent_window.after(
-                0,
-                lambda m=msg: modal.show_info(
-                    m, title="You should know...", parent=self.parent_window
-                ),
-            )
+        if popup:
+            self._queue_modal(modal.show_info, msg, "You should know...")
         if not log_only:
             self._add_line(msg, "INFO")
 
@@ -158,13 +180,8 @@ class Reporting:
         """
         print(msg)
         logger.warning(msg)
-        if popup and self.parent_window:
-            self.parent_window.after(
-                0,
-                lambda m=msg: modal.show_warning(
-                    m, title="Warning!", parent=self.parent_window
-                ),
-            )
+        if popup:
+            self._queue_modal(modal.show_warning, msg, "Warning!")
         if not log_only:
             self._add_line(msg, "WARNING")
 
@@ -174,24 +191,19 @@ class Reporting:
         """
         print(msg)
         logger.critical(msg)
-        if popup and self.parent_window:
-            self.parent_window.after(
-                0,
-                lambda m=msg: modal.show_error(
-                    m, title="CRITICAL FAILURE!", parent=self.parent_window
-                ),
-            )
+        if popup:
+            self._queue_modal(modal.show_error, msg, "CRITICAL FAILURE")
         if not log_only:
             self._add_line(msg, "CRITICAL")
 
     def title(self, message: str) -> None:
         """
         Helper function to record a title.
-        Uses a heavy rounded box.
+        Uses a heavy square box.
         """
         m_len = len(message)
         self.info(f"╔═{'═'*m_len}═╗")
-        self.info(f"║ {message} ║")
+        self.info(f"║ { message } ║")
         self.info(f"╚═{'═'*m_len}═╝")
 
     def subtitle(self, message: str) -> None:
@@ -201,8 +213,20 @@ class Reporting:
         """
         m_len = len(message)
         self.info(f"┌─{'─'*m_len}─┐")
-        self.info(f"│ {message} │")
+        self.info(f"│ { message } │")
         self.info(f"└─{'─'*m_len}─┘")
+
+    def simple_title(self, message: str, width: int = 88) -> None:
+        """
+        Helper function to record a simple highlighted title.
+        Uses a simple line format.
+        """
+        m_len = len(message)
+        s_len = (width - m_len) // 2
+        if m_len >= width:
+            self.info(f"─{message}─")
+        else:
+            self.info(f"{'─'*s_len} {message} {'─'*s_len}")
 
     def highlight_error(self, message: str, is_critical: bool = False) -> None:
         """
@@ -212,7 +236,7 @@ class Reporting:
         func = self.critical if is_critical else self.error
         m_len = len(message)
         func(f"X═{'═'*m_len}═X")
-        func(f"║ {message} ║")
+        func(f"║ { message } ║")
         func(f"X═{'═'*m_len}═X")
 
     def highlight_titled_error(
@@ -237,17 +261,12 @@ class Reporting:
         """
         Saves the report to a file.
         """
-        if self.file_path is None:
+        if not self.file_path.name:
             raise RuntimeError("create_report() must be called before save_report().")
         try:
             notice = f"{self.name} report saved to: {self.file_path}"
-            if popup and self.parent_window:
-                self.parent_window.after(
-                    0,
-                    lambda m=notice: modal.show_info(
-                        m, title="Saving...", parent=self.parent_window
-                    ),
-                )
+            if popup:
+                self._queue_modal(modal.show_info, notice, "Saving...")
             self._add_line(notice, "INFO")
             with open(self.file_path, "w", encoding="utf-8") as file:
                 file.write("\n".join(self.report_lines))

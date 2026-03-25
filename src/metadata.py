@@ -31,7 +31,7 @@ class TableType(int, Enum):
 @dataclass
 class TableInfo:
     """
-    A data class to hold the excel table name metadata.
+    A data class to hold the named excel table metadata.
     """
 
     table_id: str
@@ -50,7 +50,7 @@ WORKSHEET_METADATA = {
 
 TABLE_FORMATTING = {
     TableType[key]: {
-        "Merge On": entry["merge_on"],
+        "Index Keys": entry["index_keys"],
         "Object Type Order": entry["object_type_order"],
         "Sort Order": entry["sort_order"],
         "Sort Direction": entry["sort_direction"],
@@ -63,3 +63,46 @@ DATAFRAME_FORMATTING = _config["dataframe_formatting"]
 DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
 
 MTL_VERSION = _config["mtl_version"]
+
+
+class AppMetadata:
+    """
+    Each data class that needs metadata for a worksheet constructs this one instance
+    and uses it throughout:
+
+    Usage:
+    meta = AppMetadata(worksheet_name)
+    keys = meta.get_merge_keys()
+    sort = meta.get_sort_order()
+    """
+
+    def __init__(self, worksheet_name: str) -> None:
+        self.worksheet_name = worksheet_name
+        self._table_type = WORKSHEET_METADATA[self.worksheet_name].type
+
+    def get_worksheet_name(self) -> str:
+        return self.worksheet_name
+
+    def can_process_worksheet(self) -> bool:
+        return WORKSHEET_METADATA[self.worksheet_name].can_process
+
+    def get_table_type(self) -> TableType:
+        return self._table_type
+
+    def get_table_id(self) -> str:
+        return WORKSHEET_METADATA[self.worksheet_name].table_id
+
+    def get_table_formatting(self) -> dict:
+        return TABLE_FORMATTING[self._table_type]
+
+    def get_table_index_keys(self) -> list[str]:
+        return TABLE_FORMATTING[self._table_type]["Index Keys"]
+
+    def get_table_sort_order(self) -> list[str]:
+        return TABLE_FORMATTING[self._table_type]["Sort Order"]
+
+    def get_table_sort_direction(self) -> list[bool]:
+        return TABLE_FORMATTING[self._table_type]["Sort Direction"]
+
+    def get_table_type_order(self) -> dict | None:
+        return TABLE_FORMATTING[self._table_type]["Object Type Order"]

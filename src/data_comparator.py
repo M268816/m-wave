@@ -9,86 +9,110 @@
 import pandas as pd
 
 # local
-from src.metadata import WORKSHEET_METADATA
+from src.metadata import AppMetadata
 from src.reporting import Reporting
 
 
 class DataComparator:
-    def __init__(self, report: Reporting) -> None:
+    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
         self.report = report
-        self.ws_metadata = WORKSHEET_METADATA
+        self.metadata = AppMetadata(mtl_worksheet_name)
 
     def _report_missing_rows(
         self,
         mtl_dataframe: pd.DataFrame,
         input_dataframe: pd.DataFrame,
-        key_column: str = "Name",
     ) -> None:
         """
         Find rows that exist in one data frame but not the other.
+        Uses the composite index keys from the configured metadata to identify
+        unique rows.
         """
         mtl_df = mtl_dataframe.copy()
         input_df = input_dataframe.copy()
+        index_keys = self.metadata.get_table_index_keys()
 
         try:
-            # Get unique identifiers from both data frames
-            mtl_keys = set(mtl_df[key_column].dropna().unique())
-            input_keys = set(input_df[key_column].dropna().unique())
+            # Build tuples of the composite keys
+            mtl_keys = set(
+                tuple(row)
+                for row in mtl_df[index_keys].dropna(how="all").itertuples(index=False)
+            )
+            input_keys = set(
+                tuple(row)
+                for row in input_df[index_keys]
+                .dropna(how="all")
+                .itertuples(index=False)
+            )
+
             # Find differences
             mtl_only_keys = mtl_keys - input_keys
             input_only_keys = input_keys - mtl_keys
-            # Get the actual rows
-            mtl_only_rows = mtl_df[mtl_df[key_column].isin(mtl_only_keys)]  # type: ignore
-            input_only_rows = input_df[input_df[key_column].isin(input_only_keys)]  # type: ignore
-            # Log findings
+
+            # Get the actual rows by matching the key tuples back to the dataframe
+            mtl_mask = mtl_df[index_keys].apply(tuple, axis=1).isin(mtl_only_keys)  # type: ignore
+            mtl_only_rows = mtl_df[mtl_mask]
+
+            input_mask = (
+                input_df[index_keys].apply(tuple, axis=1).isin(input_only_keys)  # type: ignore
+            )
+            input_only_rows = input_df[input_mask]
+
+            # Log findings, header
+            key_label = ", ".join(index_keys)
             self.report.subtitle("Reporting row differences.")
-            self.report.error(f"Row differences based on '{key_column}' column.")
-            self.report.error("Review the following inconsistencies.")
-            # If df_1 has keys not in df_2
+            self.report.error(f"Row differences based on column indexes: {key_label}")
+            self.report.simple_title("Review the following inconsistencies.")
+
+            # If the MTL has keys not in the Input
             if len(mtl_only_keys) > 0:
                 self.report.subtitle(
                     f"Found {len(mtl_only_rows)} rows ONLY in the MTL:"
                 )
-                # Iterate through the data frame rows
+                # Iterate through the data frame rows and report
                 for index, row in mtl_only_rows.iterrows():
                     self.report.error(f"Row index {index}:")
                     for col in mtl_only_rows.columns:
                         self.report.error(f"    {col}: {row[col]}")
                     self.report.error(f"{'-'*40}")
-                df_1_rows_filename = "rows_only_within_MTL.csv"
-                df_1_rows_filepath = self.report.report_folder / df_1_rows_filename
-                mtl_only_rows.to_csv(df_1_rows_filepath, index=False)
-                self.report.subtitle(f"Exported to: {df_1_rows_filepath}")
+                mtl_rows_filename = "rows_only_within_MTL.csv"
+                mtl_rows_filepath = self.report.report_folder / mtl_rows_filename
+                mtl_only_rows.to_csv(mtl_rows_filepath, index=False)
+                self.report.subtitle(f"Exported to: {mtl_rows_filepath}")
             else:
                 self.report.info("No rows found exclusively in MTL")
-            # If df_2 has keys not in df_1
+
+            # If the input has keys not in the mtl
             if len(input_only_keys) > 0:
                 self.report.subtitle(
                     f"Found {len(input_only_rows)} rows ONLY in the Input:"
                 )
                 self.report.error(f"{'-'*80}")
-                # Iterate through the data frame rows
+                # Iterate through the data frame rows and report
                 for index, row in input_only_rows.iterrows():
                     self.report.error(f"Row {index}:")
                     for col in input_only_rows.columns:
                         self.report.error(f"  {col}: {row[col]}")
                     self.report.error(f"{'-'*40}")
-                df_2_rows_filename = "rows_only_within_input.csv"
+                input_rows_filename = "rows_only_within_input.csv"
 
-                df_2_rows_filepath = self.report.report_folder / df_2_rows_filename
-                input_only_rows.to_csv(df_2_rows_filepath, index=False)
+                input_rows_filepath = self.report.report_folder / input_rows_filename
+                input_only_rows.to_csv(input_rows_filepath, index=False)
                 self.report.subtitle(
-                    f"Exported difference proof to: {df_2_rows_filepath}"
+                    f"Exported difference proof to: {input_rows_filepath}"
                 )
             else:
                 self.report.info("No rows found exclusively in the Input csv.")
+
             # Log number of common rows
             common_keys = mtl_keys & input_keys
             self.report.info(f"{len(common_keys)} rows exist in BOTH dataframes")
+
         except Exception as e:
             error_msg = f"There was a problem returning the row comparison:\n{e}"
             self.report.exception(error_msg, popup=True)
 
+    # NOTE: Duplicate of DataFormatter._report_shape_differences — keep in sync.
     def _report_shape_differences(self, mtl_dim, input_dim, dimension) -> None:
         """
         Reports row or column count differences between two data frames.
@@ -105,113 +129,6 @@ class DataComparator:
             self.report.warning(
                 f"{larger} has {diff} more {dimension_plural} than {smaller}"
             )
-
-    def compare_shapes(
-        self,
-        mtl_df: pd.DataFrame | None,
-        input_df: pd.DataFrame | None,
-    ) -> dict | None:
-        """
-        A General comparison of data frame shape.
-        Returns a dictionary with shape comparison details or None if it fails.
-        """
-        if mtl_df is None or input_df is None:
-            self.report.error("Cannot compare empty data frames.")
-            self.report.error("Stopping comparison process.")
-            return None
-
-        try:
-
-            mtl_shape = mtl_df.shape
-            input_shape = input_df.shape
-            mtl_rows = mtl_shape[0]
-            mtl_cols = mtl_shape[1]
-            input_rows = input_shape[0]
-            input_cols = input_shape[1]
-            comparison = {
-                "shapes_equal": mtl_shape == input_shape,
-                "mtl_shape": mtl_shape,
-                "input_shape": input_shape,
-                "row_difference": mtl_rows - input_rows,
-                "column_difference": mtl_cols - input_cols,
-            }
-            return comparison
-        except Exception as e:
-            error_msg = f"An unexpected error occurred!\n{e}"
-            self.report.error(
-                "Could not compare data frame shapes. Check logs.", popup=True
-            )
-            self.report.exception(error_msg)
-            return None
-
-    def conform_columns(
-        self, mtl_df: pd.DataFrame | None, input_df: pd.DataFrame | None
-    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
-        """
-        A function that attempts to conform the input data frame columns to match the
-        MTL data frame columns for comparison.
-        Returns None if it fails.
-        """
-        if mtl_df is None or input_df is None:
-            self.report.error("There was a problem conforming the data frames.")
-            self.report.error("Cannot conform empty data frames.")
-            return None
-        _mtl = mtl_df.copy()
-        _input = input_df.copy()
-        mtl_cols = _mtl.shape[1]
-        input_cols = _input.shape[1]
-        try:
-            if mtl_cols != input_cols or (_mtl.dtypes != _input.dtypes).any():
-                self.report.highlight_error("Columns do not align!")
-                self._report_shape_differences(mtl_cols, input_cols, "COLUMN")
-                self.report.warning(
-                    "Columns or types may not be aligned and will now be tested and changed."
-                )
-            else:
-                self.report.info("Columns are aligned correctly. Continuing...")
-                return _mtl, _input
-
-            # Ensure df data is using the same columns as the mtl
-            # by filtering the df columns by the mtl columns
-            column_difference = set(_input.columns) ^ set(_mtl.columns)
-            if column_difference:
-                self.report.warning("The current difference in columns are:")
-                for i, col in enumerate(column_difference):
-                    self.report.warning(f"    {i}:{col}")
-            self.report.info("Aligning columns...")
-            _input = _input[_mtl.columns]
-            self.report.info("✓ Input data columns have aligned to the MTL columns!")
-            self.report.info(f"✓ {len(_mtl.columns)} columns set.")
-            self.report.info("Columns used within this comparison:")
-            for index, col in enumerate(_input.columns):
-                self.report.info(f"    {index}:{col}")
-            # Ensure the column data types are the same by matching the input
-            # dtypes to the mtl dtypes
-            self.report.info("Standardizing data types...")
-            self.report.info("Casting Input types to match the MTL columns.")
-            for col in _input.columns:
-                self.report.debug(f"Casting {col} column.")
-                if col in _mtl.columns:
-                    self.report.debug(
-                        f"Input type: {_input[col].dtype} changed to MTL type: {_mtl[col].dtype}."
-                    )
-                    _input[col] = _input[col].astype(  # type: ignore
-                        _mtl[col].dtype  # type: ignore
-                    )
-            self.report.info("✓ Data types aligned!")
-            return _mtl, _input  # type: ignore
-        except KeyError as e:
-            error_msg = "✗ Column mismatch: The input file is missing required columns."
-            self.report.highlight_titled_error(error_msg)
-            self.report.error(error_msg)
-            self.report.error(f"\n{e}")
-            self.report.save_report()
-            return None
-        except Exception as e:
-            self.report.highlight_titled_error("Data alignment failed!")
-            self.report.error(f"\n{e}")
-            self.report.save_report()
-            return None
 
     def _report_row_differences(
         self, mtl_dataframe: pd.DataFrame, input_dataframe: pd.DataFrame, comparison
@@ -275,8 +192,47 @@ class DataComparator:
 
         return mtl_df, input_df
 
+    def compare_shapes(
+        self,
+        mtl_df: pd.DataFrame | None,
+        input_df: pd.DataFrame | None,
+    ) -> dict | None:
+        """
+        A General comparison of data frame shape.
+        Returns a dictionary with shape comparison details or None if it fails.
+        """
+        if mtl_df is None or input_df is None:
+            self.report.error("Cannot compare empty data frames.")
+            self.report.error("Stopping comparison process.")
+            return None
+
+        try:
+            mtl_shape = mtl_df.shape
+            input_shape = input_df.shape
+            mtl_rows = mtl_shape[0]
+            mtl_cols = mtl_shape[1]
+            input_rows = input_shape[0]
+            input_cols = input_shape[1]
+            comparison = {
+                "shapes_equal": mtl_shape == input_shape,
+                "mtl_shape": mtl_shape,
+                "input_shape": input_shape,
+                "row_difference": mtl_rows - input_rows,
+                "column_difference": mtl_cols - input_cols,
+            }
+            return comparison
+        except Exception as e:
+            error_msg = f"An unexpected error occurred!\n{e}"
+            self.report.error(
+                "Could not compare data frame shapes. Check logs.", popup=True
+            )
+            self.report.exception(error_msg)
+            return None
+
     def compare_rows(
-        self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None
+        self,
+        mtl_dataframe: pd.DataFrame | None,
+        input_dataframe: pd.DataFrame | None,
     ):
         """
         Reports a detailed comparison of row differences. Returns None if it fails.
@@ -286,9 +242,6 @@ class DataComparator:
         if mtl_dataframe is None or input_dataframe is None:
             self.report.error("Cannot compare empty data frames.", popup=True)
             return None
-
-        # TODO: 001 - Implement a comparison key for each table, and pull mtl_ws_name
-        # key_column = WORKSHEET_METADATA[mtl_worksheet_name].comparison_key
 
         mtl_df = mtl_dataframe.copy()
         input_df = input_dataframe.copy()
@@ -330,8 +283,7 @@ class DataComparator:
                     result_names=("MTL", "Input"),
                 )
 
-                # TODO: implement better column key logic see above # TODO: 001
-                self._report_missing_rows(mtl_df, input_df, "Name")
+                self._report_missing_rows(mtl_df, input_df)
             else:
                 self.report.info("Rows counts compared successfully!")
                 self.report.info("Comparing row contents...")

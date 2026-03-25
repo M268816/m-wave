@@ -9,13 +9,7 @@
 import pandas as pd
 
 # local
-from src.metadata import (
-    DATAFRAME_FORMATTING,
-    MTL_VERSION,
-    TABLE_FORMATTING,
-    WORKSHEET_METADATA,
-    TableType,
-)
+from src.metadata import DATAFRAME_FORMATTING, MTL_VERSION, AppMetadata, TableType
 from src.reporting import Reporting
 
 
@@ -41,8 +35,9 @@ class DataFormatter:
     Helper class that handles all MTL and INPUT CSV formatting.
     """
 
-    def __init__(self, report: Reporting) -> None:
+    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
         self.report = report
+        self.metadata = AppMetadata(mtl_worksheet_name)
 
     def _normalize_whitespace(
         self, df: pd.DataFrame, columns: list[str] | None = None
@@ -59,9 +54,9 @@ class DataFormatter:
                 ).columns.tolist()
             for col in columns:  # type: ignore
                 if col in df_copy.columns:
-                    # Replace all whitespace with a single space
+                    # Replace all white space with a single space
                     df_copy[col] = df_copy[col].str.replace(r"\s+", " ", regex=True)
-                    # Strip leading/trailing whitespace
+                    # Strip leading/trailing white space
                     df_copy[col] = df_copy[col].str.strip()
 
             return df_copy
@@ -70,14 +65,15 @@ class DataFormatter:
             self.report.exception(error_msg, popup=True)
             return df
 
-    def _classic_data_check(self, df: pd.DataFrame, table_name: str) -> pd.DataFrame:
+    def _classic_data_check(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Helper function that checks the table type and determines whether or not
         to add classic columns to the table if not already present.
         """
         _df = df.copy()
-        table_type = WORKSHEET_METADATA[table_name].type
+        table_type = self.metadata.get_table_type()
         classic_columns = set(DATAFRAME_FORMATTING["classic_gxp_columns"])
+
         if table_type == TableType.GXP:
             if classic_columns.issubset(set(_df.columns)):
                 return _df
@@ -99,9 +95,11 @@ class DataFormatter:
         if not keys:
             return _df
 
+        # for keys with one column, drops any row with an empty value
         if len(keys) == 1:
             _df = _df.dropna(subset=keys)
             return _df
+        # for keys with multi columns, keeps rows if at least one value is not empty
         else:
             keep_mask = _df[keys].notna().any(axis=1)
             return _df.loc[keep_mask].copy()
@@ -121,9 +119,8 @@ class DataFormatter:
             self.report.error("There was a problem with formatting the data frame.")
             self.report.error("Cannot format empty DataFrame. Returned None.")
             return None
-        name_filter = name_filter or None
-        table_type = WORKSHEET_METADATA[table_name].type
-        merge_keys = TABLE_FORMATTING[table_type]["Merge On"]
+        table_type = self.metadata.get_table_type()
+        index_keys = self.metadata.get_table_index_keys()
         try:
             # inputs need to add the current version
             if use_version:
@@ -137,9 +134,9 @@ class DataFormatter:
                 columns=["", " ", None, "none", "nan", "None"], errors="ignore"
             )
             # Check for classic data points, needed for GXP for sure.
-            df = self._classic_data_check(df, table_name)
+            df = self._classic_data_check(df)
             # Setting the table configuration data
-            config = TABLE_FORMATTING[table_type]
+            config = self.metadata.get_table_formatting()
             self.report.debug(f"Configuration loaded: {config}")
             self.report.info(f"Object table type: {table_type.name}")
             self.report.info(f"Object name filter: {name_filter}")
@@ -183,7 +180,7 @@ class DataFormatter:
             # Reset the index
             output = output.reset_index(drop=True)
             # Remove blank rows
-            output = self._drop_na_rows(output, merge_keys)
+            output = self._drop_na_rows(output, index_keys)
             # Changing these columns to int helps some data comparison errors.
             for column in DATAFRAME_FORMATTING["numeric_columns"]:
                 if column in output.columns:
@@ -215,10 +212,10 @@ class DataFormatter:
         self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None
     ) -> bool:
         if mtl_dataframe is None:
-            self.report.highlight_titled_error("✗ MTL data formatting failed.")
+            self.report.highlight_titled_error("MTL data formatting failed.")
             return False
         if input_dataframe is None:
-            self.report.highlight_titled_error("✗ MTL data formatting failed.")
+            self.report.highlight_titled_error("Input data formatting failed.")
             return False
 
         self.report.info("✓ MTL formatted successfully!")
@@ -229,5 +226,91 @@ class DataFormatter:
         self.report.info("✓ Input shape after formatting:")
         self.report.info(f"✓        Rows: {input_dataframe.shape[0]}")
         self.report.info(f"✓     Columns: {input_dataframe.shape[1]}")
-
         return True
+
+    # NOTE: Duplicate of DataComparator._report_shape_differences — keep in sync.
+    def _report_shape_differences(self, mtl_dim, input_dim, dimension) -> None:
+        """
+        Reports row or column count differences between two data frames.
+        """
+        dimension_plural = f"{dimension}s"
+
+        if mtl_dim == input_dim:
+            self.report.info(f"✓ {dimension} counts match!")
+        else:
+            diff = abs(mtl_dim - input_dim)
+            larger, smaller = (
+                ("MTL", "Input") if mtl_dim > input_dim else ("Input", "MTL")
+            )
+            self.report.warning(
+                f"{larger} has {diff} more {dimension_plural} than {smaller}"
+            )
+
+    def conform_columns(
+        self, mtl_df: pd.DataFrame | None, input_df: pd.DataFrame | None
+    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+        """
+        A function that attempts to conform the input data frame columns to match the
+        MTL data frame columns for comparison.
+        Returns None if it fails.
+        """
+        if mtl_df is None or input_df is None:
+            self.report.error("There was a problem conforming the data frames.")
+            self.report.error("Cannot conform empty data frames.")
+            return None
+        _mtl = mtl_df.copy()
+        _input = input_df.copy()
+        mtl_cols = _mtl.shape[1]
+        input_cols = _input.shape[1]
+        try:
+            if mtl_cols != input_cols or (_mtl.dtypes != _input.dtypes).any():
+                self.report.highlight_error("Columns do not align!")
+                self._report_shape_differences(mtl_cols, input_cols, "COLUMN")
+                self.report.warning(
+                    "Columns or types may not be aligned and will now be tested and changed."
+                )
+            else:
+                self.report.info("Columns are aligned correctly. Continuing...")
+                return _mtl, _input
+
+            # Ensure df data is using the same columns as the mtl
+            # by filtering the df columns by the mtl columns
+            column_difference = set(_input.columns) ^ set(_mtl.columns)
+            if column_difference:
+                self.report.warning("The current difference in columns are:")
+                for i, col in enumerate(column_difference):
+                    self.report.warning(f"    {i}:{col}")
+            self.report.info("Aligning columns...")
+            _input = _input[_mtl.columns]
+            self.report.info("✓ Input data columns have aligned to the MTL columns!")
+            self.report.info(f"✓ {len(_mtl.columns)} columns set.")
+            self.report.info("Columns used within this comparison:")
+            for index, col in enumerate(_input.columns):
+                self.report.info(f"    {index}:{col}")
+            # Ensure the column data types are the same by matching the input
+            # dtypes to the mtl dtypes
+            self.report.info("Standardizing data types...")
+            self.report.info("Casting Input types to match the MTL columns.")
+            for col in _input.columns:
+                self.report.debug(f"Casting {col} column.")
+                if col in _mtl.columns:
+                    self.report.debug(
+                        f"Input type: {_input[col].dtype} changed to MTL type: {_mtl[col].dtype}."
+                    )
+                    _input[col] = _input[col].astype(  # type: ignore
+                        _mtl[col].dtype  # type: ignore
+                    )
+            self.report.info("✓ Data types aligned!")
+            return _mtl, _input  # type: ignore
+        except KeyError as e:
+            error_msg = "✗ Column mismatch: The input file is missing required columns."
+            self.report.highlight_titled_error(error_msg)
+            self.report.error(error_msg)
+            self.report.error(f"\n{e}")
+            self.report.save_report()
+            return None
+        except Exception as e:
+            self.report.highlight_titled_error("Data alignment failed!")
+            self.report.error(f"\n{e}")
+            self.report.save_report()
+            return None

@@ -9,7 +9,7 @@ import openpyxl as xl
 
 # local
 from src.reporting import Reporting
-from src.metadata import WORKSHEET_METADATA
+from src.metadata import AppMetadata
 
 
 class DataExtractor:
@@ -18,20 +18,21 @@ class DataExtractor:
     within the WAVE tool.
     """
 
-    def __init__(self, report: Reporting) -> None:
+    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
         self.report = report
+        self.metadata = AppMetadata(mtl_worksheet_name)
 
     def extract_mtl_table(
         self,
         file_path: str,
-        worksheet_name: str,
     ) -> pd.DataFrame | None:
         """
         Returns a data frame from a named excel table in the MTL.
         Will raise an exception if it fails.
         """
         workbook = None
-        table_id = WORKSHEET_METADATA[worksheet_name].table_id
+        table_id = self.metadata.get_table_id()
+        worksheet_name = self.metadata.get_worksheet_name()
         try:
             self.report.info("Extracting the MTL table...")
             workbook = xl.load_workbook(file_path, data_only=True)
@@ -112,6 +113,13 @@ class DataExtractor:
                 self.report.highlight_error("Could not convert bad input data.")
                 self.report.critical(error_msg, popup=True)
                 return None
+        except Exception as e:
+            error_msg = (
+                f"Input extraction unknown exception. Please report this error.\n{e}"
+            )
+            self.report.highlight_error("Could not convert bad input data.")
+            self.report.critical(error_msg, popup=True)
+            return None
 
     def could_extract(
         self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None

@@ -63,7 +63,7 @@ class App:
     def __init__(self) -> None:
         # Initialize the root ttk window
         self.window = ttk.Window(
-            title="λ Workbook Automation & Verification Engine (WAVE)",
+            title="λ Workbook Automation & Verification Engine",
             themename="superhero",
             size=(1280, 720),
             minsize=(1175, 450),
@@ -76,9 +76,9 @@ class App:
         self.report.debug("GUI window created.")
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
-        self.name_filter = ttk.StringVar(value="")
+        self.filter_string = ttk.StringVar(value="")
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
-        self.input_data_file_path = ttk.StringVar(value="Select a file.")
+        self.input_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
         self.report.debug("TTK object variables created.")
         # Init other app variables
@@ -160,7 +160,7 @@ class App:
         input_row.pack(fill=X, expand=YES)
         input_label = ttk.Label(input_row, text="Input File:", padding=10, width=20)
         input_label.pack(side=LEFT)
-        input_entry = ttk.Entry(input_row, textvariable=self.input_data_file_path)
+        input_entry = ttk.Entry(input_row, textvariable=self.input_file_path)
         input_entry.pack(side=LEFT, fill=X, expand=YES, padx=10)
         input_button = ttk.Button(
             input_row,
@@ -169,12 +169,12 @@ class App:
             padding=10,
             width=20,
             command=lambda: self.get_filepath(
-                self.input_data_file_path, [("Supported files", ("*.csv",))]
+                self.input_file_path, [("Supported files", ("*.csv",))]
             ),
         )
         input_button.pack(side=RIGHT)
 
-    def on_combobox_select(self, event):
+    def on_combobox_select(self, event=None):
         """
         Determines functionality when the type option combo box changes.
         """
@@ -198,7 +198,7 @@ class App:
         # Create the entry widget that filters data to an object name.
         name_label = ttk.Label(opt_row, text="Object Name:", padding=10)
         name_label.pack(side=LEFT, padx=10)
-        name_entry = ttk.Entry(opt_row, textvariable=self.name_filter)
+        name_entry = ttk.Entry(opt_row, textvariable=self.filter_string)
         name_entry.pack(side=LEFT, padx=10)
         self.report.debug(f"Default name filter: {name_entry.get()}", log_only=True)
 
@@ -226,7 +226,7 @@ class App:
         # Create the label widget that displays the compatible MTL/CMD version.
         version_label = ttk.Label(
             opt_row,
-            text=f"Compatible MTL/CMD Version: {self.mtl_version.get()}",
+            text=f"Compatible MTL Version: {self.mtl_version.get()}",
             padding=10,
         )
         version_label.pack(side=RIGHT, padx=10)
@@ -238,9 +238,9 @@ class App:
         # Validate file paths
         if (
             self.mtl_file_path.get() == "Select a file."
-            or self.input_data_file_path.get() == "Select a file."
+            or self.input_file_path.get() == "Select a file."
             or self.mtl_file_path.get() == "File selection canceled!"
-            or self.input_data_file_path.get() == "File selection canceled!"
+            or self.input_file_path.get() == "File selection canceled!"
         ):
             self.report.error("Please select both input files.", popup=True)
             return
@@ -259,26 +259,22 @@ class App:
             """
             self.report.debug("Starting subroutine...", log_only=True)
             try:
-                new_report_name = self.name_filter.get() or "Full_Test"
+                new_report_name = self.filter_string.get() or "Full_Test"
                 self.report.create_report(new_report_name)
                 self.report.debug(f"Report name should be: {new_report_name}")
-                process = Process(self.report)
+                process = Process(
+                    self.report,
+                    self.filter_string.get(),
+                    self.selected_data_table.get(),
+                    self.mtl_file_path.get(),
+                    self.input_file_path.get(),
+                )
                 if is_appending:
                     self.report.debug("Appending data...")
-                    process.append_input(
-                        self.name_filter.get(),
-                        self.input_data_file_path.get(),
-                        self.mtl_file_path.get(),
-                        self.selected_data_table.get(),
-                    )
+                    process.append_input()
                 else:
                     self.report.debug("Validating comparison data...")
-                    process.compare_datasets(
-                        self.name_filter.get(),
-                        self.input_data_file_path.get(),
-                        self.mtl_file_path.get(),
-                        self.selected_data_table.get(),
-                    )
+                    process.compare_input()
             except Exception as e:
                 self.report.exception(f"Subroutine process error:\n{e}", popup=True)
             finally:

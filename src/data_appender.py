@@ -4,46 +4,34 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # Test
-from __future__ import annotations
-from copy import copy
+# from __future__ import annotations
 
 # stdlib
+from copy import copy
+from pathlib import Path
 
 # third party
 import pandas as pd
-
-# local
-from src.metadata import TABLE_FORMATTING, WORKSHEET_METADATA
-from src.reporting import Reporting
-
-
-# test
-from pathlib import Path
 import openpyxl as xl
 from openpyxl.utils import range_boundaries, get_column_letter
 from openpyxl.worksheet.table import Table
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Font
 
+# local
+from src.metadata import AppMetadata
+from src.reporting import Reporting
+
 
 class DataAppender:
-    def __init__(self, report: Reporting) -> None:
+    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
         self.report = report
-
-    def _find_keys(self, mtl_worksheet_name: str) -> list[str]:
-        """
-        Returns a list of column names used as a key for appending new data to the MTL.
-        The keys are used to index the data frames to catch row differences.
-        """
-        table_type = WORKSHEET_METADATA[mtl_worksheet_name].type
-        keys = TABLE_FORMATTING[table_type]["Merge On"]
-        return keys
+        self.metadata = AppMetadata(mtl_worksheet_name)
 
     def upsert(
         self,
         mtl_dataframe: pd.DataFrame,
         input_dataframe: pd.DataFrame,
-        mtl_worksheet_name: str,
     ) -> pd.DataFrame | None:
         """
         Update and insert a input_dataframe into the mtl_dataframe, matching on `keys`
@@ -52,7 +40,7 @@ class DataAppender:
         """
         try:
             # get keys of new rows to append
-            keys = self._find_keys(mtl_worksheet_name)
+            keys = self.metadata.get_table_index_keys()
 
             keyed_mtl = mtl_dataframe.set_index(keys)
             keyed_input = input_dataframe.set_index(keys)
@@ -93,15 +81,6 @@ class DataAppender:
         self.report.info("This includes all appended rows, and updated rows,")
         self.report.info("    along with the full data within the supplied MTL file.")
         appended_dataframe.to_csv(appended_filepath, encoding="utf-8", index=False)
-
-    def export_to_mtl(
-        self, mtl_dataframe: pd.DataFrame, original_mtl_filepath: str
-    ) -> None:
-        """
-        Used to export the new appended data frame directly to the original MTL file.
-        This does not overwrite the file, a copy will be supplied in the reports folder.
-        """
-        raise NotImplementedError
 
     def _apply_template_row_style(
         self,
@@ -148,8 +127,6 @@ class DataAppender:
     def rebuild_named_table_in_place(
         self,
         excel_path: str | Path,
-        sheet_name: str,
-        table_name: str,  # e.g. "Table3"
         df: pd.DataFrame,
         output_path: str | Path | None = None,
         clear_old_area: bool = True,  # clears the old table rectangle before writing
@@ -160,6 +137,8 @@ class DataAppender:
 
         Works even if the table is not at A1.
         """
+        mtl_worksheet_name = self.metadata.get_worksheet_name()
+        table_id = self.metadata.get_table_id()
         # Sanitize pandas NA values to python for correct data type transfer
         self.report.debug("Sanitizing pd.na values from the DataFrame...")
         df = df.astype(object).where(pd.notna(df), None)
@@ -176,19 +155,19 @@ class DataAppender:
         self.report.debug(f"Output path: {output_path}")
 
         wb = xl.load_workbook(excel_path)
-        ws: Worksheet = wb[sheet_name]
+        ws: Worksheet = wb[mtl_worksheet_name]
 
-        if table_name not in ws.tables:
+        if table_id not in ws.tables:
             raise KeyError(
-                f"Table '{table_name}' not found in worksheet '{sheet_name}'"
+                f"Table '{table_id}' not found in worksheet '{mtl_worksheet_name}'"
             )
         self.report.debug("Table found...")
 
-        table: Table = ws.tables[table_name]
+        table: Table = ws.tables[table_id]
         self.report.debug("Table Set...")
 
         if not table.ref:
-            raise ValueError(f"Table '{table_name}' has no ref range.")
+            raise ValueError(f"Table '{table_id}' has no ref range.")
 
         # Existing table rectangle (including header row)
         min_col, min_row, max_col, max_row = range_boundaries(table.ref)
