@@ -14,7 +14,7 @@ from src.data_appender import DataAppender
 from src.data_extraction import DataExtractor
 from src.data_formatter import DataFormatter
 from src.data_comparator import DataComparator
-from src.metadata import WORKSHEET_METADATA, AppMetadata
+from src.metadata import AppMetadata
 from src.paths import REPORTS_DIR
 from src.reporting import Reporting
 
@@ -161,6 +161,7 @@ class Process:
                 "Review the generated .LOG and CSV files for detailed results."
             )
             return True
+
         except Exception as e:
             self.report.exception(
                 f"Unexpected error during comparison logic:\n{e}", popup=True
@@ -274,11 +275,7 @@ class Process:
             # TEST: Export to Excel
             self.report.title("Attempting to create an appended version of the MTL.")
             self.data_appender.rebuild_named_table_in_place(
-                mtl_filepath,
-                mtl_worksheet_name,
-                WORKSHEET_METADATA[mtl_worksheet_name].table_id,
-                appended_dataframe,
-                self.report.report_folder / "MTL_Updated.xlsx",
+                self.mtl_file_path, appended_dataframe
             )
 
             # FINALLY

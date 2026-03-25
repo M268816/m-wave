@@ -19,7 +19,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Font
 
 # local
-from src.metadata import AppMetadata
+from src.metadata import MTL_VERSION, AppMetadata
 from src.reporting import Reporting
 
 
@@ -126,10 +126,10 @@ class DataAppender:
 
     def rebuild_named_table_in_place(
         self,
-        excel_path: str | Path,
-        df: pd.DataFrame,
+        mtl_file_path: str | Path,
+        input_dataframe: pd.DataFrame,
         output_path: str | Path | None = None,
-        clear_old_area: bool = True,  # clears the old table rectangle before writing
+        clear_old_area: bool = True,  # clears the old excel table range before writing
     ) -> Path:
         """
         Overwrite an existing Excel Table (openpyxl Table) with df (header + values),
@@ -141,20 +141,20 @@ class DataAppender:
         table_id = self.metadata.get_table_id()
         # Sanitize pandas NA values to python for correct data type transfer
         self.report.debug("Sanitizing pd.na values from the DataFrame...")
-        df = df.astype(object).where(pd.notna(df), None)
+        df = input_dataframe.astype(object).where(pd.notna(input_dataframe), None)
         df = df.replace(r"^\s*$", None, regex=True)
 
         self.report.debug("Rebuilding Excel Table...")
-        excel_path = Path(excel_path)
-        self.report.debug(f"Origin path : {excel_path}")
+        mtl_file_path = Path(mtl_file_path)
+        self.report.debug(f"Origin path : {mtl_file_path}")
         output_path = (
             Path(output_path)
             if output_path
-            else excel_path.with_name(excel_path.stem + "_updated.xlsx")
+            else self.report.file_path / f"21471406_v{MTL_VERSION}_updated.xlsx"
         )
         self.report.debug(f"Output path: {output_path}")
 
-        wb = xl.load_workbook(excel_path)
+        wb = xl.load_workbook(mtl_file_path)
         ws: Worksheet = wb[mtl_worksheet_name]
 
         if table_id not in ws.tables:

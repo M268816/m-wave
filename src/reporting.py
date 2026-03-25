@@ -15,10 +15,8 @@ from ttkbootstrap.dialogs import Messagebox as modal
 
 # local
 from src.metadata import DATETIME_FORMAT
-from src.paths import ASSET_DIR
 
 logger = logging.getLogger(__name__)
-LOGO_PATH = ASSET_DIR / "logo.png"
 
 
 class Reporting:
@@ -41,7 +39,6 @@ class Reporting:
         self.file_path = Path()
         self.report_folder = Path()
         self.parent_window = parent_window
-        self.parent_window.iconphoto(False, LOGO_PATH)
         self.output_dir = output_dir
         self.use_timestamps = use_timestamps
 
