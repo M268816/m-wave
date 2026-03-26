@@ -124,6 +124,95 @@ class DataAppender:
                 color=copy(src_color) if src_color is not None else None,
             )
 
+    def rebuild_named_table(
+        self,
+        mtl_file_path: str | Path,
+        input_dataframe: pd.DataFrame,
+        clear_old_area: bool = True,  # clears the old excel table range before writing
+    ) -> Path:
+        """
+        Overwrite an existing Excel Table (openpyxl Table) with df (header + values),
+        starting at the table's current top-left cell, then resize table.ref.
+
+        Works even if the table is not at A1.
+        """
+        mtl_worksheet_name = self.metadata.get_worksheet_name()
+        table_id = self.metadata.get_table_id()
+        # Sanitize pandas NA values to python for correct data type transfer
+        self.report.debug("Sanitizing pd.na values from the DataFrame...")
+        df = input_dataframe.astype(object).where(pd.notna(input_dataframe), None)
+        df = df.replace(r"^\s*$", None, regex=True)
+
+        self.report.debug("Rebuilding Excel Table...")
+        mtl_file_path = Path(mtl_file_path)
+        self.report.debug(f"Origin path : {mtl_file_path}")
+
+        wb = xl.load_workbook(mtl_file_path)
+        ws: Worksheet = wb[mtl_worksheet_name]
+
+        if table_id not in ws.tables:
+            raise KeyError(
+                f"Table '{table_id}' not found in worksheet '{mtl_worksheet_name}'"
+            )
+        self.report.debug("Table found...")
+
+        table: Table = ws.tables[table_id]
+        self.report.debug("Table Set...")
+
+        if not table.ref:
+            raise ValueError(f"Table '{table_id}' has no ref range.")
+
+        # Existing table rectangle (including header row)
+        min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+        self.report.debug("Existing shape:")
+        self.report.debug(f"    Col pos: {min_col}")
+        self.report.debug(f"    Col len: {max_col}")
+        self.report.debug(f"    Row pos: {min_row}")
+        self.report.debug(f"    Row len: {max_row}")
+
+        # Where we will write the new table (top-left of existing table)
+        start_row, start_col = min_row, min_col
+        self.report.debug("Write shape, start:")
+        self.report.debug(f"    start col: {start_col}")
+        self.report.debug(f"    start row: {start_row}")
+
+        # Optional: clear the old table block (prevents leftover values if new df is smaller)
+        if clear_old_area:
+            self.report.debug("Trying to clear area...")
+            for r in range(min_row, max_row + 1):  # type: ignore
+                for c in range(min_col, max_col + 1):  # type: ignore
+                    ws.cell(row=r, column=c).value = None
+
+        # Write header
+        self.report.debug("Writing headers...")
+        for j, col_name in enumerate(df.columns):
+            ws.cell(row=start_row, column=start_col + j).value = str(col_name)  # type: ignore
+
+        # Write data rows
+        self.report.debug("Writing rows...")
+        for i, row in enumerate(df.itertuples(index=False, name=None), start=1):
+            for j, val in enumerate(row):
+                ws.cell(row=start_row + i, column=start_col + j).value = val  # type: ignore
+
+        # Resize table ref to match df (header + data)
+        # header is at start_row
+        new_max_row = start_row + len(df)  # type: ignore
+        new_max_col = start_col + df.shape[1] - 1  # type: ignore
+
+        template_row = min(max_row, max(start_row + 1, max_row))  # type: ignore
+        for r in range(max_row + 1, new_max_row + 1):  # type: ignore
+            self._apply_template_row_style(ws, template_row, r, start_col, new_max_col)  # type: ignore
+
+        new_ref = (
+            f"{get_column_letter(start_col)}{start_row}:"  # type: ignore
+            f"{get_column_letter(new_max_col)}{new_max_row}"
+        )
+        table.ref = new_ref
+
+        wb.save(mtl_file_path)
+        wb.close()
+        return mtl_file_path
+
     def rebuild_named_table_in_place(
         self,
         mtl_file_path: str | Path,
@@ -150,7 +239,7 @@ class DataAppender:
         output_path = (
             Path(output_path)
             if output_path
-            else self.report.file_path / f"21471406_v{MTL_VERSION}_updated.xlsx"
+            else self.report.report_folder / f"21471406_v{MTL_VERSION}_updated.xlsx"
         )
         self.report.debug(f"Output path: {output_path}")
 

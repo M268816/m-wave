@@ -274,7 +274,7 @@ class Process:
 
             # TEST: Export to Excel
             self.report.title("Attempting to create an appended version of the MTL.")
-            self.data_appender.rebuild_named_table_in_place(
+            self.data_appender.rebuild_named_table(
                 self.mtl_file_path, appended_dataframe
             )
 

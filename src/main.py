@@ -97,9 +97,14 @@ class App:
         self.create_footer_frame()
         self.report.debug("Frames and widgets created.")
         # Version heads up at init
+
         self.report.info(
             f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}. Other versions may fail.",
             popup=True,
+        )
+
+        self.report.warning(
+            "Please be sure the MTL is not open when runnnig this tool.", popup=True
         )
 
     def get_filepath(
