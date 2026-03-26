@@ -7,7 +7,6 @@
 # from __future__ import annotations
 
 # stdlib
-from copy import copy
 from pathlib import Path
 
 # third party
@@ -15,7 +14,7 @@ import pandas as pd
 import xlwings as xl
 
 # local
-from src.metadata import MTL_VERSION, AppMetadata
+from src.metadata import AppMetadata
 from src.reporting import Reporting
 
 
@@ -42,8 +41,12 @@ class DataAppender:
             keyed_input = input_dataframe.set_index(keys)
 
             # Save each data frame to keep record of the changes.
-            mtl_dataframe.to_csv(self.report.report_folder / "mtl_dataframe_before.csv", index=False)
-            input_dataframe.to_csv(self.report.report_folder / "input_dataframe.csv", index=False)
+            mtl_dataframe.to_csv(
+                self.report.report_folder / "mtl_dataframe_before.csv", index=False
+            )
+            input_dataframe.to_csv(
+                self.report.report_folder / "input_dataframe.csv", index=False
+            )
 
             # update existing composite keys
             # for each index key that exists in both data frames overwrite the values

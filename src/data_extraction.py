@@ -5,8 +5,7 @@
 
 # third party
 import pandas as pd
-import openpyxl as xl
-import xlwings as xlw
+import xlwings as xl
 
 # local
 from src.reporting import Reporting
@@ -32,7 +31,7 @@ class DataExtractor:
         with an active version of excel.
         """
         try:
-            excel = xlw.App(visible=False)
+            excel = xl.App(visible=False)
             workbook = excel.books.open(mtl_file_path)
             worksheet = workbook.sheets[self.metadata.get_worksheet_name()]
             table = worksheet.tables[self.metadata.get_table_id()]
@@ -47,48 +46,6 @@ class DataExtractor:
             workbook.close()
             excel.quit()
             return dataframe
-
-    def old_extract_mtl_table(
-        self,
-        file_path: str,
-    ) -> pd.DataFrame | None:
-        """
-        Returns a data frame from a named excel table in the MTL.
-        Will raise an exception if it fails.
-        """
-        workbook = None
-        table_id = self.metadata.get_table_id()
-        worksheet_name = self.metadata.get_worksheet_name()
-        try:
-            self.report.info("Extracting the MTL table...")
-            workbook = xl.load_workbook(file_path, data_only=True)
-            self.report.info("Loaded workbook.")
-            self.report.info(
-                f"Extracting excel table {table_id} from worksheet {worksheet_name}..."
-            )
-            worksheet = workbook[worksheet_name]
-            # return the cell range of the named table
-            data_range = worksheet.tables[table_id].ref
-            self.report.info("Loaded table.")
-            # return a 2d array of table data
-            table = [[cell.value for cell in row] for row in worksheet[data_range]]  # type: ignore
-            # get header and row data
-            headers = table[0]
-            rows = table[1:]
-            self.report.info("Retrieved table data!")
-            # create the data frame
-            dataframe = pd.DataFrame(rows, columns=headers)  # type: ignore
-            self.report.info("Data frame created.")
-            return dataframe
-        except Exception as e:
-            error_msg = f"Could not extract excel table into a data frame:\n{e}"
-            self.report.highlight_error("Could not extract the MTL table.")
-            self.report.exception(error_msg, popup=True)
-            return None
-        finally:
-            if workbook is not None:
-                workbook.close()
-                self.report.info("Workbook closed.")
 
     def extract_input_csv(
         self,
