@@ -6,6 +6,7 @@
 # third party
 import pandas as pd
 import openpyxl as xl
+import xlwings as xlw
 
 # local
 from src.reporting import Reporting
@@ -22,7 +23,32 @@ class DataExtractor:
         self.report = report
         self.metadata = AppMetadata(mtl_worksheet_name)
 
-    def extract_mtl_table(
+    def extract_mtl_table(self, mtl_file_path: str) -> pd.DataFrame:
+        """
+        Returns a data frame from a named excel table in the MTL.
+        Will raise an esception if it fails.
+        This iteration uses xlwings as the extractor. xlwings opens an instance of
+        excel and data runs through the app instance. Slower but directly interacts
+        with an active version of excel.
+        """
+        try:
+            excel = xlw.App(visible=False)
+            workbook = excel.books.open(mtl_file_path)
+            worksheet = workbook.sheets[self.metadata.get_worksheet_name()]
+            table = worksheet.tables[self.metadata.get_table_id()]
+            dataframe: pd.DataFrame = table.range.options(
+                pd.DataFrame, header=True, index=False
+            ).value
+            self.report.info("MTL Data extracted successfully.")
+        except Exception as e:
+            self.report.error("MTL extraction with xlwings failed.")
+            self.report.exception(f"{e}")
+        finally:
+            workbook.close()
+            excel.quit()
+            return dataframe
+
+    def old_extract_mtl_table(
         self,
         file_path: str,
     ) -> pd.DataFrame | None:

@@ -94,6 +94,7 @@ class Process:
                 "Extraction Phase: Extracting data sources into data frames."
             )
             mtl_dataframe = self.data_extractor.extract_mtl_table(self.mtl_file_path)
+
             input_dataframe = self.data_extractor.extract_input_csv(
                 self.input_file_path, self.filter_string
             )
@@ -187,7 +188,7 @@ class Process:
                 return None
 
             # NOTE: EXTRACTION PHASE
-            self.report.title(
+            self.report.simple_title(
                 "Extraction Phase: Extracting data sources into data frames."
             )
             mtl_dataframe = self.data_extractor.extract_mtl_table(self.mtl_file_path)
@@ -198,7 +199,7 @@ class Process:
                 return None
 
             # NOTE: FORMATTING PHASE 1: PREP
-            self.report.title(
+            self.report.simple_title(
                 "Formatting Phase (1 of 2): Preparing data for comparison."
             )
 
@@ -214,12 +215,11 @@ class Process:
                 self.filter_string,
                 use_version=True,
             )
-
             if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
                 return None
 
             # NOTE: FORMATTING PHASE 2: COLUMNS
-            self.report.title(
+            self.report.simple_title(
                 "Formatting Phase (2 of 2): Comparing columns and making adjustments."
             )
             conform_result = self.data_formatter.conform_columns(
@@ -232,7 +232,7 @@ class Process:
             mtl_dataframe, input_dataframe = conform_result
 
             # NOTE: COMPARISON PHASE
-            self.report.title(
+            self.report.simple_title(
                 "Comparison Phase: General Data Frame Comparison, Sanity Check"
             )
             shape_comparison = self.data_comparator.compare_shapes(
@@ -245,7 +245,7 @@ class Process:
                 self.report.info(f"    {key}: {value}")
 
             # NOTE: APPEND PHASE
-            self.report.title("Append Phase: Appending input csv to MTL.")
+            self.report.simple_title("Append Phase: Appending input csv to MTL.")
             appended_dataframe = self.data_appender.upsert(
                 mtl_dataframe, input_dataframe
             )
@@ -253,7 +253,7 @@ class Process:
                 return None
 
             # NOTE: FORMAT NEW APPENDED DATAFRAME TO ALIGN WITH OLD MTL FORMATTING.
-            self.report.title(
+            self.report.simple_title(
                 "Refromatting Phase: Aligning new data to the old MTL fomat."
             )
             appended_dataframe = self.data_formatter.format(
@@ -267,16 +267,18 @@ class Process:
 
             # NOTE: REPORT PHASE
             self.report.title("Appending completed.")
+            self.report.simple_title("Saving final data frame to CSV.")
             self.data_appender.export_to_csv(appended_dataframe)
             self.report.info(
                 "Review the generated .LOG and CSV files for detailed results."
             )
 
             # TEST: Export to Excel
-            self.report.title("Attempting to create an appended version of the MTL.")
-            self.data_appender.rebuild_named_table(
-                self.mtl_file_path, appended_dataframe
+            self.report.simple_title(
+                "Attempting to create an appended version of the MTL."
             )
+            self.report.warning("This make take a moment...")
+            self.data_appender.export_to_mtl(appended_dataframe, self.mtl_file_path)
 
             # FINALLY
             return True
