@@ -15,7 +15,7 @@ try:
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         _config = json.load(f)
 except Exception as e:
-    print(f"Configuration not found. Cannot run application./n{e}")
+    raise SystemExit(f"Configuration not found. Cannot run application.\n{e}")
 
 
 class TableType(int, Enum):
@@ -54,8 +54,10 @@ WORKSHEET_METADATA = {
 TABLE_FORMATTING = {
     TableType[key]: {
         "Index Keys": entry["index_keys"],
+        "Filter Keys": entry["filter_keys"],
         "Object Type Order": entry["object_type_order"],
         "Sort Order": entry["sort_order"],
+        # TODO: Change to "sort ascending"
         "Sort Direction": entry["sort_direction"],
     }
     for key, entry in _config["table_formatting"].items()
@@ -100,6 +102,9 @@ class AppMetadata:
 
     def get_table_index_keys(self) -> list[str]:
         return TABLE_FORMATTING[self._table_type]["Index Keys"]
+
+    def get_table_filter_keys(self) -> list[str]:
+        return TABLE_FORMATTING[self._table_type]["Filter Keys"]
 
     def get_table_sort_order(self) -> list[str]:
         return TABLE_FORMATTING[self._table_type]["Sort Order"]

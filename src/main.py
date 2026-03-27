@@ -61,7 +61,7 @@ class App:
     """
 
     def __init__(self) -> None:
-        # Initialize the root ttk window
+        # Initialize the root ttk windmw
         self.window = ttk.Window(
             title="λ Workbook Automation & Verification Engine",
             themename="superhero",
@@ -72,7 +72,8 @@ class App:
         self.window.iconphoto(False, self.icon)
         # Init Reporting
         self.report = Reporting(
-            self.window, REPORTS_DIR, populate_report=True, populate_log=True
+            self.window,
+            REPORTS_DIR,
         )
         self.report.debug("App starting...")
         self.report.debug("GUI window created.")

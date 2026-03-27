@@ -314,6 +314,7 @@ class DataComparator:
                 input_df.to_csv(input_report_file, index=True)
             else:
                 self._report_row_differences(mtl_df, input_df, row_comparison)
+            return True
         except Exception as e:
             error_msg = f"Unexpected error during reporting:\n{e}"
             self.report.exception(error_msg, popup=True)

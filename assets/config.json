@@ -4,7 +4,7 @@
     "MTL-Digital Sets-VAL&PROD": {
       "table_id": "Table5",
       "type": "DIGITAL_SET",
-      "can_process": true
+      "can_process": false
     },
     "MTL GxP-VAL": {
       "table_id": "Table2",
@@ -80,18 +80,21 @@
   "table_formatting": {
     "ANALYTICS": {
       "index_keys": ["Selected(x)", "Name"],
+      "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "CATEGORIES": {
       "index_keys": ["Selected(x)", "Name"],
+      "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "DIGITAL_SET": {
       "index_keys": ["Selected(x)", "Parent", "Name"],
+      "filter_keys": ["Name", "Parent"],
       "object_type_order": {
         "DigitalStateSet": 0,
         "DigitalState": 1
@@ -101,6 +104,7 @@
     },
     "ELEMENT": {
       "index_keys": ["Selected(x)", "Parent", "Name"],
+      "filter_keys": ["Name", "Template"],
       "object_type_order": {
         "Element": 0,
         "Attribute": 1
@@ -110,6 +114,7 @@
     },
     "ELEMENT_TEMPLATE": {
       "index_keys": ["Selected(x)", "Parent", "Name"],
+      "filter_keys": ["Name", "Parent"],
       "object_type_order": {
         "ElementTemplate": 0,
         "AttributeTemplate": 1,
@@ -122,6 +127,7 @@
     },
     "ENUM_SET": {
       "index_keys": ["Selected(x)", "Parent", "Name"],
+      "filter_keys": ["Name", "Parent"],
       "object_type_order": {
         "EnumerationSet": 0,
         "EnumerationValue": 1
@@ -131,6 +137,7 @@
     },
     "EVENT_FRAME": {
       "index_keys": ["Selected(x)", "Parent", "Name"],
+      "filter_keys": ["Name", "Parent"],
       "object_type_order": {
         "EventFrameTemplate": 0,
         "AttributeTemplate": 1
@@ -140,12 +147,14 @@
     },
     "GXP": {
       "index_keys": ["Selected(x)", "Name", "ObjectType"],
+      "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "TABLES": {
       "index_keys": ["Selected(x)", "Parent", "Name"],
+      "filter_keys": ["Name", "Parent"],
       "object_type_order": {
         "Table": 0,
         "TableColumn": 1,

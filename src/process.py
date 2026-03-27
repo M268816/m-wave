@@ -49,12 +49,14 @@ class Process:
         mtl_file_path: str,
         input_file_path: str,
     ) -> None:
-        self.report = report
-        self.metadata = AppMetadata(self.mtl_worksheet_name)
         self.filter_string = filter_string
         self.mtl_worksheet_name = selected_data_table
         self.mtl_file_path = mtl_file_path
         self.input_file_path = input_file_path
+
+        self.report = report
+        self.metadata = AppMetadata(self.mtl_worksheet_name)
+
         self.data_appender = DataAppender(self.report, self.metadata)
         self.data_extractor = DataExtractor(self.report, self.metadata)
         self.data_formatter = DataFormatter(self.report, self.metadata)
@@ -109,11 +111,10 @@ class Process:
             # Format the data frames to the worksheet table type.
             self.report.info("Formatting MTL dataframe...")
             mtl_dataframe = self.data_formatter.format(
-                self.mtl_worksheet_name, mtl_dataframe, self.filter_string  # type: ignore
+                mtl_dataframe, self.filter_string
             )
             self.report.info("Formatting INPUT CSV dataframe...")
             input_dataframe = self.data_formatter.format(
-                self.mtl_worksheet_name,
                 input_dataframe,
                 self.filter_string,
             )
@@ -206,11 +207,10 @@ class Process:
             # Format the data frames to the worksheet table type.
             self.report.info("Formatting MTL dataframe...")
             mtl_dataframe = self.data_formatter.format(
-                self.mtl_worksheet_name, mtl_dataframe, name_filter=None, use_version=True  # type: ignore
+                mtl_dataframe, filter_string=None, use_version=True
             )
             self.report.info("Formatting INPUT CSV dataframe...")
             input_dataframe = self.data_formatter.format(
-                self.mtl_worksheet_name,
                 input_dataframe,
                 self.filter_string,
                 use_version=True,
@@ -257,9 +257,8 @@ class Process:
                 "Reformatting Phase: Aligning new data to the old MTL fomat."
             )
             appended_dataframe = self.data_formatter.format(
-                self.mtl_worksheet_name,
                 appended_dataframe,
-                name_filter=None,
+                filter_string=None,
                 use_version=True,
             )
             if appended_dataframe is None:
@@ -293,23 +292,5 @@ class Process:
 
 
 if __name__ == "__main__":
-    FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
-    logging.basicConfig(
-        filename="debug_process.log",
-        filemode="w",
-        format=FORMAT,
-        encoding="utf-8",
-        level=logging.DEBUG,
-    )
-    window = ttk.Window()
-    report = Reporting(window, REPORTS_DIR)
-    report.create_report("debug")
-    process = Process(
-        report,
-        "",
-        "",
-        "",
-        "",
-    )
-    process.report.error("This module should not be run as a script.")
+    raise RuntimeError("Should not run this module as a script. Exiting.")
     exit()

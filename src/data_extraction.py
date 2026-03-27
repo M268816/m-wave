@@ -31,6 +31,8 @@ class DataExtractor:
         with an active version of excel.
         """
         dataframe = pd.DataFrame()
+        excel = None
+        workbook = None
         try:
             excel = xl.App(visible=False)
             workbook = excel.books.open(mtl_file_path)
@@ -46,9 +48,9 @@ class DataExtractor:
             self.report.exception(f"{e}")
             return dataframe
         finally:
-            if workbook:
+            if workbook is not None:
                 workbook.close()
-            if excel:
+            if excel is not None:
                 excel.quit()
 
     def extract_input_csv(

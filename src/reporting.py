@@ -24,18 +24,16 @@ class Reporting:
     A class that creates a report for a single process run by the app. It appends
     lines of strings to a list and writes them to a text file. Lines will also
     be added to the log file associated with the main logger.
-
-    All severities will
     """
 
     def __init__(
         self,
         parent_window: ttk.Window,
         output_dir: Path,
-        verbose_printing: bool = False,
-        populate_report: bool = False,
-        populate_log: bool = False,
-        use_timestamps: bool = False,
+        verbose_printing: bool = True,
+        populate_report: bool = True,
+        populate_log: bool = True,
+        use_timestamps: bool = True,
         timestamp: datetime | None = None,
     ) -> None:
         self.name = ""
@@ -137,13 +135,13 @@ class Reporting:
     def debug(
         self,
         msg: str,
-        report: bool | None = False,
-        log: bool | None = True,
+        report: bool | None = None,
+        log: bool | None = None,
         verbose: bool | None = None,
         popup: bool = False,
     ) -> None:
         """
-        Print, log and report debug information. Defaults to logger only.
+        Print, log and report debug information.
         """
         _log = self.logging if log is None else log
         _verbose = self.verbose if verbose is None else verbose

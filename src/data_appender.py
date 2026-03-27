@@ -102,13 +102,16 @@ class DataAppender:
         table_id = self.metadata.get_table_id()
         worksheet_name = self.metadata.get_worksheet_name()
 
+        excel = None
+        workbook = None
+
         try:
             self.report.info("Attempting to update the MTL.")
 
             excel = xl.App(visible=False, add_book=False)
             self.report.info("Excel opened silently.")
 
-            workbook: xl.Book = excel.books.open(mtl_file_path, read_only=True)
+            workbook = excel.books.open(mtl_file_path, read_only=True)
             self.report.info("Workbook found.")
 
             self.report.info("Saving a working copy...")
@@ -139,9 +142,9 @@ class DataAppender:
             self.report.exception(f"\n{e}")
 
         finally:
-            if workbook:
+            if workbook is not None:
                 workbook.close()
                 self.report.debug("Workbook should be closed.")
-            if excel:
+            if excel is not None:
                 excel.quit()
                 self.report.debug("Excel should be closed.")

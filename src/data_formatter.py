@@ -106,9 +106,8 @@ class DataFormatter:
 
     def format(
         self,
-        table_name: str,
         df: pd.DataFrame | None,
-        name_filter: str | None = None,
+        filter_string: str | None = None,
         use_version: bool = False,
     ) -> pd.DataFrame | None:
         """
@@ -133,40 +132,41 @@ class DataFormatter:
             df = df.drop(
                 columns=["", " ", None, "none", "nan", "None"], errors="ignore"
             )
-            # Check for classic data points, needed for GXP for sure.
+
+            # Check for classic data points, needed for GXP tables for sure.
             df = self._classic_data_check(df)
+
             # Setting the table configuration data
             config = self.metadata.get_table_formatting()
             self.report.debug(f"Configuration loaded: {config}")
             self.report.info(f"Object table type: {table_type.name}")
-            self.report.info(f"Object name filter: {name_filter}")
-            # Setting the object type ordering filter
-            type_order = config["Object Type Order"]
-            if name_filter:
-                if table_type == TableType.ELEMENT:
-                    # Filter mask includes name and template columns
-                    mask = df["Name"].str.contains(
-                        name_filter, case=False, na=False
-                    ) | df["Template"].str.contains(name_filter, case=False, na=False)
-                elif table_type in (
-                    TableType.GXP,
-                    TableType.CATEGORIES,
-                    TableType.ANALYTICS,
-                ):
-                    mask = df["Name"].str.contains(name_filter, case=False, na=False)
-                else:
-                    # Else, just check the name column and parent
-                    mask = df["Name"].str.contains(
-                        name_filter, case=False, na=False
-                    ) | df["Parent"].str.contains(name_filter, case=False, na=False)
-                # Applying the name filter here
+            self.report.info(f"Filter string: {filter_string}")
+
+            # Filter the data
+            if filter_string:
+                filter_keys = self.metadata.get_table_filter_keys()
+                mask = pd.Series(False, index=df.index)
+                for key in filter_keys:
+                    if key in df.columns:
+                        mask = mask | df[key].str.contains(
+                            filter_string, case=False, na=False
+                        )
                 output = df.loc[mask].copy()
             else:
                 # Else just copy the input data frame
                 output = df.copy()
+
+            # Setting the object type ordering filter
+            type_order = config["Object Type Order"]
             if type_order is not None:
                 # Apply the custom ordering column
                 output["type_order"] = output["ObjectType"].map(type_order)  # type: ignore
+
+            # TODO: Implement sort by custom path. Name, Parent,  etc. columns can be
+            # TODO: concatenated to create path like strings "Parent\Name" for a more
+            # TODO: accurate sorting method that follows a lot of the MTL table sorting
+            # TODO: formats.
+
             # Sort the data frame
             output = output.sort_values(
                 by=config["Sort Order"],
@@ -174,6 +174,7 @@ class DataFormatter:
                 ignore_index=True,
                 kind="stable",
             )
+
             # If we used the custom ordering column, drop it here
             if type_order is not None:
                 output = output.drop(columns=["type_order"])
