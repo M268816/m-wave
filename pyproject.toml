@@ -1,6 +1,6 @@
 [project]
 name = "mtl-cmd"
-version = "0.0.1"
+version = "0.1.0-pre_alpha.1"
 description = "A helper process to format Master Tag List and Context Master Data for LS_DH_USJA_DDS 20471406"
 readme = "README.md"
 requires-python = ">=3.11.3"
@@ -21,6 +21,7 @@ dependencies = [
   "et_xmlfile>2.0.0",
   "numpy>2.4.0",
   "openpyxl>3.1.5",
+  "xlwings>3.1",
   "pandas>2.3.3",
   "pillow>12.0.0",
   "python-dateutil>2.9.0.post0",
