@@ -35,9 +35,9 @@ class DataFormatter:
     Helper class that handles all MTL and INPUT CSV formatting.
     """
 
-    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
+    def __init__(self, report: Reporting, metadata: AppMetadata) -> None:
         self.report = report
-        self.metadata = AppMetadata(mtl_worksheet_name)
+        self.metadata = metadata
 
     def _normalize_whitespace(
         self, df: pd.DataFrame, columns: list[str] | None = None
@@ -307,10 +307,8 @@ class DataFormatter:
             self.report.highlight_titled_error(error_msg)
             self.report.error(error_msg)
             self.report.error(f"\n{e}")
-            self.report.save_report()
             return None
         except Exception as e:
             self.report.highlight_titled_error("Data alignment failed!")
             self.report.error(f"\n{e}")
-            self.report.save_report()
             return None

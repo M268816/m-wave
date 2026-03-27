@@ -18,18 +18,19 @@ class DataExtractor:
     within the WAVE tool.
     """
 
-    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
+    def __init__(self, report: Reporting, metadata: AppMetadata) -> None:
         self.report = report
-        self.metadata = AppMetadata(mtl_worksheet_name)
+        self.metadata = metadata
 
     def extract_mtl_table(self, mtl_file_path: str) -> pd.DataFrame:
         """
         Returns a data frame from a named excel table in the MTL.
-        Will raise an esception if it fails.
+        Will raise an exception if it fails.
         This iteration uses xlwings as the extractor. xlwings opens an instance of
         excel and data runs through the app instance. Slower but directly interacts
         with an active version of excel.
         """
+        dataframe = pd.DataFrame()
         try:
             excel = xl.App(visible=False)
             workbook = excel.books.open(mtl_file_path)
@@ -39,13 +40,16 @@ class DataExtractor:
                 pd.DataFrame, header=True, index=False
             ).value
             self.report.info("MTL Data extracted successfully.")
+            return dataframe
         except Exception as e:
             self.report.error("MTL extraction with xlwings failed.")
             self.report.exception(f"{e}")
-        finally:
-            workbook.close()
-            excel.quit()
             return dataframe
+        finally:
+            if workbook:
+                workbook.close()
+            if excel:
+                excel.quit()
 
     def extract_input_csv(
         self,
@@ -114,7 +118,7 @@ class DataExtractor:
             return False
         if input_dataframe is None:
             self.report.highlight_titled_error(
-                " Input CSV could not be extracted. Check your selected MTL table"
+                " Input CSV could not be extracted. Check your selected input table"
             )
             return False
         self.report.info("✓ MTL extracted successfully!")

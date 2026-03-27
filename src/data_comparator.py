@@ -14,9 +14,13 @@ from src.reporting import Reporting
 
 
 class DataComparator:
-    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
+    """
+    Attempts to compare and report differences in supplied MTL and input data frames.
+    """
+
+    def __init__(self, report: Reporting, metadata: AppMetadata) -> None:
         self.report = report
-        self.metadata = AppMetadata(mtl_worksheet_name)
+        self.metadata = metadata
 
     def _report_missing_rows(
         self,
@@ -308,10 +312,8 @@ class DataComparator:
                 )
                 mtl_df.to_csv(mtl_report_file, index=True)
                 input_df.to_csv(input_report_file, index=True)
-                return True
             else:
                 self._report_row_differences(mtl_df, input_df, row_comparison)
-                return True
         except Exception as e:
             error_msg = f"Unexpected error during reporting:\n{e}"
             self.report.exception(error_msg, popup=True)

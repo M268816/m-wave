@@ -24,12 +24,17 @@ class Reporting:
     A class that creates a report for a single process run by the app. It appends
     lines of strings to a list and writes them to a text file. Lines will also
     be added to the log file associated with the main logger.
+
+    All severities will
     """
 
     def __init__(
         self,
         parent_window: ttk.Window,
         output_dir: Path,
+        verbose_printing: bool = False,
+        populate_report: bool = False,
+        populate_log: bool = False,
         use_timestamps: bool = False,
         timestamp: datetime | None = None,
     ) -> None:
@@ -41,6 +46,9 @@ class Reporting:
         self.parent_window = parent_window
         self.output_dir = output_dir
         self.use_timestamps = use_timestamps
+        self.verbose = verbose_printing
+        self.logging = populate_log
+        self.report = populate_report
 
         if timestamp:
             self.timestamp = timestamp
@@ -126,72 +134,150 @@ class Reporting:
         self.file_path = report_path.with_suffix(".log")
         # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report.log"
 
-    def debug(self, msg: str, log_only: bool = True, popup: bool = False) -> None:
+    def debug(
+        self,
+        msg: str,
+        report: bool | None = False,
+        log: bool | None = True,
+        verbose: bool | None = None,
+        popup: bool = False,
+    ) -> None:
         """
-        Print, log and report debug information. Only posts to log by default.
+        Print, log and report debug information. Defaults to logger only.
         """
-        print(msg)
-        logger.debug(msg)
+        _log = self.logging if log is None else log
+        _verbose = self.verbose if verbose is None else verbose
+        _report = self.report if report is None else report
+
+        if _log:
+            logger.debug(msg)
+        if _verbose:
+            print(msg)
+        if _report:
+            self._add_line(msg, "DEBUG")
         if popup:
             self._queue_modal(modal.show_error, msg, "Debugger")
-        if not log_only:
-            self._add_line(msg, "DEBUG")
 
-    def error(self, msg: str, log_only: bool = False, popup: bool = False) -> None:
+    def error(
+        self,
+        msg: str,
+        report: bool | None = None,
+        log: bool | None = None,
+        verbose: bool | None = None,
+        popup: bool = False,
+    ) -> None:
         """
         Print, log and report lines with the error tag.
         """
-        print(msg)
-        logger.error(msg)
+        _log = self.logging if log is None else log
+        _verbose = self.verbose if verbose is None else verbose
+        _report = self.report if report is None else report
+
+        if _log:
+            logger.error(msg)
+        if _verbose:
+            print(msg)
+        if _report:
+            self._add_line(msg, "ERROR")
         if popup:
             self._queue_modal(modal.show_error, msg, "An error has occurred!")
-        if not log_only:
-            self._add_line(msg, "ERROR")
 
-    def exception(self, msg: str, log_only: bool = True, popup: bool = False) -> None:
+    def exception(
+        self,
+        msg: str,
+        report: bool | None = None,
+        log: bool | None = None,
+        verbose: bool | None = None,
+        popup: bool = False,
+    ) -> None:
         """
         Print, log and report exceptions. This will also display the exception path.
-        By default it will only append to the logging file.
+        By default uses instance defaults for report and log behavior.
         """
-        print(msg)
-        logger.exception(msg)
+        _log = self.logging if log is None else log
+        _verbose = self.verbose if verbose is None else verbose
+        _report = self.report if report is None else report
+
+        if _log:
+            logger.exception(msg)
+        if _verbose:
+            print(msg)
+        if _report:
+            self._add_line(msg, "EXCEPTION")
         if popup:
             self._queue_modal(modal.show_error, msg, "An exception was thrown!")
-        if not log_only:
-            self._add_line(msg, "EXCEPTION")
 
-    def info(self, msg: str, log_only: bool = False, popup: bool = False) -> None:
+    def info(
+        self,
+        msg: str,
+        report: bool | None = None,
+        log: bool | None = None,
+        verbose: bool | None = None,
+        popup: bool = False,
+    ) -> None:
         """
         Print, log and report standard information.
         """
-        print(msg)
-        logger.info(msg)
+        _log = self.logging if log is None else log
+        _verbose = self.verbose if verbose is None else verbose
+        _report = self.report if report is None else report
+
+        if _log:
+            logger.info(msg)
+        if _verbose:
+            print(msg)
+        if _report:
+            self._add_line(msg, "INFO")
         if popup:
             self._queue_modal(modal.show_info, msg, "You should know...")
-        if not log_only:
-            self._add_line(msg, "INFO")
 
-    def warning(self, msg: str, log_only: bool = False, popup: bool = False) -> None:
+    def warning(
+        self,
+        msg: str,
+        report: bool | None = None,
+        log: bool | None = None,
+        verbose: bool | None = None,
+        popup: bool = False,
+    ) -> None:
         """
         Print, log and report lines with the warning tag.
         """
-        print(msg)
-        logger.warning(msg)
+        _log = self.logging if log is None else log
+        _verbose = self.verbose if verbose is None else verbose
+        _report = self.report if report is None else report
+
+        if _log:
+            logger.warning(msg)
+        if _verbose:
+            print(msg)
+        if _report:
+            self._add_line(msg, "WARNING")
         if popup:
             self._queue_modal(modal.show_warning, msg, "Warning!")
-        if not log_only:
-            self._add_line(msg, "WARNING")
 
-    def critical(self, msg: str, log_only: bool = False, popup: bool = True) -> None:
+    def critical(
+        self,
+        msg: str,
+        report: bool | None = None,
+        log: bool | None = None,
+        verbose: bool | None = None,
+        popup: bool = False,
+    ) -> None:
         """
         Print, log and report critical failures.
         """
-        print(msg)
-        logger.critical(msg)
+        _log = self.logging if log is None else log
+        _verbose = self.verbose if verbose is None else verbose
+        _report = self.report if report is None else report
+
+        if _log:
+            logger.critical(msg)
+        if _verbose:
+            print(msg)
+        if _report:
+            self._add_line(msg, "CRITICAL")
         if popup:
             self._queue_modal(modal.show_error, msg, "CRITICAL FAILURE")
-        if not log_only:
-            self._add_line(msg, "CRITICAL")
 
     def title(self, message: str) -> None:
         """
@@ -282,7 +368,7 @@ if __name__ == "__main__":
     test = Reporting(window, output_dir=REPORTS_DIR)
     test.create_report("reporting_test")
     test.info("Saving to test_reporting dir.")
-    test.info("Only shown in logging, not reporting", log_only=True)
+    test.info("Only shown in logging, not reporting", log=False)
     test.info("Showing popup!", popup=True)
     test.debug("Debugging")
     test.error("Error")

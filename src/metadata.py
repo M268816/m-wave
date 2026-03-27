@@ -11,8 +11,11 @@ from enum import Enum
 # local
 from src.paths import CONFIG_PATH
 
-with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-    _config = json.load(f)
+try:
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        _config = json.load(f)
+except Exception as e:
+    print(f"Configuration not found. Cannot run application./n{e}")
 
 
 class TableType(int, Enum):

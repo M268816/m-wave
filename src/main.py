@@ -71,7 +71,9 @@ class App:
         self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
         self.window.iconphoto(False, self.icon)
         # Init Reporting
-        self.report = Reporting(self.window, REPORTS_DIR)
+        self.report = Reporting(
+            self.window, REPORTS_DIR, populate_report=True, populate_log=True
+        )
         self.report.debug("App starting...")
         self.report.debug("GUI window created.")
         # Init ttk variables
@@ -79,7 +81,9 @@ class App:
         self.filter_string = ttk.StringVar(value="")
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_file_path = ttk.StringVar(value="Select a file.")
+        self.input_selected = ttk.BooleanVar(value=False)
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
+        self.mtl_selected = ttk.BooleanVar(value=False)
         self.report.debug("TTK object variables created.")
         # Init other app variables
         self.process_thread = None
@@ -103,21 +107,29 @@ class App:
         )
 
     def get_filepath(
-        self, string_variable: ttk.StringVar, file_types: list[tuple] | None = None
+        self,
+        string_variable: ttk.StringVar,
+        is_selected: ttk.BooleanVar,
+        file_types: list[tuple] | None = None,
     ) -> None:
         """
         Use file_dialog to get a file path and set it to a ttk variable.
         file_types = [('Key', ('*.type',))]
+        Returns a boolean to set if selection was successful
         """
         if file_types is None:
             file_types = [
                 ("Supported files", ("*.xlsx", "*.xlsm")),
             ]
+
         user_input = open_file(title="Select a file", filetypes=file_types)
+
         if user_input:
             string_variable.set(user_input)
+            is_selected.set(True)
         else:
             string_variable.set("File selection canceled!")
+            is_selected.set(False)
 
     def create_main_content_frame(self) -> None:
         """
@@ -151,7 +163,7 @@ class App:
             bootstyle=PRIMARY,
             padding=10,
             width=20,
-            command=lambda: self.get_filepath(self.mtl_file_path),
+            command=lambda: self.get_filepath(self.mtl_file_path, self.mtl_selected),
         )
         mtl_button.pack(side=RIGHT)
 
@@ -169,7 +181,9 @@ class App:
             padding=10,
             width=20,
             command=lambda: self.get_filepath(
-                self.input_file_path, [("Supported files", ("*.csv",))]
+                self.input_file_path,
+                self.input_selected,
+                [("Supported files", ("*.csv",))],
             ),
         )
         input_button.pack(side=RIGHT)
@@ -180,7 +194,7 @@ class App:
         """
         selected_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(selected_value)
-        self.report.debug(f"Selected: {selected_value}", log_only=True)
+        self.report.debug(f"Selected: {selected_value}")
 
     def create_option_frame(self) -> None:
         """
@@ -196,11 +210,11 @@ class App:
         opt_row.pack(fill=X, expand=YES)
 
         # Create the entry widget that filters data to an object name.
-        name_label = ttk.Label(opt_row, text="Object Name:", padding=10)
-        name_label.pack(side=LEFT, padx=10)
-        name_entry = ttk.Entry(opt_row, textvariable=self.filter_string)
-        name_entry.pack(side=LEFT, padx=10)
-        self.report.debug(f"Default name filter: {name_entry.get()}", log_only=True)
+        filter_label = ttk.Label(opt_row, text="Filter:", padding=10)
+        filter_label.pack(side=LEFT, padx=10)
+        filter_entry = ttk.Entry(opt_row, textvariable=self.filter_string)
+        filter_entry.pack(side=LEFT, padx=10)
+        self.report.debug(f"Default name filter: {filter_entry.get()}")
 
         # Create the combo box widget for selecting the MTL/CMD data table.
         cbox_label = ttk.Label(
@@ -219,9 +233,7 @@ class App:
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self.on_combobox_select)
         default_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(default_value)
-        self.report.debug(
-            f"Default MTL/CMD Table Selected: {default_value}", log_only=True
-        )
+        self.report.debug(f"Default MTL/CMD Table Selected: {default_value}")
 
         # Create the label widget that displays the compatible MTL/CMD version.
         version_label = ttk.Label(
@@ -236,14 +248,10 @@ class App:
         Run the data transfer/validate process.
         """
         # Validate file paths
-        if (
-            self.mtl_file_path.get() == "Select a file."
-            or self.input_file_path.get() == "Select a file."
-            or self.mtl_file_path.get() == "File selection canceled!"
-            or self.input_file_path.get() == "File selection canceled!"
-        ):
+        if not self.mtl_selected.get() or not self.input_selected.get():
             self.report.error("Please select both input files.", popup=True)
             return
+        # Check if process is in progress
         if self.process_thread and self.process_thread.is_alive():
             self.report.warning("Process already running!", popup=True)
             return
@@ -257,9 +265,9 @@ class App:
             Pushes the process of loading the information to input to another
             thread.
             """
-            self.report.debug("Starting subroutine...", log_only=True)
+            self.report.debug("Starting subroutine...")
             try:
-                new_report_name = self.filter_string.get() or "Full_Test"
+                new_report_name = self.filter_string.get() or "Unfiltered"
                 self.report.create_report(new_report_name)
                 self.report.debug(f"Report name should be: {new_report_name}")
                 process = Process(
@@ -313,7 +321,6 @@ class App:
         )
         self.compare_btn.pack(side=RIGHT, padx=10, fill=Y)
         self.append_btn.pack(side=RIGHT, padx=15, fill=Y)
-        # row.configure()
 
     def run(self) -> None:
         """

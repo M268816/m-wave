@@ -50,15 +50,15 @@ class Process:
         input_file_path: str,
     ) -> None:
         self.report = report
+        self.metadata = AppMetadata(self.mtl_worksheet_name)
         self.filter_string = filter_string
         self.mtl_worksheet_name = selected_data_table
         self.mtl_file_path = mtl_file_path
         self.input_file_path = input_file_path
-        self.data_appender = DataAppender(self.report, self.mtl_worksheet_name)
-        self.data_extractor = DataExtractor(self.report, self.mtl_worksheet_name)
-        self.data_formatter = DataFormatter(self.report, self.mtl_worksheet_name)
-        self.data_comparator = DataComparator(self.report, self.mtl_worksheet_name)
-        self.metadata = AppMetadata(self.mtl_worksheet_name)
+        self.data_appender = DataAppender(self.report, self.metadata)
+        self.data_extractor = DataExtractor(self.report, self.metadata)
+        self.data_formatter = DataFormatter(self.report, self.metadata)
+        self.data_comparator = DataComparator(self.report, self.metadata)
 
     def _can_process(self) -> bool:
         """
@@ -174,7 +174,7 @@ class Process:
 
     def append_input(self) -> bool | None:
         """
-        Compare the supplied PI builder data and the MTL/CMD.
+        Append the supplied PI builder data and the MTL/CMD.
         Returns None if process fails.
         """
         try:
@@ -254,7 +254,7 @@ class Process:
 
             # NOTE: FORMAT NEW APPENDED DATAFRAME TO ALIGN WITH OLD MTL FORMATTING.
             self.report.simple_title(
-                "Refromatting Phase: Aligning new data to the old MTL fomat."
+                "Reformatting Phase: Aligning new data to the old MTL fomat."
             )
             appended_dataframe = self.data_formatter.format(
                 self.mtl_worksheet_name,
@@ -273,7 +273,6 @@ class Process:
                 "Review the generated .LOG and CSV files for detailed results."
             )
 
-            # TEST: Export to Excel
             self.report.simple_title(
                 "Attempting to create an appended version of the MTL."
             )

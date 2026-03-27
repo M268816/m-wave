@@ -3,9 +3,6 @@
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
-# Test
-# from __future__ import annotations
-
 # stdlib
 from pathlib import Path
 
@@ -19,9 +16,13 @@ from src.reporting import Reporting
 
 
 class DataAppender:
-    def __init__(self, report: Reporting, mtl_worksheet_name: str) -> None:
+    def __init__(
+        self,
+        report: Reporting,
+        metadata: AppMetadata,
+    ) -> None:
         self.report = report
-        self.metadata = AppMetadata(mtl_worksheet_name)
+        self.metadata = metadata
 
     def upsert(
         self,
@@ -77,7 +78,7 @@ class DataAppender:
         """
         Used to export the new appended data frame to csv format.
         """
-        appended_filename = "appended_table.csv"
+        appended_filename = "mtl_dataframe_after.csv"
         appended_filepath = self.report.report_folder / appended_filename
         self.report.info(f"Exporting the appended data to:  {appended_filepath}")
         self.report.info("This data is supplied as the complete mtl table.")
@@ -104,7 +105,7 @@ class DataAppender:
         try:
             self.report.info("Attempting to update the MTL.")
 
-            excel = xl.App(visible=True, add_book=False)
+            excel = xl.App(visible=False, add_book=False)
             self.report.info("Excel opened silently.")
 
             workbook: xl.Book = excel.books.open(mtl_file_path, read_only=True)
@@ -136,8 +137,11 @@ class DataAppender:
                 "Failed to export the data to the MTL. Check your logs.", popup=True
             )
             self.report.exception(f"\n{e}")
+
         finally:
-            workbook.close()
-            self.report.debug("Workbook should be closed.")
-            excel.quit()
-            self.report.debug("Excel should be closed.")
+            if workbook:
+                workbook.close()
+                self.report.debug("Workbook should be closed.")
+            if excel:
+                excel.quit()
+                self.report.debug("Excel should be closed.")
