@@ -7,7 +7,6 @@
 import logging
 
 # third party
-import ttkbootstrap as ttk
 
 # local
 from src.data_appender import DataAppender
@@ -15,7 +14,6 @@ from src.data_extraction import DataExtractor
 from src.data_formatter import DataFormatter
 from src.data_comparator import DataComparator
 from src.metadata import AppMetadata
-from src.paths import REPORTS_DIR
 from src.reporting import Reporting
 
 logger = logging.getLogger(__name__)
@@ -252,18 +250,6 @@ class Process:
             if appended_dataframe is None:
                 return None
 
-            # NOTE: FORMAT NEW APPENDED DATAFRAME TO ALIGN WITH OLD MTL FORMATTING.
-            self.report.simple_title(
-                "Reformatting Phase: Aligning new data to the old MTL fomat."
-            )
-            appended_dataframe = self.data_formatter.format(
-                appended_dataframe,
-                filter_string=None,
-                use_version=True,
-            )
-            if appended_dataframe is None:
-                return None
-
             # NOTE: REPORT PHASE
             self.report.title("Appending completed.")
             self.report.simple_title("Saving final data frame to CSV.")
@@ -271,7 +257,6 @@ class Process:
             self.report.info(
                 "Review the generated .LOG and CSV files for detailed results."
             )
-
             self.report.simple_title(
                 "Attempting to create an appended version of the MTL."
             )
@@ -293,4 +278,3 @@ class Process:
 
 if __name__ == "__main__":
     raise RuntimeError("Should not run this module as a script. Exiting.")
-    exit()
