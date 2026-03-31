@@ -52,10 +52,6 @@ class DataAppender:
             keyed_mtl = keyed_mtl[~keyed_mtl.index.isin(keyed_input.index)]
             output = pd.concat([keyed_mtl, keyed_input]).reset_index()
 
-            output.to_csv(
-                self.report.report_folder / "mtl_dataframe_after.csv", index=False
-            )
-
             return output
 
         except KeyError as e:
@@ -141,7 +137,7 @@ class DataAppender:
         finally:
             if workbook is not None:
                 workbook.close()
-                self.report.debug("Workbook should be closed.")
+                self.report.debug("Workbook should be closed.", report=False)
             if excel is not None:
                 excel.quit()
-                self.report.debug("Excel should be closed.")
+                self.report.debug("Excel should be closed.", report=False)

@@ -71,10 +71,7 @@ class App:
         self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
         self.window.iconphoto(False, self.icon)
         # Init Reporting
-        self.report = Reporting(
-            self.window,
-            REPORTS_DIR,
-        )
+        self.report = Reporting(self.window, REPORTS_DIR, use_timestamps=False)
         self.report.debug("App starting...")
         self.report.debug("GUI window created.")
         # Init ttk variables
@@ -195,7 +192,7 @@ class App:
         """
         selected_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(selected_value)
-        self.report.debug(f"Selected: {selected_value}")
+        self.report.debug(f"Selected: {selected_value}", report=False)
 
     def create_option_frame(self) -> None:
         """
@@ -215,7 +212,7 @@ class App:
         filter_label.pack(side=LEFT, padx=10)
         filter_entry = ttk.Entry(opt_row, textvariable=self.filter_string)
         filter_entry.pack(side=LEFT, padx=10)
-        self.report.debug(f"Default name filter: {filter_entry.get()}")
+        self.report.debug(f"Default name filter: {filter_entry.get()}", report=False)
 
         # Create the combo box widget for selecting the MTL/CMD data table.
         cbox_label = ttk.Label(
@@ -234,7 +231,9 @@ class App:
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self.on_combobox_select)
         default_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(default_value)
-        self.report.debug(f"Default MTL/CMD Table Selected: {default_value}")
+        self.report.debug(
+            f"Default MTL/CMD Table Selected: {default_value}", report=False
+        )
 
         # Create the label widget that displays the compatible MTL/CMD version.
         version_label = ttk.Label(
@@ -266,11 +265,13 @@ class App:
             Pushes the process of loading the information to input to another
             thread.
             """
-            self.report.debug("Starting subroutine...")
+            self.report.debug("Starting subroutine...", report=False)
             try:
                 new_report_name = self.filter_string.get() or "Unfiltered"
                 self.report.create_report(new_report_name)
-                self.report.debug(f"Report name should be: {new_report_name}")
+                self.report.debug(
+                    f"Report name should be: {new_report_name}", report=False
+                )
                 process = Process(
                     self.report,
                     self.filter_string.get(),
@@ -279,10 +280,10 @@ class App:
                     self.input_file_path.get(),
                 )
                 if is_appending:
-                    self.report.debug("Appending data...")
+                    self.report.debug("Appending data...", report=False)
                     process.append_input()
                 else:
-                    self.report.debug("Validating comparison data...")
+                    self.report.debug("Validating comparison data...", report=False)
                     process.compare_input()
             except Exception as e:
                 self.report.exception(f"Subroutine process error:\n{e}", popup=True)

@@ -12,7 +12,6 @@ import pandas as pd
 from src.metadata import DATAFRAME_FORMATTING, MTL_VERSION, AppMetadata, TableType
 from src.reporting import Reporting
 
-
 _VALUE_NORMALIZATION_MAP: dict = {
     "TRUE": True,
     "True": True,
@@ -138,7 +137,7 @@ class DataFormatter:
 
             # Setting the table configuration data
             config = self.metadata.get_table_formatting()
-            self.report.debug(f"Configuration loaded: {config}")
+            self.report.debug(f"Configuration loaded: {config}", report=False)
             self.report.info(f"Object table type: {table_type.name}")
             self.report.info(f"Filter string: {filter_string}")
 
@@ -293,10 +292,11 @@ class DataFormatter:
             self.report.info("Standardizing data types...")
             self.report.info("Casting Input types to match the MTL columns.")
             for col in _input.columns:
-                self.report.debug(f"Casting {col} column.")
+                self.report.debug(f"Casting {col} column.", report=False)
                 if col in _mtl.columns:
                     self.report.debug(
-                        f"Input type: {_input[col].dtype} changed to MTL type: {_mtl[col].dtype}."
+                        f"Input type: {_input[col].dtype} changed to MTL type: {_mtl[col].dtype}.",
+                        report=False,
                     )
                     _input[col] = _input[col].astype(  # type: ignore
                         _mtl[col].dtype  # type: ignore

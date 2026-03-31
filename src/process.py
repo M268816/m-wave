@@ -197,28 +197,9 @@ class Process:
             if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
                 return None
 
-            # NOTE: FORMATTING PHASE 1: PREP
-            self.report.simple_title(
-                "Formatting Phase (1 of 2): Preparing data for comparison."
-            )
-
-            # Format the data frames to the worksheet table type.
-            self.report.info("Formatting MTL dataframe...")
-            mtl_dataframe = self.data_formatter.format(
-                mtl_dataframe, filter_string=None, use_version=True
-            )
-            self.report.info("Formatting INPUT CSV dataframe...")
-            input_dataframe = self.data_formatter.format(
-                input_dataframe,
-                self.filter_string,
-                use_version=True,
-            )
-            if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
-                return None
-
             # NOTE: FORMATTING PHASE 2: COLUMNS
             self.report.simple_title(
-                "Formatting Phase (2 of 2): Comparing columns and making adjustments."
+                "Formatting Phase: Comparing columns and making adjustments."
             )
             conform_result = self.data_formatter.conform_columns(
                 mtl_dataframe, input_dataframe
@@ -251,7 +232,6 @@ class Process:
                 return None
 
             # NOTE: REPORT PHASE
-            self.report.title("Appending completed.")
             self.report.simple_title("Saving final data frame to CSV.")
             self.data_appender.export_to_csv(appended_dataframe)
             self.report.info(
@@ -264,6 +244,7 @@ class Process:
             self.data_appender.export_to_mtl(appended_dataframe, self.mtl_file_path)
 
             # FINALLY
+            self.report.title("Appending completed.")
             return True
 
         except Exception as e:
