@@ -100,7 +100,7 @@ class App:
         self.report.debug("Frames and widgets created.")
 
         self.report.info(
-            f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}. Other versions may fail. Make sure that the MTL is not opened while using this tool. Thank you.",
+            f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}. Other versions may fail. Make sure that the MTL is not opened while using this tool. Finally, please make sure the input files do not contain or try to pre-populate a Version column. Thank you.",
             popup=True,
         )
 

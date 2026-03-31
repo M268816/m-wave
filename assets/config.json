@@ -1,80 +1,80 @@
 {
-  "mtl_version": "20.0",
+  "mtl_version": "21.0",
   "worksheet_metadata": {
     "MTL-Digital Sets-VAL&PROD": {
       "table_id": "Table5",
       "type": "DIGITAL_SET",
-      "can_process": false
+      "can_compare": false
     },
     "MTL GxP-VAL": {
       "table_id": "Table2",
       "type": "GXP",
-      "can_process": true
+      "can_compare": true
     },
     "MTL GxP-PROD": {
       "table_id": "Table3",
       "type": "GXP",
-      "can_process": true
+      "can_compare": true
     },
     "MTL-Analytics-VAL&PROD": {
       "table_id": "Table4",
       "type": "ANALYTICS",
-      "can_process": true
+      "can_compare": true
     },
     "CMD-Enumeration Sets-VAL": {
       "table_id": "Table6",
       "type": "ENUM_SET",
-      "can_process": true
+      "can_compare": true
     },
     "CMD-Enumeration Sets-PROD": {
       "table_id": "Table7",
       "type": "ENUM_SET",
-      "can_process": true
+      "can_compare": true
     },
     "CMD Categories-VAL": {
       "table_id": "Table8",
       "type": "CATEGORIES",
-      "can_process": true
+      "can_compare": true
     },
     "CMD Categories-PROD": {
       "table_id": "Table9",
       "type": "CATEGORIES",
-      "can_process": true
+      "can_compare": true
     },
     "CMD Tables-VAL": {
       "table_id": "Table10",
       "type": "TABLES",
-      "can_process": false
+      "can_compare": false
     },
     "CMD Tables-PROD": {
       "table_id": "Table1012",
       "type": "TABLES",
-      "can_process": false
+      "can_compare": false
     },
     "CMD-Event Frame Templates-VAL": {
       "table_id": "Table14",
       "type": "EVENT_FRAME",
-      "can_process": true
+      "can_compare": true
     },
     "CMD-Event Frame Templates-PROD": {
       "table_id": "Table1416",
       "type": "EVENT_FRAME",
-      "can_process": true
+      "can_compare": true
     },
     "CMD-Element Templates-VAL": {
       "table_id": "Table12",
       "type": "ELEMENT_TEMPLATE",
-      "can_process": true
+      "can_compare": true
     },
     "CMD-Element Templates-PROD": {
       "table_id": "Table13",
       "type": "ELEMENT_TEMPLATE",
-      "can_process": true
+      "can_compare": true
     },
     "CMD-Elements-Build": {
       "table_id": "Table11",
       "type": "ELEMENT",
-      "can_process": false
+      "can_compare": false
     }
   },
   "table_formatting": {

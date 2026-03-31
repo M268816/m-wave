@@ -39,14 +39,14 @@ class TableInfo:
 
     table_id: str
     type: TableType = TableType.UNKNOWN
-    can_process: bool = False
+    can_compare: bool = False
 
 
 WORKSHEET_METADATA = {
     sheet_name: TableInfo(
         table_id=entry["table_id"],
         type=TableType[entry["type"]],
-        can_process=entry["can_process"],
+        can_compare=entry["can_compare"],
     )
     for sheet_name, entry in _config["worksheet_metadata"].items()
 }
@@ -88,8 +88,8 @@ class AppMetadata:
     def get_worksheet_name(self) -> str:
         return self.worksheet_name
 
-    def can_process_worksheet(self) -> bool:
-        return WORKSHEET_METADATA[self.worksheet_name].can_process
+    def can_compare_worksheet(self) -> bool:
+        return WORKSHEET_METADATA[self.worksheet_name].can_compare
 
     def get_table_type(self) -> TableType:
         return self._table_type

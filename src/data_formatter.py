@@ -161,11 +161,6 @@ class DataFormatter:
                 # Apply the custom ordering column
                 output["type_order"] = output["ObjectType"].map(type_order)  # type: ignore
 
-            # TODO: Implement sort by custom path. Name, Parent,  etc. columns can be
-            # TODO: concatenated to create path like strings "Parent\Name" for a more
-            # TODO: accurate sorting method that follows a lot of the MTL table sorting
-            # TODO: formats.
-
             # Sort the data frame
             output = output.sort_values(
                 by=config["Sort Order"],

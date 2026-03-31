@@ -60,12 +60,12 @@ class Process:
         self.data_formatter = DataFormatter(self.report, self.metadata)
         self.data_comparator = DataComparator(self.report, self.metadata)
 
-    def _can_process(self) -> bool:
+    def _can_compare(self) -> bool:
         """
         Check a MTL worksheet by name and determine if it can be processed.
         """
-        can_process = self.metadata.can_process_worksheet()
-        if not can_process:
+        can_compare = self.metadata.can_compare_worksheet()
+        if not can_compare:
             self.report.highlight_titled_error(
                 "✗ This table does not yet have the capability to process data.",
             )
@@ -86,7 +86,7 @@ class Process:
             )
 
             # Check if the table can processed.
-            if not self._can_process():
+            if not self._can_compare():
                 return None
 
             # NOTE: EXTRACTION PHASE
@@ -183,7 +183,7 @@ class Process:
             )
 
             # Check if the table can processed.
-            if not self._can_process():
+            if not self._can_compare():
                 return None
 
             # NOTE: EXTRACTION PHASE
