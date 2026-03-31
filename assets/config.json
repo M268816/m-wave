@@ -168,6 +168,7 @@
     "numeric_columns": [
       "archiving",
       "AttributeDisplayDigits",
+      "AttributeDefaultValue",
       "compdev",
       "compressing",
       "compmax",

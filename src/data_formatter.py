@@ -147,29 +147,40 @@ class DataFormatter:
     def sort(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Helper function that sorts the data according to the master data table formats.
+        Returns an empty data frame if it fails.
         """
-        # Setting the object type ordering filter
-        config = self.metadata.get_table_formatting()
-        type_order = config["Object Type Order"]
-        if type_order is not None:
-            # Apply the custom ordering column
-            df["type_order"] = df["ObjectType"].map(type_order)  # type: ignore
+        try:
+            # Setting the object type ordering filter
+            config = self.metadata.get_table_formatting()
+            type_order = config["Object Type Order"]
+            if type_order is not None:
+                self.report.info("Special ordering required.")
+                # Apply the custom ordering column
+                df["type_order"] = df["ObjectType"].map(type_order)  # type: ignore
+                self.report.info("Created temporary sorting column 'type_order'.")
 
-        # Sort the data frame
-        df = df.sort_values(
-            by=config["Sort Order"],
-            ascending=config["Sort Direction"],
-            ignore_index=True,
-            kind="stable",
-        )
+            # Sort the data frame
+            self.report.info("Sorting...")
+            df = df.sort_values(
+                by=config["Sort Order"],
+                ascending=config["Sort Direction"],
+                ignore_index=True,
+                kind="stable",
+            )
 
-        # If we used the custom ordering column, drop it here
-        if type_order is not None:
-            df = df.drop(columns=["type_order"])
+            # If we used the custom ordering column, drop it here
+            if type_order is not None:
+                self.report.info("Dropping the sorting column.")
+                df = df.drop(columns=["type_order"])
 
-        # Reset the index
-        output = df.reset_index(drop=True)
-        return output
+            # Reset the index
+            output = df.reset_index(drop=True)
+            self.report.info("Index reset!")
+            self.report.info("Sorting completed.")
+            return output
+        except Exception as e:
+            self.report.exception(f"{e}")
+            return pd.DataFrame()
 
     def format(
         self,

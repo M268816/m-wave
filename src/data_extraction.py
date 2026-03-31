@@ -60,6 +60,7 @@ class DataExtractor:
     ) -> pd.DataFrame | None:
         """
         Returns a data frame from an input csv file.
+        The filter string is only used for file naming in this function.
         Will raise an exception if it fails.
         """
         # Read the input csv

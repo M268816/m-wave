@@ -85,14 +85,16 @@ class Process:
                 f"COMPARISON STARTED FOR: {self.filter_string or 'None'} within {self.mtl_worksheet_name}"
             )
 
-            # Check if the table can processed.
+            # Check if the table can processed here.
+            # Data frames must be able to be sorted to the original MTL format for
+            # comparisons to work. If the table cannot be sorted so that the entire
+            # table can be compared. Stop the comparison.
             if not self._can_compare():
                 return None
 
             # NOTE: EXTRACTION PHASE
-            self.report.simple_title(
-                "Extraction Phase: Extracting data sources into data frames."
-            )
+            self.report.simple_title("Extraction Phase")
+            self.report.simple_title("Extracting data sources into data frames")
             mtl_dataframe = self.data_extractor.extract_mtl_table(self.mtl_file_path)
 
             input_dataframe = self.data_extractor.extract_input_csv(
@@ -102,28 +104,21 @@ class Process:
                 return None
 
             # NOTE: FORMATTING PHASE
-            self.report.simple_title(
-                "Formatting Phase (1 of 2): Preparing data for comparison."
-            )
+            self.report.simple_title("Formatting Phase (1 of 2)")
+            self.report.simple_title("Preparing data for comparison")
 
-            # Format the data frames to the worksheet table type.
+            # Format the data frames to the worksheet table type formats of the MTL.
             self.report.info("Formatting MTL dataframe...")
-            mtl_dataframe = self.data_formatter.format(
-                mtl_dataframe, self.filter_string
-            )
+            mtl_dataframe = self.data_formatter.format(mtl_dataframe)
             self.report.info("Formatting INPUT CSV dataframe...")
-            input_dataframe = self.data_formatter.format(
-                input_dataframe,
-                self.filter_string,
-            )
+            input_dataframe = self.data_formatter.format(input_dataframe)
 
             if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
                 return None
 
             # NOTE: FORMATTING PHASE 2: COLUMNS
-            self.report.simple_title(
-                "Formatting Phase (2 of 2): Comparing columns and making adjustments."
-            )
+            self.report.simple_title("Formatting Phase (2 of 2)")
+            self.report.simple_title("Comparing columns and making adjustments")
             conform_result = self.data_formatter.conform_columns(
                 mtl_dataframe, input_dataframe
             )
@@ -133,10 +128,36 @@ class Process:
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
 
-            # NOTE: COMPARISON PHASE 2: GENERAL COMPARISON
-            self.report.simple_title(
-                "Comparison Phase (1 of 2): General Data Frame Comparison, Sanity Check"
-            )
+            # NOTE: FILTERING PHASE
+            if self.filter_string:
+                self.report.simple_title("Filter Phase")
+                self.report.simple_title(
+                    "Filtering the inputs to the user's filter string"
+                )
+                mtl_dataframe = self.data_formatter.filter(
+                    mtl_dataframe, self.filter_string
+                )
+                input_dataframe = self.data_formatter.filter(
+                    input_dataframe, self.filter_string
+                )
+                if mtl_dataframe is None or input_dataframe is None:
+                    self.report.error("Could not filter the data frames!")
+                    return None
+            else:
+                self.report.info("No filter found, filtering skipped.")
+
+            # NOTE: SORTING PHASE
+            self.report.simple_title("Sorting Phase")
+            self.report.simple_title("Sorting the data frames per MTL table formatting")
+            mtl_dataframe = self.data_formatter.sort(mtl_dataframe)
+            input_dataframe = self.data_formatter.sort(input_dataframe)
+            if mtl_dataframe is None or input_dataframe is None:
+                self.report.error("Could not sort the data frames!")
+                return None
+
+            # NOTE: COMPARISON PHASE 1: GENERAL COMPARISON
+            self.report.simple_title("Comparison Phase (1 of 2)")
+            self.report.simple_title("General Data Frame Comparison, Sanity Check")
             shape_comparison = self.data_comparator.compare_shapes(
                 mtl_dataframe, input_dataframe
             )
@@ -147,7 +168,8 @@ class Process:
                 self.report.info(f"    {key}: {value}")
 
             # NOTE: COMPARISON PHASE 3: ROWS
-            self.report.simple_title("Comparison Phase (2 of 2): Comparing row data.")
+            self.report.simple_title("Comparison Phase (2 of 2)")
+            self.report.simple_title("Comparing row data.")
             row_comparison = self.data_comparator.compare_rows(
                 mtl_dataframe,
                 input_dataframe,
@@ -156,7 +178,7 @@ class Process:
                 return None
 
             # NOTE: REPORT PHASE
-            self.report.subtitle("Comparison checks completed.")
+            self.report.title("Comparison checks completed.")
             self.report.info(
                 "Review the generated .LOG and CSV files for detailed results."
             )
@@ -177,32 +199,43 @@ class Process:
         Returns None if process fails.
         """
         try:
-            # NOTE: START THE COMPARISON
+            # NOTE: START APPENDING
             self.report.title(
                 f"APPENDING: {self.filter_string or 'None'} to {self.mtl_worksheet_name}"
             )
 
-            # Check if the table can processed.
-            if not self._can_compare():
-                return None
-
             # NOTE: EXTRACTION PHASE
-            self.report.simple_title(
-                "Extraction Phase: Extracting data sources into data frames."
-            )
+            self.report.simple_title("Extraction Phase")
+            self.report.simple_title("Extracting data sources into data frames.")
+
+            # For appending data, all data must be extracted, no filtering.
             mtl_dataframe = self.data_extractor.extract_mtl_table(self.mtl_file_path)
+
             input_dataframe = self.data_extractor.extract_input_csv(
                 self.input_file_path, self.filter_string
             )
+
             if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
                 return None
 
+            # NOTE: FORMATTING PHASE 1: GENERAL
+            self.report.simple_title("Formatting Phase (1 of 2)")
+            self.report.simple_title("Preparing data for comparison")
+
+            # Format the data frames to the worksheet table type formats of the MTL.
+            self.report.info("Formatting MTL dataframe...")
+            mtl_dataframe = self.data_formatter.format(mtl_dataframe)
+            self.report.info("Formatting INPUT CSV dataframe...")
+            input_dataframe = self.data_formatter.format(input_dataframe)
+
+            if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
+                return None
+
             # NOTE: FORMATTING PHASE 2: COLUMNS
-            self.report.simple_title(
-                "Formatting Phase: Comparing columns and making adjustments."
-            )
+            self.report.simple_title("Formatting Phase (2 of 2)")
+            self.report.simple_title("Comparing columns and making adjustments")
             conform_result = self.data_formatter.conform_columns(
-                mtl_dataframe, input_dataframe
+                mtl_dataframe, input_dataframe, use_version=True
             )
             if conform_result is None:
                 return None
@@ -210,10 +243,23 @@ class Process:
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
 
+            # NOTE: FILTERING PHASE
+            if self.filter_string:
+                self.report.simple_title("Filter Phase")
+                self.report.simple_title(
+                    "Filtering the inputs to the user's filter string"
+                )
+                input_dataframe = self.data_formatter.filter(
+                    input_dataframe, self.filter_string
+                )
+                if mtl_dataframe is None or input_dataframe is None:
+                    self.report.error("Could not filter the data frames!")
+                    return None
+            else:
+                self.report.info("No filter found, filtering skipped.")
             # NOTE: COMPARISON PHASE
-            self.report.simple_title(
-                "Comparison Phase: General Data Frame Comparison, Sanity Check"
-            )
+            self.report.simple_title("Comparison Phase")
+            self.report.simple_title("General Data Frame Comparison, Sanity Check")
             shape_comparison = self.data_comparator.compare_shapes(
                 mtl_dataframe, input_dataframe
             )
