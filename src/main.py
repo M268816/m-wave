@@ -283,7 +283,7 @@ class App:
                     self.report.debug("Appending data...", report=False)
                     process.append_input()
                 else:
-                    self.report.debug("Validating comparison data...", report=False)
+                    self.report.debug("Comparing supplied data...", report=False)
                     process.compare_input()
             except Exception as e:
                 self.report.exception(f"Subroutine process error:\n{e}", popup=True)
