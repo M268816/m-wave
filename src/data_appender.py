@@ -49,18 +49,15 @@ class DataAppender:
                 self.report.report_folder / "input_dataframe.csv", index=False
             )
 
-            # update existing composite keys
-            # for each index key that exists in both data frames overwrite the values
-            # from the input into the mtl
-            keyed_mtl.update(keyed_input)
+            keyed_mtl = keyed_mtl[~keyed_mtl.index.isin(keyed_input.index)]
+            output = pd.concat([keyed_mtl, keyed_input]).reset_index()
 
-            # add new composite keys
-            # pull keys that do not exist in the MTL
-            keys_to_add = keyed_input.loc[keyed_input.index.difference(keyed_mtl.index)]
-            # append/concat the new keys to the MTL, reset the index.
-            output = pd.concat([keyed_mtl, keys_to_add]).reset_index()
+            output.to_csv(
+                self.report.report_folder / "mtl_dataframe_after.csv", index=False
+            )
 
             return output
+
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
