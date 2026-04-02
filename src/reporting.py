@@ -34,6 +34,7 @@ class Reporting:
         populate_report: bool = True,
         populate_log: bool = True,
         use_timestamps: bool = True,
+        use_msg_types: bool = True,
         timestamp: datetime | None = None,
     ) -> None:
         self.name = ""
@@ -44,9 +45,11 @@ class Reporting:
         self.parent_window = parent_window
         self.output_dir = output_dir
         self.use_timestamps = use_timestamps
+        self.use_msg_types = use_msg_types
         self.verbose = verbose_printing
         self.logging = populate_log
         self.report = populate_report
+        self.width = 88
 
         if timestamp:
             self.timestamp = timestamp
@@ -98,13 +101,16 @@ class Reporting:
             msg_type = "UNKNOWN"
 
         timestamp = datetime.now().strftime(DATETIME_FORMAT)
-        ts_line = f"{timestamp}:{' '*abs(7-len(msg_type))}{msg_type}> {msg}"
-        line = f"{' '*abs(7-len(msg_type))}{msg_type}> {msg}"
+        padding = f"{' ' * max(0, 9 - len(msg_type))}"
 
+        line = f"{msg}"
+
+        if self.use_msg_types:
+            line = f"{padding}{msg_type}> " + line
         if self.use_timestamps:
-            self.report_lines.append(ts_line)
-        else:
-            self.report_lines.append(line)
+            line = f"{timestamp}: " + line
+
+        self.report_lines.append(line)
 
     def create_report(self, new_name: str, update_dirs: bool = True) -> None:
         """
@@ -282,43 +288,61 @@ class Reporting:
         Helper function to record a title.
         Uses a heavy square box.
         """
-        m_len = len(message)
-        self.info(f"╔═{'═'*m_len}═╗")
-        self.info(f"║ { message } ║")
-        self.info(f"╚═{'═'*m_len}═╝")
+        inner_padding = self.width - 4
+        padded = message.center(inner_padding)
+        self.info(f"╔{'═' * (self.width - 2)}╗")
+        self.info(f"║ { padded             } ║")
+        self.info(f"╚{'═' * (self.width - 2)}╝")
 
     def subtitle(self, message: str) -> None:
         """
         Helper function to record a subtitle.
         Uses a light single-line box (less prominent than title).
         """
-        m_len = len(message)
-        self.info(f"┌─{'─'*m_len}─┐")
-        self.info(f"│ { message } │")
-        self.info(f"└─{'─'*m_len}─┘")
+        inner_padding = self.width - 4
+        padded = message.center(inner_padding)
+        self.info(f"┌{'─' * (self.width - 2)}┐")
+        self.info(f"│ { padded             } │")
+        self.info(f"└{'─' * (self.width - 2)}┘")
 
-    def simple_title(self, message: str, width: int = 88) -> None:
+    def simple_title(self, message: str) -> None:
         """
         Helper function to record a simple highlighted title.
         Uses a simple line format.
         """
-        m_len = len(message)
-        s_len = (width - m_len) // 2
-        if m_len >= width:
-            self.info(f"─{message}─")
-        else:
-            self.info(f"{'─'*s_len} {message} {'─'*s_len}")
+        inner_padding = self.width - 2
+        padding = (inner_padding - len(message)) // 2
+        remainder = (inner_padding - len(message)) % 2
+        self.info(f"{'─'*padding} {message} {'─'*(padding + remainder)}")
 
     def highlight_error(self, message: str, is_critical: bool = False) -> None:
         """
         Helper function to highlight an error within the process.
         Uses a double-line box to stand out.
         """
+        # OLD
+        # func = self.critical if is_critical else self.error
+        # inner_padding = self.width - 4
+        # padded = message.center(inner_padding)
+        # func(f"X{'═' * (self.width - 2)}X")
+        # func(f"║ { padded             } ║")
+        # func(f"X{'═' * (self.width - 2)}X")
+
+        # TEST:
         func = self.critical if is_critical else self.error
-        m_len = len(message)
-        func(f"X═{'═'*m_len}═X")
-        func(f"║ { message } ║")
-        func(f"X═{'═'*m_len}═X")
+
+        inner = self.width - 2
+        label = f" {message} "
+        if len(label) > inner:
+            label = label[: max(0, inner - 1)] + "..."
+
+        pad_total = inner - len(label)
+        left = pad_total // 2
+        right = pad_total - left
+
+        line = "X" + ("=" * left) + label + ("=" * right) + "X"
+
+        func(line)
 
     def highlight_titled_error(
         self, message: str, title: str = "COMPARISON FAILED", is_critical: bool = False
@@ -328,15 +352,51 @@ class Reporting:
         Uses a heavy double-line box, with a separator between title and message.
         """
         func = self.critical if is_critical else self.error
+        inner_padding = self.width - 4
+        t = title.upper().center(inner_padding)
+        m = message.center(inner_padding)
 
-        t = title.upper()
-        w = max(len(t), len(message))  # inner text width (excluding the spaces we add)
+        func(f"X{'═' * (self.width - 2)}X")
+        func(f"║ {t                   } ║")
+        func(f"╠{'═' * (self.width - 2)}╣")
+        func(f"║ {m                   } ║")
+        func(f"X{'═' * (self.width - 2)}X")
 
-        func(f"X═{'═'*w}═X")
-        func(f"║ {t}{' '*(w - len(t))} ║")
-        func(f"╠═{'═'*w}═╣")
-        func(f"║ {message}{' '*(w - len(message))} ║")
-        func(f"X═{'═'*w}═X")
+    def divider(self) -> None:
+        """
+        A full-width heavy divider. Used between major sections.
+        """
+        self.info("═" * self.width)
+
+    def separator(self) -> None:
+        """
+        A full-width light divider. Used between minor sections.
+        """
+        self.info("─" * self.width)
+
+    def section(self) -> None:
+        """
+        A half-width light divider. Used between minor sections.
+        """
+        self.info("─" * (self.width // 2))
+
+    def error_divider(self) -> None:
+        """
+        A full-width light divider. Used between minor sections.
+        """
+        self.error("=" * self.width)
+
+    def error_separator(self) -> None:
+        """
+        A full-width light divider. Used between minor sections.
+        """
+        self.info("-" * self.width)
+
+    def error_section(self) -> None:
+        """
+        A half-width light divider. Used between minor sections.
+        """
+        self.error("─" * (self.width // 2))
 
     def save_report(self, popup: bool = False) -> None:
         """
@@ -345,7 +405,7 @@ class Reporting:
         if not self.file_path.name:
             raise RuntimeError("create_report() must be called before save_report().")
         try:
-            notice = f"{self.name} report saved to: {self.file_path}"
+            notice = f"{self.name} report saved to:\n{self.file_path}\n"
             if popup:
                 self._queue_modal(modal.show_info, notice, "Saving...")
             self._add_line(notice, "INFO")

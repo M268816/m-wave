@@ -54,6 +54,7 @@ WORKSHEET_METADATA = {
 TABLE_FORMATTING = {
     TableType[key]: {
         "Index Keys": entry["index_keys"],
+        "Filter on Keys": entry["filter_on_keys"],
         "Filter Keys": entry["filter_keys"],
         "Object Type Order": entry["object_type_order"],
         "Sort Order": entry["sort_order"],
@@ -102,6 +103,9 @@ class AppMetadata:
 
     def get_table_index_keys(self) -> list[str]:
         return TABLE_FORMATTING[self._table_type]["Index Keys"]
+
+    def should_filter_on_keys(self) -> list[str]:
+        return TABLE_FORMATTING[self._table_type]["Filter on Keys"]
 
     def get_table_filter_keys(self) -> list[str]:
         return TABLE_FORMATTING[self._table_type]["Filter Keys"]

@@ -57,7 +57,7 @@ class DataExtractor:
         self,
         file_path: str,
         filter_str: str,
-    ) -> pd.DataFrame | None:
+    ) -> pd.DataFrame:
         """
         Returns a data frame from an input csv file.
         The filter string is only used for file naming in this function.
@@ -102,24 +102,24 @@ class DataExtractor:
                 error_msg = "Conversion attempt failed. Please report this error."
                 self.report.highlight_error("Could not convert bad input data.")
                 self.report.critical(error_msg, popup=True)
-                return None
+                return pd.DataFrame()
         except Exception as e:
             error_msg = (
                 f"Input extraction unknown exception. Please report this error.\n{e}"
             )
             self.report.highlight_error("Could not convert bad input data.")
             self.report.critical(error_msg, popup=True)
-            return None
+            return pd.DataFrame()
 
     def could_extract(
-        self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None
+        self, mtl_dataframe: pd.DataFrame, input_dataframe: pd.DataFrame
     ) -> bool:
-        if mtl_dataframe is None:
+        if mtl_dataframe.empty:
             self.report.highlight_titled_error(
                 " MTL data could not be extracted. Check your selected MTL table."
             )
             return False
-        if input_dataframe is None:
+        if input_dataframe.empty:
             self.report.highlight_titled_error(
                 " Input CSV could not be extracted. Check your selected input table"
             )

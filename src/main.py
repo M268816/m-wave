@@ -71,7 +71,9 @@ class App:
         self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
         self.window.iconphoto(False, self.icon)
         # Init Reporting
-        self.report = Reporting(self.window, REPORTS_DIR, use_timestamps=False)
+        self.report = Reporting(
+            self.window, REPORTS_DIR, use_timestamps=False, use_msg_types=False
+        )
         self.report.debug("App starting...")
         self.report.debug("GUI window created.")
         # Init ttk variables

@@ -105,6 +105,59 @@ class DataFormatter:
             keep_mask = _df[keys].notna().any(axis=1)
             return _df.loc[keep_mask].copy()
 
+    def filter_on_keys(
+        self, mtl_df: pd.DataFrame, input_df: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Helper function that filters data to the column keys.
+        Returns a tuple of data frames. Comparable, and non comparable rows.
+        Returns an empty data frame if it fails.
+        """
+        try:
+            # get column keys
+            keys = self.metadata.get_table_index_keys()
+            original_columns = mtl_df.columns
+
+            # create keyed data frames
+            keyed_mtl = mtl_df.set_index(keys)
+            keyed_input = input_df.set_index(keys)
+
+            # filter the mtl down to rows that can be compared with the input
+            # ie. rows that match the input keys
+            comparable_mtl = keyed_mtl[
+                keyed_mtl.index.isin(keyed_input.index)
+            ].reset_index()[original_columns]
+            comparable_input = keyed_input[
+                keyed_input.index.isin(keyed_mtl.index)
+            ].reset_index()[original_columns]
+            # input keys not present in the MTL
+            non_comparable = keyed_input[
+                ~keyed_input.index.isin(keyed_mtl.index)
+            ].reset_index()[original_columns]
+
+            # Save each data frame to keep a record
+            comparable_mtl.to_csv(
+                self.report.report_folder / "compareable_rows.csv", index=False
+            )
+            non_comparable.to_csv(
+                self.report.report_folder / "non_comparable_rows.csv", index=False
+            )
+
+            return comparable_mtl, comparable_input
+
+        except KeyError as e:
+            error_msg = f"A key error occurred during upserting.\n{e}"
+            self.report.exception(error_msg)
+            return pd.DataFrame(), pd.DataFrame()
+        except ValueError as e:
+            error_msg = f"A value error occurred during upserting.\n{e}"
+            self.report.exception(error_msg)
+            return pd.DataFrame(), pd.DataFrame()
+        except Exception as e:
+            error_msg = f"An unexpected error occurred during upserting.\n{e}"
+            self.report.exception(error_msg)
+            return pd.DataFrame(), pd.DataFrame()
+
     def filter(
         self, df: pd.DataFrame | None, filter_string: str | None = None
     ) -> pd.DataFrame:
@@ -138,6 +191,7 @@ class DataFormatter:
                 # Else just copy the input data frame
                 output = df.copy()
 
+            self.report.info("Filter applied")
             return output
 
         except Exception as e:
@@ -201,6 +255,14 @@ class DataFormatter:
             df = df.drop(
                 columns=["", " ", None, "none", "nan", "None"], errors="ignore"
             )
+            df = df.drop(
+                columns=[
+                    col
+                    for col in df.columns
+                    if isinstance(col, str) and "unnamed" in col.lower()
+                ],
+                errors="ignore",
+            )
 
             # Remove blank rows if they exist
             df = self._drop_na_rows(df, index_keys)
@@ -245,14 +307,14 @@ class DataFormatter:
         if input_dataframe is None:
             self.report.highlight_titled_error("Input data formatting failed.")
             return False
-        self.report.info("✓ MTL formatted successfully!")
-        self.report.info("✓ MTL shape after formatting:")
-        self.report.info(f"✓        Rows: {mtl_dataframe.shape[0]}")
-        self.report.info(f"✓     Columns: {mtl_dataframe.shape[1]}")
-        self.report.info("✓ Input formatted successfully!")
-        self.report.info("✓ Input shape after formatting:")
-        self.report.info(f"✓        Rows: {input_dataframe.shape[0]}")
-        self.report.info(f"✓     Columns: {input_dataframe.shape[1]}")
+        self.report.info("MTL formatted successfully!")
+        self.report.info("MTL shape after formatting:")
+        self.report.info(f"       Rows: {mtl_dataframe.shape[0]}")
+        self.report.info(f"    Columns: {mtl_dataframe.shape[1]}")
+        self.report.info("Input formatted successfully!")
+        self.report.info("Input shape after formatting:")
+        self.report.info(f"       Rows: {input_dataframe.shape[0]}")
+        self.report.info(f"    Columns: {input_dataframe.shape[1]}")
         return True
 
     # NOTE: Duplicate of DataComparator._report_shape_differences — keep in sync.
@@ -278,7 +340,7 @@ class DataFormatter:
         mtl_df: pd.DataFrame | None,
         input_df: pd.DataFrame | None,
         use_version: bool = False,
-    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         A function that attempts to conform the input data frame columns to match the
         MTL data frame columns for comparison.
@@ -291,8 +353,6 @@ class DataFormatter:
             return pd.DataFrame(), pd.DataFrame()
         _mtl = mtl_df.copy()
         _input = input_df.copy()
-        mtl_cols = _mtl.shape[1]
-        input_cols = _input.shape[1]
         try:
             if use_version:
                 if "Version" not in _input.columns:
@@ -301,8 +361,11 @@ class DataFormatter:
                 _input = _input.drop(columns=["Version"], errors="ignore")
                 _mtl = _mtl.drop(columns=["Version"], errors="ignore")
 
+            mtl_cols = _mtl.shape[1]
+            input_cols = _input.shape[1]
+
             self.report.info("Checking input for classic MTL columns.")
-            self._classic_data_check(_input)
+            _input = self._classic_data_check(_input)
 
             if mtl_cols != input_cols or (_mtl.dtypes != _input.dtypes).any():
                 self.report.highlight_error("Columns do not align!")
@@ -322,7 +385,12 @@ class DataFormatter:
                 for i, col in enumerate(column_difference):
                     self.report.warning(f"    {i}:{col}")
             self.report.info("Aligning columns...")
+
+            # BUG: Input file is missing required columns when running GXP table?
+            # BUG: But isnt it setting them here?
             _input = _input[_mtl.columns]
+            # BUG: END
+
             self.report.info("✓ Input data columns have aligned to the MTL columns!")
             self.report.info(f"✓ {len(_mtl.columns)} columns set.")
             self.report.info("Columns used within this comparison:")
@@ -342,15 +410,14 @@ class DataFormatter:
                     _input[col] = _input[col].astype(  # type: ignore
                         _mtl[col].dtype  # type: ignore
                     )
-            self.report.info("✓ Data types aligned!")
+            self.report.info("Data types aligned!")
             return _mtl, _input  # type: ignore
         except KeyError as e:
-            error_msg = "✗ Column mismatch: The input file is missing required columns."
+            error_msg = "Column mismatch: The input file is missing required columns."
             self.report.highlight_titled_error(error_msg)
-            self.report.error(error_msg)
-            self.report.error(f"\n{e}")
+            self.report.exception(f"\n{e}\n")
             return pd.DataFrame(), pd.DataFrame()
         except Exception as e:
             self.report.highlight_titled_error("Data alignment failed!")
-            self.report.error(f"\n{e}")
+            self.report.exception(f"\n{e}\n")
             return pd.DataFrame(), pd.DataFrame()

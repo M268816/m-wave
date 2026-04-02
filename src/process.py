@@ -122,25 +122,35 @@ class Process:
             conform_result = self.data_formatter.conform_columns(
                 mtl_dataframe, input_dataframe
             )
-            if conform_result is None:
-                return None
 
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
+            if mtl_dataframe.empty or input_dataframe.empty:
+                return None
 
             # NOTE: FILTERING PHASE
-            if self.filter_string:
+            if self.metadata.should_filter_on_keys():
+                self.report.info("String filtering for this table is unstable.")
+                self.report.info("Filtering on column keys instead.")
+                mtl_dataframe, input_dataframe = self.data_formatter.filter_on_keys(
+                    mtl_dataframe, input_dataframe
+                )
+                if mtl_dataframe.empty or input_dataframe.empty:
+                    return None
+            elif self.filter_string:
                 self.report.simple_title("Filter Phase")
                 self.report.simple_title(
                     "Filtering the inputs to the user's filter string"
                 )
+                self.report.info("Filtering the MTL.")
                 mtl_dataframe = self.data_formatter.filter(
                     mtl_dataframe, self.filter_string
                 )
+                self.report.info("Filtering the input.")
                 input_dataframe = self.data_formatter.filter(
                     input_dataframe, self.filter_string
                 )
-                if mtl_dataframe is None or input_dataframe is None:
+                if mtl_dataframe.empty or input_dataframe.empty:
                     self.report.error("Could not filter the data frames!")
                     return None
             else:
@@ -149,9 +159,11 @@ class Process:
             # NOTE: SORTING PHASE
             self.report.simple_title("Sorting Phase")
             self.report.simple_title("Sorting the data frames per MTL table formatting")
+            self.report.info("Sorting the MTL.")
             mtl_dataframe = self.data_formatter.sort(mtl_dataframe)
+            self.report.info("Sorting the input.")
             input_dataframe = self.data_formatter.sort(input_dataframe)
-            if mtl_dataframe is None or input_dataframe is None:
+            if mtl_dataframe.empty or input_dataframe.empty:
                 self.report.error("Could not sort the data frames!")
                 return None
 
@@ -237,11 +249,11 @@ class Process:
             conform_result = self.data_formatter.conform_columns(
                 mtl_dataframe, input_dataframe, use_version=True
             )
-            if conform_result is None:
-                return None
 
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
+            if mtl_dataframe.empty or input_dataframe.empty:
+                return None
 
             # NOTE: FILTERING PHASE
             if self.filter_string:
@@ -249,6 +261,7 @@ class Process:
                 self.report.simple_title(
                     "Filtering the inputs to the user's filter string"
                 )
+                self.report.info("Filtering the Input.")
                 input_dataframe = self.data_formatter.filter(
                     input_dataframe, self.filter_string
                 )
@@ -274,7 +287,7 @@ class Process:
             appended_dataframe = self.data_appender.upsert(
                 mtl_dataframe, input_dataframe
             )
-            if appended_dataframe is None:
+            if appended_dataframe.empty:
                 return None
 
             # NOTE: REPORT PHASE

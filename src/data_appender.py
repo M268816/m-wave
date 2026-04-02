@@ -28,15 +28,16 @@ class DataAppender:
         self,
         mtl_dataframe: pd.DataFrame,
         input_dataframe: pd.DataFrame,
-    ) -> pd.DataFrame | None:
+    ) -> pd.DataFrame:
         """
         Update and insert a input_dataframe into the mtl_dataframe, matching on `keys`
         (list of column names). input_dataframe values overwrite mtl_dataframe for
-        matching keys; new keys are appended. Returns None if it fails.
+        matching keys; new keys are appended. Returns empty data frame if it fails.
         """
         try:
             # get keys of new rows to append
             keys = self.metadata.get_table_index_keys()
+            original_columns = mtl_dataframe.columns
 
             keyed_mtl = mtl_dataframe.set_index(keys)
             keyed_input = input_dataframe.set_index(keys)
@@ -50,22 +51,22 @@ class DataAppender:
             )
 
             keyed_mtl = keyed_mtl[~keyed_mtl.index.isin(keyed_input.index)]
-            output = pd.concat([keyed_mtl, keyed_input]).reset_index()
+            output = pd.concat([keyed_mtl, keyed_input]).reset_index()[original_columns]
 
             return output
 
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return None
+            return pd.DataFrame()
         except ValueError as e:
             error_msg = f"A value error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return None
+            return pd.DataFrame()
         except Exception as e:
             error_msg = f"An unexpected error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return None
+            return pd.DataFrame()
 
     def export_to_csv(self, appended_dataframe: pd.DataFrame) -> None:
         """

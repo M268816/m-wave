@@ -1,5 +1,5 @@
 {
-  "mtl_version": "21.0",
+  "mtl_version": "20.0",
   "worksheet_metadata": {
     "MTL-Digital Sets-VAL&PROD": {
       "table_id": "Table5",
@@ -74,27 +74,30 @@
     "CMD-Elements-Build": {
       "table_id": "Table11",
       "type": "ELEMENT",
-      "can_compare": false
+      "can_compare": true
     }
   },
   "table_formatting": {
     "ANALYTICS": {
-      "index_keys": ["Selected(x)", "Name"],
+      "index_keys": ["Name"],
+      "filter_on_keys": false,
       "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "CATEGORIES": {
-      "index_keys": ["Selected(x)", "Name"],
+      "index_keys": ["Name"],
+      "filter_on_keys": false,
       "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "DIGITAL_SET": {
-      "index_keys": ["Selected(x)", "Parent", "Name"],
-      "filter_keys": ["Name", "Parent"],
+      "index_keys": ["Parent", "Name"],
+      "filter_on_keys": false,
+      "filter_keys": ["Parent", "Name"],
       "object_type_order": {
         "DigitalStateSet": 0,
         "DigitalState": 1
@@ -103,8 +106,9 @@
       "sort_direction": [true, true]
     },
     "ELEMENT": {
-      "index_keys": ["Selected(x)", "Parent", "Name"],
-      "filter_keys": ["Name", "Template"],
+      "index_keys": ["Parent", "Name", "Template"],
+      "filter_on_keys": true,
+      "filter_keys": ["Parent", "Name", "Template"],
       "object_type_order": {
         "Element": 0,
         "Attribute": 1
@@ -113,8 +117,9 @@
       "sort_direction": [true, false, true]
     },
     "ELEMENT_TEMPLATE": {
-      "index_keys": ["Selected(x)", "Parent", "Name"],
-      "filter_keys": ["Name", "Parent"],
+      "index_keys": ["Parent", "Name"],
+      "filter_on_keys": false,
+      "filter_keys": ["Parent", "Name"],
       "object_type_order": {
         "ElementTemplate": 0,
         "AttributeTemplate": 1,
@@ -126,8 +131,9 @@
       "sort_direction": [true, true, true]
     },
     "ENUM_SET": {
-      "index_keys": ["Selected(x)", "Parent", "Name"],
-      "filter_keys": ["Name", "Parent"],
+      "index_keys": ["Parent", "Name"],
+      "filter_on_keys": false,
+      "filter_keys": ["Parent", "Name"],
       "object_type_order": {
         "EnumerationSet": 0,
         "EnumerationValue": 1
@@ -136,8 +142,9 @@
       "sort_direction": [true, true, true]
     },
     "EVENT_FRAME": {
-      "index_keys": ["Selected(x)", "Parent", "Name"],
-      "filter_keys": ["Name", "Parent"],
+      "index_keys": ["Parent", "Name"],
+      "filter_on_keys": false,
+      "filter_keys": ["Parent", "Name"],
       "object_type_order": {
         "EventFrameTemplate": 0,
         "AttributeTemplate": 1
@@ -146,15 +153,17 @@
       "sort_direction": [true, true, true]
     },
     "GXP": {
-      "index_keys": ["Selected(x)", "Name", "ObjectType"],
+      "index_keys": ["Name", "ObjectType"],
+      "filter_on_keys": false,
       "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
       "sort_direction": [true]
     },
     "TABLES": {
-      "index_keys": ["Selected(x)", "Parent", "Name"],
-      "filter_keys": ["Name", "Parent"],
+      "index_keys": ["Parent", "Name"],
+      "filter_on_keys": true,
+      "filter_keys": ["Parent", "Name"],
       "object_type_order": {
         "Table": 0,
         "TableColumn": 1,
@@ -169,6 +178,8 @@
       "archiving",
       "AttributeDisplayDigits",
       "AttributeDefaultValue",
+      "AttributeValue",
+      "convers",
       "compdev",
       "compressing",
       "compmax",
@@ -176,12 +187,26 @@
       "displaydigits",
       "excmax",
       "excmin",
+      "excdev",
+      "filtercode",
       "future",
+      "location1",
+      "location2",
+      "location3",
+      "location4",
+      "location5",
       "PortMaxConnections",
       "scan",
+      "srcptid",
       "shutdown",
       "span",
       "step",
+      "squareroot",
+      "totalcode",
+      "userint1",
+      "userint2",
+      "userreal1",
+      "userreal2",
       "typicalvalue",
       "zero"
     ],

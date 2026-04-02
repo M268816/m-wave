@@ -35,6 +35,7 @@ class DataComparator:
         mtl_df = mtl_dataframe.copy()
         input_df = input_dataframe.copy()
         index_keys = self.metadata.get_table_index_keys()
+        filter_keys = self.metadata.get_table_filter_keys()
 
         try:
             # Build tuples of the composite keys
@@ -77,12 +78,13 @@ class DataComparator:
                 for index, row in mtl_only_rows.iterrows():
                     self.report.error(f"Row index {index}:")
                     for col in mtl_only_rows.columns:
-                        self.report.error(f"    {col}: {row[col]}")
-                    self.report.error(f"{'-'*40}")
+                        if col in filter_keys:
+                            self.report.error(f"    {col}: {row[col]}")
+                    self.report.error_section()
                 mtl_rows_filename = "rows_only_within_MTL.csv"
                 mtl_rows_filepath = self.report.report_folder / mtl_rows_filename
                 mtl_only_rows.to_csv(mtl_rows_filepath, index=False)
-                self.report.subtitle(f"Exported to: {mtl_rows_filepath}")
+                self.report.info(f"Exported to:/n{mtl_rows_filepath}")
             else:
                 self.report.info("No rows found exclusively in MTL")
 
@@ -91,26 +93,23 @@ class DataComparator:
                 self.report.subtitle(
                     f"Found {len(input_only_rows)} rows ONLY in the Input:"
                 )
-                self.report.error(f"{'-'*80}")
+                self.report.error_separator()
                 # Iterate through the data frame rows and report
                 for index, row in input_only_rows.iterrows():
                     self.report.error(f"Row {index}:")
                     for col in input_only_rows.columns:
-                        self.report.error(f"  {col}: {row[col]}")
-                    self.report.error(f"{'-'*40}")
+                        if col in filter_keys:
+                            self.report.error(f"  {col}: {row[col]}")
+                    self.report.error_section()
                 input_rows_filename = "rows_only_within_input.csv"
 
                 input_rows_filepath = self.report.report_folder / input_rows_filename
                 input_only_rows.to_csv(input_rows_filepath, index=False)
-                self.report.subtitle(
-                    f"Exported difference proof to: {input_rows_filepath}"
+                self.report.info(
+                    f"Exported difference proof to:\n{input_rows_filepath}"
                 )
             else:
                 self.report.info("No rows found exclusively in the Input csv.")
-
-            # Log number of common rows
-            common_keys = mtl_keys & input_keys
-            self.report.info(f"{len(common_keys)} rows exist in BOTH dataframes")
 
         except Exception as e:
             error_msg = f"There was a problem returning the row comparison:\n{e}"
@@ -146,11 +145,11 @@ class DataComparator:
 
         self.report.highlight_error("Row content difference(s) found!")
         self.report.error(f"Found differences in {len(row_diff)} rows!:")
-        self.report.error(f"{'='*80}")
+        self.report.error_divider()
         self.report.subtitle("DETAILING ROW DIFFERENCES:")
         # Iterate through each row that has differences
         for row_idx in row_diff.index:
-            self.report.error(f"{'-'*60}")
+            self.report.error_separator()
             self.report.error(f"Row: {row_idx}")
             # Get the actual row data from both dataframes for context
             # Check if the index exists in both (it should for compared rows)
@@ -159,7 +158,7 @@ class DataComparator:
                 if "Name" in mtl_df.columns:
                     name_val = mtl_df.loc[row_idx, "Name"]
                     self.report.error(f"  Name: {name_val}")
-                    self.report.error(f"{'─'*30}")
+                    self.report.error_section()
             # Iterate through columns that have differences
             for col in row_diff.columns.levels[0]:  # type: ignore
                 # Check if this column has a difference for this row
@@ -177,9 +176,8 @@ class DataComparator:
                         self.report.error(f"    Column: {col}")
                         self.report.error(f"           MTL: {display_val_1}")
                         self.report.error(f"         Input: {display_val_2}")
-                        self.report.error(f"{'─'*30}")
-        self.report.error(f"{'─'*30}")
-        self.report.error(f"{'='*80}")
+            self.report.error_separator()
+        self.report.error_divider()
         comparison_filename = f"{self.report.cleaned_name}_comparison.csv"
         comparison_filepath = self.report.report_folder / comparison_filename
         errored_filename_df1 = "mtl_bad_comparison.csv"
@@ -192,7 +190,7 @@ class DataComparator:
         self.report.info(f"MTL table saved to: {errored_filename_df1}")
         input_df.to_csv(errored_filepath_df2, index=True)
         self.report.info(f"Input table saved to: {errored_filename_df2}")
-        self.report.error(f"{'='*80}")
+        self.report.error_divider()
 
         return mtl_df, input_df
 
@@ -221,8 +219,8 @@ class DataComparator:
                 "shapes_equal": mtl_shape == input_shape,
                 "mtl_shape": mtl_shape,
                 "input_shape": input_shape,
-                "row_difference": mtl_rows - input_rows,
-                "column_difference": mtl_cols - input_cols,
+                "row_difference": abs(mtl_rows - input_rows),
+                "column_difference": abs(mtl_cols - input_cols),
             }
             return comparison
         except Exception as e:
@@ -257,11 +255,11 @@ class DataComparator:
             self.report.info("Checking row counts...")
             if mtl_rows == 0 or input_rows == 0:
                 self.report.highlight_titled_error(
-                    "✗ Shape comparison detected empty data frames rows."
+                    "Shape comparison detected empty data frames rows."
                 )
-                self.report.error("✗ Cannot compare data frames without row data.")
+                self.report.error("Cannot compare data frames without row data.")
                 self.report.error(
-                    "✗ Check your object filter or supplied files.", popup=True
+                    "Check your object filter or supplied files.", popup=True
                 )
                 return None
             self.report.info("Row count good!")
@@ -272,13 +270,13 @@ class DataComparator:
                 min_rows = min(mtl_rows, input_rows)
                 self.report.highlight_error("Data frame rows do not align!")
                 self._report_shape_differences(mtl_rows, input_rows, "ROW")
-                self.report.error("✗ Row counts differ!")
-                self.report.error("✗ Cannot make a full comparison.")
-                self.report.error("✗ Will now attempt to report the erroneous rows.")
-                self.report.error("✗ Due to comparison limitations...")
-                self.report.error(f"✗ Can only compare the first {min_rows} rows,")
+                self.report.error("Row counts differ!")
+                self.report.error("Cannot make a full comparison.")
+                self.report.error("Will now attempt to report the erroneous rows.")
+                self.report.error("Due to comparison limitations...")
+                self.report.error(f"Can only compare the first {min_rows} rows,")
                 self.report.error(
-                    f"✗ Errors after row {min_rows} must be manually compared."
+                    f"Errors after row {min_rows} must be manually compared."
                 )
 
                 row_comparison = mtl_df.iloc[:min_rows].compare(
@@ -297,7 +295,6 @@ class DataComparator:
 
             if row_comparison.empty:
                 self.report.info("No differences found in common rows!")
-                self.report.info(f"{'🎉'*20}")
                 self.report.title("Comparison of the MTL to the Input CSV is sound!")
                 self.report.info(
                     "See these reported table files for the detailed breakdown:"
@@ -313,7 +310,13 @@ class DataComparator:
                 mtl_df.to_csv(mtl_report_file, index=True)
                 input_df.to_csv(input_report_file, index=True)
             else:
-                self._report_row_differences(mtl_df, input_df, row_comparison)
+                if mtl_rows != input_rows:
+                    self.report.error("Because row counts do not match...")
+                    self.report.error(
+                        "Preventing report garbage, will not report specific data frame differences."
+                    )
+                else:
+                    self._report_row_differences(mtl_df, input_df, row_comparison)
             return True
         except Exception as e:
             error_msg = f"Unexpected error during reporting:\n{e}"
