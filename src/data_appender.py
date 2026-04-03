@@ -34,6 +34,7 @@ class DataAppender:
         (list of column names). input_dataframe values overwrite mtl_dataframe for
         matching keys; new keys are appended. Returns empty data frame if it fails.
         """
+        output = pd.DataFrame()
         try:
             # get keys of new rows to append
             keys = self.metadata.get_table_index_keys()
@@ -58,15 +59,17 @@ class DataAppender:
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return pd.DataFrame()
+            return output
+
         except ValueError as e:
             error_msg = f"A value error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return pd.DataFrame()
+            return output
+
         except Exception as e:
             error_msg = f"An unexpected error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return pd.DataFrame()
+            return output
 
     def export_to_csv(self, appended_dataframe: pd.DataFrame) -> None:
         """

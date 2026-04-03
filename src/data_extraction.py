@@ -64,6 +64,7 @@ class DataExtractor:
         Will raise an exception if it fails.
         """
         # Read the input csv
+        df = pd.DataFrame()
         try:
             self.report.info("Extracting the Input file.")
             df = pd.read_csv(
@@ -102,14 +103,14 @@ class DataExtractor:
                 error_msg = "Conversion attempt failed. Please report this error."
                 self.report.highlight_error("Could not convert bad input data.")
                 self.report.critical(error_msg, popup=True)
-                return pd.DataFrame()
+                return df
         except Exception as e:
             error_msg = (
                 f"Input extraction unknown exception. Please report this error.\n{e}"
             )
             self.report.highlight_error("Could not convert bad input data.")
             self.report.critical(error_msg, popup=True)
-            return pd.DataFrame()
+            return df
 
     def could_extract(
         self, mtl_dataframe: pd.DataFrame, input_dataframe: pd.DataFrame

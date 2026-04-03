@@ -74,10 +74,10 @@ class Process:
             return False
         return True
 
-    def compare_input(self) -> bool | None:
+    def compare_input(self) -> bool:
         """
         Compare the supplied PI builder data and the MTL/CMD.
-        Returns None if process fails.
+        Returns False if process fails.
         """
         try:
             # NOTE: START THE COMPARISON
@@ -90,7 +90,7 @@ class Process:
             # comparisons to work. If the table cannot be sorted so that the entire
             # table can be compared. Stop the comparison.
             if not self._can_compare():
-                return None
+                return False
 
             # NOTE: EXTRACTION PHASE
             self.report.simple_title("Extraction Phase")
@@ -101,7 +101,7 @@ class Process:
                 self.input_file_path, self.filter_string
             )
             if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
-                return None
+                return False
 
             # NOTE: FORMATTING PHASE
             self.report.simple_title("Formatting Phase (1 of 2)")
@@ -114,7 +114,7 @@ class Process:
             input_dataframe = self.data_formatter.format(input_dataframe)
 
             if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
-                return None
+                return False
 
             # NOTE: FORMATTING PHASE 2: COLUMNS
             self.report.simple_title("Formatting Phase (2 of 2)")
@@ -126,7 +126,7 @@ class Process:
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
             if mtl_dataframe.empty or input_dataframe.empty:
-                return None
+                return False
 
             # NOTE: FILTERING PHASE
             if self.metadata.should_filter_on_keys():
@@ -136,7 +136,8 @@ class Process:
                     mtl_dataframe, input_dataframe
                 )
                 if mtl_dataframe.empty or input_dataframe.empty:
-                    return None
+                    return False
+
             elif self.filter_string:
                 self.report.simple_title("Filter Phase")
                 self.report.simple_title(
@@ -152,7 +153,7 @@ class Process:
                 )
                 if mtl_dataframe.empty or input_dataframe.empty:
                     self.report.error("Could not filter the data frames!")
-                    return None
+                    return False
             else:
                 self.report.info("No filter found, filtering skipped.")
 
@@ -165,7 +166,7 @@ class Process:
             input_dataframe = self.data_formatter.sort(input_dataframe)
             if mtl_dataframe.empty or input_dataframe.empty:
                 self.report.error("Could not sort the data frames!")
-                return None
+                return False
 
             # NOTE: COMPARISON PHASE 1: GENERAL COMPARISON
             self.report.simple_title("Comparison Phase (1 of 2)")
@@ -173,8 +174,8 @@ class Process:
             shape_comparison = self.data_comparator.compare_shapes(
                 mtl_dataframe, input_dataframe
             )
-            if shape_comparison is None:
-                return None
+            if len(shape_comparison) == 0:
+                return False
             self.report.info("Shape comparison completed:")
             for key, value in shape_comparison.items():
                 self.report.info(f"    {key}: {value}")
@@ -182,12 +183,12 @@ class Process:
             # NOTE: COMPARISON PHASE 3: ROWS
             self.report.simple_title("Comparison Phase (2 of 2)")
             self.report.simple_title("Comparing row data.")
-            row_comparison = self.data_comparator.compare_rows(
+            comparable = self.data_comparator.compare_rows(
                 mtl_dataframe,
                 input_dataframe,
             )
-            if row_comparison is None:
-                return None
+            if not comparable:
+                return False
 
             # NOTE: REPORT PHASE
             self.report.title("Comparison checks completed.")
@@ -198,17 +199,17 @@ class Process:
 
         except Exception as e:
             self.report.exception(
-                f"Unexpected error during comparison logic:\n{e}", popup=True
+                f"Unexpected error during comparison logic:\n{e}\n", popup=True
             )
-            return None
+            return False
 
         finally:
             self.report.save_report()
 
-    def append_input(self) -> bool | None:
+    def append_input(self) -> bool:
         """
         Append the supplied PI builder data and the MTL/CMD.
-        Returns None if process fails.
+        Returns False if process fails.
         """
         try:
             # NOTE: START APPENDING
@@ -228,7 +229,7 @@ class Process:
             )
 
             if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
-                return None
+                return False
 
             # NOTE: FORMATTING PHASE 1: GENERAL
             self.report.simple_title("Formatting Phase (1 of 2)")
@@ -241,7 +242,7 @@ class Process:
             input_dataframe = self.data_formatter.format(input_dataframe)
 
             if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
-                return None
+                return False
 
             # NOTE: FORMATTING PHASE 2: COLUMNS
             self.report.simple_title("Formatting Phase (2 of 2)")
@@ -253,7 +254,7 @@ class Process:
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
             if mtl_dataframe.empty or input_dataframe.empty:
-                return None
+                return False
 
             # NOTE: FILTERING PHASE
             if self.filter_string:
@@ -267,19 +268,20 @@ class Process:
                 )
                 if mtl_dataframe is None or input_dataframe is None:
                     self.report.error("Could not filter the data frames!")
-                    return None
+                    return False
             else:
                 self.report.info("No filter found, filtering skipped.")
             # NOTE: COMPARISON PHASE
             self.report.simple_title("Comparison Phase")
             self.report.simple_title("General Data Frame Comparison, Sanity Check")
-            shape_comparison = self.data_comparator.compare_shapes(
+            comparable = self.data_comparator.compare_shapes(
                 mtl_dataframe, input_dataframe
             )
-            if shape_comparison is None:
-                return None
+            if not comparable:
+                return False
+
             self.report.info("Shape comparison completed:")
-            for key, value in shape_comparison.items():
+            for key, value in comparable.items():
                 self.report.info(f"    {key}: {value}")
 
             # NOTE: APPEND PHASE
@@ -288,7 +290,7 @@ class Process:
                 mtl_dataframe, input_dataframe
             )
             if appended_dataframe.empty:
-                return None
+                return False
 
             # NOTE: REPORT PHASE
             self.report.simple_title("Saving final data frame to CSV.")
@@ -299,7 +301,7 @@ class Process:
             self.report.simple_title(
                 "Attempting to create an appended version of the MTL."
             )
-            self.report.warning("This make take a moment...")
+            self.report.warning("This may take take a moment...")
             self.data_appender.export_to_mtl(appended_dataframe, self.mtl_file_path)
 
             # FINALLY
@@ -310,7 +312,7 @@ class Process:
             self.report.exception(
                 f"Unexpected error during append logic:\n{e}", popup=True
             )
-            return None
+            return False
 
         finally:
             self.report.save_report()

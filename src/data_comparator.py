@@ -135,7 +135,7 @@ class DataComparator:
 
     def _report_row_differences(
         self, mtl_dataframe: pd.DataFrame, input_dataframe: pd.DataFrame, comparison
-    ):
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Reports specific row differences
         """
@@ -196,17 +196,19 @@ class DataComparator:
 
     def compare_shapes(
         self,
-        mtl_df: pd.DataFrame | None,
-        input_df: pd.DataFrame | None,
-    ) -> dict | None:
+        mtl_df: pd.DataFrame,
+        input_df: pd.DataFrame,
+    ) -> dict:
         """
         A General comparison of data frame shape.
         Returns a dictionary with shape comparison details or None if it fails.
         """
-        if mtl_df is None or input_df is None:
+        comparison = {}
+
+        if mtl_df.empty or input_df.empty:
             self.report.error("Cannot compare empty data frames.")
             self.report.error("Stopping comparison process.")
-            return None
+            return comparison
 
         try:
             mtl_shape = mtl_df.shape
@@ -229,21 +231,21 @@ class DataComparator:
                 "Could not compare data frame shapes. Check logs.", popup=True
             )
             self.report.exception(error_msg)
-            return None
+            return comparison
 
     def compare_rows(
         self,
-        mtl_dataframe: pd.DataFrame | None,
-        input_dataframe: pd.DataFrame | None,
-    ):
+        mtl_dataframe: pd.DataFrame,
+        input_dataframe: pd.DataFrame,
+    ) -> bool:
         """
-        Reports a detailed comparison of row differences. Returns None if it fails.
+        Reports a detailed comparison of row differences. Returns false if it fails.
         """
 
         # If data frame shapes do not match fail the comparison
-        if mtl_dataframe is None or input_dataframe is None:
+        if mtl_dataframe.empty or input_dataframe.empty:
             self.report.error("Cannot compare empty data frames.", popup=True)
-            return None
+            return False
 
         mtl_df = mtl_dataframe.copy()
         input_df = input_dataframe.copy()
@@ -261,7 +263,7 @@ class DataComparator:
                 self.report.error(
                     "Check your object filter or supplied files.", popup=True
                 )
-                return None
+                return False
             self.report.info("Row count good!")
 
             # If rows differ, report difference
@@ -321,4 +323,4 @@ class DataComparator:
         except Exception as e:
             error_msg = f"Unexpected error during reporting:\n{e}"
             self.report.exception(error_msg, popup=True)
-            return None
+            return False

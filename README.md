@@ -167,7 +167,7 @@ Build artifacts will be under `dist/` (depending on `wave.spec`).
 
 ### CSV encoding issues
 
-- WAVE attempts to fallback encoding conversion if UTF-8 files and may emit a `*_fixed.csv` in the run report folder. If this automatic process fails, try to save the CSV file as a `UTF-8 encoded CSV` file via the newest version of Excel that you have available to you.
+- WAVE attempts to fallback encoding conversion of UTF-8 files and may emit a `*_fixed.csv` in the run report folder. If this automatic process fails, try to save the CSV file as a `UTF-8 encoded CSV` file via the newest version of Excel that you have available to you.
 
 ## Project Structure (siggested)
 

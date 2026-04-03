@@ -113,6 +113,7 @@ class DataFormatter:
         Returns a tuple of data frames. Comparable, and non comparable rows.
         Returns an empty data frame if it fails.
         """
+        output = (pd.DataFrame(), pd.DataFrame())
         try:
             # get column keys
             keys = self.metadata.get_table_index_keys()
@@ -143,20 +144,22 @@ class DataFormatter:
                 self.report.report_folder / "non_comparable_rows.csv", index=False
             )
 
-            return comparable_mtl, comparable_input
+            output = comparable_mtl, comparable_input
+
+            return output
 
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return pd.DataFrame(), pd.DataFrame()
+            return output
         except ValueError as e:
             error_msg = f"A value error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return pd.DataFrame(), pd.DataFrame()
+            return output
         except Exception as e:
             error_msg = f"An unexpected error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return pd.DataFrame(), pd.DataFrame()
+            return output
 
     def filter(
         self, df: pd.DataFrame | None, filter_string: str | None = None
@@ -165,6 +168,7 @@ class DataFormatter:
         Helper function that filters the data to the user's filter string.
         Returns an empty data frame if it fails.
         """
+        output = pd.DataFrame()
         try:
             if df is None:
                 self.report.error("There was a problem filtering the data frame.")
@@ -196,13 +200,14 @@ class DataFormatter:
 
         except Exception as e:
             self.report.error(f"{e}")
-            return pd.DataFrame()
+            return output
 
     def sort(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Helper function that sorts the data according to the master data table formats.
         Returns an empty data frame if it fails.
         """
+        output = pd.DataFrame()
         try:
             # Setting the object type ordering filter
             config = self.metadata.get_table_formatting()
@@ -234,7 +239,7 @@ class DataFormatter:
             return output
         except Exception as e:
             self.report.exception(f"{e}")
-            return pd.DataFrame()
+            return output
 
     def format(
         self,
@@ -245,6 +250,7 @@ class DataFormatter:
         data comparison.
         Returns an empty data frame if it fails.
         """
+        output = pd.DataFrame()
         if df is None:
             self.report.error("There was a problem with formatting the data frame.")
             self.report.error("Cannot format empty DataFrame. Returned None.")
@@ -286,14 +292,14 @@ class DataFormatter:
 
             df = df.astype("string")
 
-            df = self._normalize_whitespace(df)
+            output = self._normalize_whitespace(df)
 
-            return df
+            return output
 
         except Exception as e:
             error_msg = f"Could not format dataframe:\n{e}"
             self.report.exception(error_msg, popup=True)
-            return pd.DataFrame()
+            return output
 
     def could_format(
         self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None
@@ -353,6 +359,7 @@ class DataFormatter:
             return pd.DataFrame(), pd.DataFrame()
         _mtl = mtl_df.copy()
         _input = input_df.copy()
+        output = (pd.DataFrame(), pd.DataFrame())
         try:
             if use_version:
                 if "Version" not in _input.columns:
@@ -375,7 +382,8 @@ class DataFormatter:
                 )
             else:
                 self.report.info("Columns are aligned correctly. Continuing...")
-                return _mtl, _input
+                output = (_mtl, _input)
+                return output
 
             # Ensure df data is using the same columns as the mtl
             # by filtering the df columns by the mtl columns
@@ -384,22 +392,21 @@ class DataFormatter:
                 self.report.warning("The current difference in columns are:")
                 for i, col in enumerate(column_difference):
                     self.report.warning(f"    {i}:{col}")
+
             self.report.info("Aligning columns...")
-
-            # BUG: Input file is missing required columns when running GXP table?
-            # BUG: But isnt it setting them here?
             _input = _input[_mtl.columns]
-            # BUG: END
-
             self.report.info("✓ Input data columns have aligned to the MTL columns!")
             self.report.info(f"✓ {len(_mtl.columns)} columns set.")
             self.report.info("Columns used within this comparison:")
+
             for index, col in enumerate(_input.columns):
                 self.report.info(f"    {index}:{col}")
+
             # Ensure the column data types are the same by matching the input
             # dtypes to the mtl dtypes
             self.report.info("Standardizing data types...")
             self.report.info("Casting Input types to match the MTL columns.")
+
             for col in _input.columns:
                 self.report.debug(f"Casting {col} column.", report=False)
                 if col in _mtl.columns:
@@ -411,13 +418,15 @@ class DataFormatter:
                         _mtl[col].dtype  # type: ignore
                     )
             self.report.info("Data types aligned!")
-            return _mtl, _input  # type: ignore
+
+            return output
+
         except KeyError as e:
             error_msg = "Column mismatch: The input file is missing required columns."
             self.report.highlight_titled_error(error_msg)
             self.report.exception(f"\n{e}\n")
-            return pd.DataFrame(), pd.DataFrame()
+            return output
         except Exception as e:
             self.report.highlight_titled_error("Data alignment failed!")
             self.report.exception(f"\n{e}\n")
-            return pd.DataFrame(), pd.DataFrame()
+            return output
