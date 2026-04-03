@@ -7,10 +7,10 @@
 import logging
 import threading
 from datetime import datetime
+from tkinter.filedialog import askopenfilename as open_file
 
 # third party
 import ttkbootstrap as ttk
-from tkinter.filedialog import askopenfilename as open_file
 from ttkbootstrap.constants import (
     BOTH,
     NORMAL,
