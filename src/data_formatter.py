@@ -302,15 +302,15 @@ class DataFormatter:
             return output
 
     def could_format(
-        self, mtl_dataframe: pd.DataFrame | None, input_dataframe: pd.DataFrame | None
+        self, mtl_dataframe: pd.DataFrame, input_dataframe: pd.DataFrame
     ) -> bool:
         """
         Checks data frames and returns a bool if they could be formatted.
         """
-        if mtl_dataframe is None:
+        if mtl_dataframe.empty:
             self.report.highlight_titled_error("MTL data formatting failed.")
             return False
-        if input_dataframe is None:
+        if input_dataframe.empty:
             self.report.highlight_titled_error("Input data formatting failed.")
             return False
         self.report.info("MTL formatted successfully!")
@@ -419,6 +419,7 @@ class DataFormatter:
                     )
             self.report.info("Data types aligned!")
 
+            output = (_mtl, _input)
             return output
 
         except KeyError as e:

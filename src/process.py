@@ -266,7 +266,7 @@ class Process:
                 input_dataframe = self.data_formatter.filter(
                     input_dataframe, self.filter_string
                 )
-                if mtl_dataframe is None or input_dataframe is None:
+                if mtl_dataframe.empty or input_dataframe.empty:
                     self.report.error("Could not filter the data frames!")
                     return False
             else:

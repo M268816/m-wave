@@ -201,7 +201,7 @@ class DataComparator:
     ) -> dict:
         """
         A General comparison of data frame shape.
-        Returns a dictionary with shape comparison details or None if it fails.
+        Returns a dictionary with shape comparison details or an empty dict if it fails.
         """
         comparison = {}
 

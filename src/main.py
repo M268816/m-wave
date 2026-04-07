@@ -7,6 +7,7 @@
 import logging
 import threading
 from datetime import datetime
+from enum import Enum
 from tkinter.filedialog import askopenfilename as open_file
 
 # third party
@@ -52,6 +53,12 @@ logging.basicConfig(
 )
 
 
+class ProcessType(int, Enum):
+    NONE = 0
+    COMPARE = 1
+    APPEND = 2
+
+
 class App:
     """
     A MTL/CMD format helper process. This program takes in file path information
@@ -78,6 +85,7 @@ class App:
         self.report.debug("GUI window created.")
         # Init ttk variables
         self.selected_data_table = ttk.StringVar()
+        self.selected_process = ttk.IntVar(value=ProcessType.NONE.value)
         self.filter_string = ttk.StringVar(value="")
         self.mtl_version = ttk.StringVar(value=MTL_VERSION)
         self.input_file_path = ttk.StringVar(value="Select a file.")
@@ -245,10 +253,24 @@ class App:
         )
         version_label.pack(side=RIGHT, padx=10)
 
-    def _process_handler(self, is_appending: bool = False) -> None:
+    def _process_handler(self) -> None:
         """
         Run the data transfer/validate process.
         """
+
+        selected_process = ProcessType(self.selected_process.get())
+        if selected_process == ProcessType.NONE:
+            self.window.after(
+                0,
+                lambda: self.report.error(
+                    "Please select Compare or Append.", popup=True
+                ),
+            )
+            return
+
+        # FIX: is_appending is old code and this should be refactored to use the enum
+        is_appending = selected_process == ProcessType.APPEND
+
         # Validate file paths
         if not self.mtl_selected.get() or not self.input_selected.get():
             self.report.error("Please select both input files.", popup=True)
@@ -258,8 +280,10 @@ class App:
             self.report.warning("Process already running!", popup=True)
             return
 
-        self.compare_btn.config(state=DISABLED)
-        self.append_btn.config(state=DISABLED)
+        # FIX: Remove if new code works.
+        # self.compare_btn.config(state=DISABLED)
+        # self.append_btn.config(state=DISABLED)
+        self.process_button.config(state=DISABLED)
         self.progress_bar.start()
 
         def subroutine():
@@ -294,11 +318,21 @@ class App:
                     0, lambda: self.report.info("Subroutine Completed.", popup=True)
                 )
                 self.window.after(0, self.progress_bar.stop)
-                self.window.after(0, lambda: self.compare_btn.config(state=NORMAL))
-                self.window.after(0, lambda: self.append_btn.config(state=NORMAL))
+                self.window.after(
+                    0, lambda: self.selected_process.set(ProcessType.NONE.value)
+                )
+                self.window.after(0, lambda: self.process_button.config(state=NORMAL))
+                # self.window.after(0, lambda: self.compare_btn.config(state=NORMAL))
+                # self.window.after(0, lambda: self.append_btn.config(state=NORMAL))
 
         self.process_thread = threading.Thread(target=subroutine, daemon=True)
         self.process_thread.start()
+
+    def _update_process_type(self, type: ProcessType) -> None:
+        """
+        Updates the process type variable
+        """
+        self.process_type = type
 
     def create_footer_frame(self) -> None:
         """
@@ -308,23 +342,53 @@ class App:
         row.pack(fill=BOTH, side=BOTTOM, anchor=S)
         self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=15, fill=X)
-        self.compare_btn = ttk.Button(
+
+        # TEST:
+        self.process_button = ttk.Button(
             row,
-            text="Compare",
+            text="Process",
             bootstyle=SUCCESS,
             padding=10,
             width=20,
             command=lambda: self._process_handler(),
         )
-        self.append_btn = ttk.Button(
+        self.process_button.pack(side=RIGHT, padx=10, fill=Y)
+
+        self.rb_append = ttk.Radiobutton(
             row,
             text="Append",
-            padding=10,
-            width=25,
-            command=lambda: self._process_handler(is_appending=True),
+            variable=self.selected_process,
+            value=ProcessType.APPEND.value,
         )
-        self.compare_btn.pack(side=RIGHT, padx=10, fill=Y)
-        self.append_btn.pack(side=RIGHT, padx=15, fill=Y)
+        self.rb_append.pack(side=RIGHT, padx=10, fill=Y)
+
+        self.rb_compare = ttk.Radiobutton(
+            row,
+            text="Compare",
+            variable=self.selected_process,
+            value=ProcessType.COMPARE.value,
+        )
+        self.rb_compare.pack(side=RIGHT, padx=10, fill=Y)
+        # TEST: END
+
+        # FIX: Old code, remove if new system works well.
+        # self.compare_btn = ttk.Button(
+        #     row,
+        #     text="Compare",
+        #     bootstyle=SUCCESS,
+        #     padding=10,
+        #     width=20,
+        #     command=lambda: self._process_handler(),
+        # )
+        # self.append_btn = ttk.Button(
+        #     row,
+        #     text="Append",
+        #     padding=10,
+        #     width=25,
+        #     command=lambda: self._process_handler(is_appending=True),
+        # )
+        # self.compare_btn.pack(side=RIGHT, padx=10, fill=Y)
+        # self.append_btn.pack(side=RIGHT, padx=15, fill=Y)
 
     def run(self) -> None:
         """
