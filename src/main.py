@@ -6,6 +6,7 @@
 # stdlib
 import logging
 import threading
+import json
 from datetime import datetime
 from enum import Enum
 from tkinter.filedialog import askopenfilename as open_file
@@ -33,7 +34,7 @@ from ttkbootstrap.constants import (
 
 # local
 from src.metadata import DATETIME_FORMAT, MTL_VERSION, WORKSHEET_METADATA
-from src.paths import ASSETS_DIR, LOGS_DIR, REPORTS_DIR
+from src.paths import ASSETS_DIR, CONFIG_PATH, LOGS_DIR, REPORTS_DIR
 from src.process import Process
 from src.reporting import Reporting
 
@@ -50,7 +51,7 @@ ROW_PADDING = 8
 APP_SIZE = (1280, 720)
 APP_MINSIZE = (1280, 450)
 
-INSRUCTIONS = """First - Be sure to have all Excel instances closed. This application uses its own instances of excel to format any appended data witout disturbing any formatting or settings.
+INSTRUCTIONS = """First - Be sure to have all Excel instances closed. This application uses its own instances of excel to format any appended data witout disturbing any formatting or settings.
 Setup - Using PI Builder, pull information from the data historian and save the data as a comma separated value file. File types can be changed with the "Save As" dialog box. Although not nescessary, having the dataset cleaned at this stage will have the best results. Otherwise, the app will do it's best to clean and filter the data during processing.
 
 1. Use the "Pick file" buttons to select a local version of the MTL/CMD and your exported PI Builder information.
@@ -87,10 +88,16 @@ class App:
     """
 
     def __init__(self) -> None:
+        # Load user configs
+        with open(CONFIG_PATH, "r", encoding="uft-8") as f:
+            try:
+                cfg = json.load(f)
+            except Exception as e:
+                raise KeyError(e)
         # Initialize the root ttk windmw
         self.window = ttk.Window(
             title="λ Workbook Automation & Verification Engine",
-            themename="litera",
+            themename=cfg.get("theme", default="litera"),
             size=APP_SIZE,
             minsize=APP_MINSIZE,
         )
@@ -113,6 +120,12 @@ class App:
         self.input_selected = ttk.BooleanVar(value=False)
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_selected = ttk.BooleanVar(value=False)
+        self.use_timestamps = ttk.BooleanVar(
+            value=cfg.get("use_timestamps", default=False)
+        )
+        self.use_msg_types = ttk.BooleanVar(
+            value=cfg.get("use_msg_types", default=False)
+        )
         self.report.debug("TTK object variables created.")
         # Init other app variables
         self.process_thread = None
@@ -136,24 +149,75 @@ class App:
             popup=True,
         )
 
+    def _update_config(self, key, value) -> None:
+        """
+        Updates the user configuration for theme, timestamps, and message types.
+        """
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+
+        cfg[key] = value
+
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+
+    def _update_report(self) -> None:
+        """
+        Sets a new report by re-initializing the self.report variable.
+        """
+        self.report = Reporting(
+            self.window,
+            REPORTS_DIR,
+            use_timestamps=self.use_timestamps.get(),
+            use_msg_types=self.use_msg_types.get(),
+        )
+        self._update_config("use_timestamps", self.use_timestamps.get())
+        self._update_config("use_msg_types", self.use_msg_types.get())
+        self.report.debug("Report options changed: ", report=False)
+        self.report.debug(
+            f"Use Timestamps is: {self.use_timestamps.get()}", report=False
+        )
+        self.report.debug(
+            f"Use Message Types is: {self.use_msg_types.get()}", report=False
+        )
+
     def _on_theme_select(self, theme: str) -> None:
         """
         Changes variables and the on theme select.
         """
         self.selected_theme.set(theme)
         self.style.theme_use(theme)
+        self._update_config("theme", self.selected_theme.get())
         self.report.debug(f"Theme changed: {theme}", report=False)
 
     def _setup_menus(self):
+        """
+        Setup the header menus.
+        """
         self.menubar = ttk.Menu(self.window)
 
+        # Simple file menu
         self.file_menu = ttk.Menu(self.menubar, tearoff=0)
         self.file_menu.add_command(label="Exit", command=self.window.destroy)
 
         self.menubar.add_cascade(label="File", menu=self.file_menu)
 
-        self.theme_menu = ttk.Menu(self.menubar, tearoff=0)
+        # Report option menu that changes reporting options.
+        self.option_menu = ttk.Menu(self.menubar, tearoff=0)
+        self.option_menu.add_checkbutton(
+            label="Add timestamps to the report",
+            variable=self.use_timestamps,
+            command=self._update_report,
+        )
+        self.option_menu.add_checkbutton(
+            label="Add message types to the report",
+            variable=self.use_msg_types,
+            command=self._update_report,
+        )
+        self.menubar.add_cascade(label="Report Options", menu=self.option_menu)
 
+        # Simple fun menu that changes the app theme.
+        self.theme_menu = ttk.Menu(self.menubar, tearoff=0)
         for theme in THEMES:
             self.theme_menu.add_radiobutton(
                 label=theme.capitalize(),
@@ -164,11 +228,12 @@ class App:
 
         self.menubar.add_cascade(label="Themes", menu=self.theme_menu)
 
+        # Help menu that will display usage instructions.
         self.help_menu = ttk.Menu(self.menubar, tearoff=0)
         self.help_menu.add_command(
             label="Instructions",
             command=lambda: self.report.info(
-                INSRUCTIONS, log=False, verbose=False, popup=True
+                INSTRUCTIONS, log=False, verbose=False, popup=True
             ),
         )
 
@@ -331,9 +396,6 @@ class App:
             )
             return
 
-        # FIX: is_appending is old code and this should be refactored to use the enum
-        is_appending = selected_process == ProcessType.APPEND
-
         # Validate file paths
         if not self.mtl_selected.get() or not self.input_selected.get():
             self.report.error("Please select both input files.", popup=True)
@@ -343,9 +405,6 @@ class App:
             self.report.warning("Process already running!", popup=True)
             return
 
-        # FIX: Remove if new code works.
-        # self.compare_btn.config(state=DISABLED)
-        # self.append_btn.config(state=DISABLED)
         self.process_button.config(state=DISABLED)
         self.progress_bar.start()
 
@@ -368,7 +427,7 @@ class App:
                     self.mtl_file_path.get(),
                     self.input_file_path.get(),
                 )
-                if is_appending:
+                if selected_process == ProcessType.APPEND:
                     self.report.debug("Appending data...", report=False)
                     process.append_input()
                 else:
@@ -385,8 +444,6 @@ class App:
                     0, lambda: self.selected_process.set(ProcessType.NONE.value)
                 )
                 self.window.after(0, lambda: self.process_button.config(state=NORMAL))
-                # self.window.after(0, lambda: self.compare_btn.config(state=NORMAL))
-                # self.window.after(0, lambda: self.append_btn.config(state=NORMAL))
 
         self.process_thread = threading.Thread(target=subroutine, daemon=True)
         self.process_thread.start()
@@ -406,7 +463,6 @@ class App:
         self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=15, fill=X)
 
-        # TEST:
         self.process_button = ttk.Button(
             row,
             text="Process",
@@ -432,26 +488,6 @@ class App:
             value=ProcessType.COMPARE.value,
         )
         self.rb_compare.pack(side=RIGHT, padx=10, fill=Y)
-        # TEST: END
-
-        # FIX: Old code, remove if new system works well.
-        # self.compare_btn = ttk.Button(
-        #     row,
-        #     text="Compare",
-        #     bootstyle=SUCCESS,
-        #     padding=10,
-        #     width=20,
-        #     command=lambda: self._process_handler(),
-        # )
-        # self.append_btn = ttk.Button(
-        #     row,
-        #     text="Append",
-        #     padding=10,
-        #     width=25,
-        #     command=lambda: self._process_handler(is_appending=True),
-        # )
-        # self.compare_btn.pack(side=RIGHT, padx=10, fill=Y)
-        # self.append_btn.pack(side=RIGHT, padx=15, fill=Y)
 
     def run(self) -> None:
         """

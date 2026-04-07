@@ -1,5 +1,8 @@
 {
   "mtl_version": "20.0",
+  "theme": "litera",
+  "use_timestamps": false,
+  "use_msg_types": false,
   "worksheet_metadata": {
     "MTL-Digital Sets-VAL&PROD": {
       "table_id": "Table5",

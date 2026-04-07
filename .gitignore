@@ -3,6 +3,7 @@ test_files/
 logs/
 src/test_reporting/
 reports/
+config/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

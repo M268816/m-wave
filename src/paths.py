@@ -5,6 +5,7 @@
 
 # stdlib
 import sys
+import json
 from pathlib import Path
 
 
@@ -65,9 +66,36 @@ def get_app_directories() -> dict[str, Path]:
         "base": base,
         "logs": ensure_directory(get_data_path("logs")),
         "reports": ensure_directory(get_data_path("reports")),
+        "config": ensure_directory(get_data_path("config")),
         "assets": temp / "assets",
         "temp": temp,
     }
+
+
+def get_config_path(_dirs: dict[str, Path]):
+    """
+    Returns the configuration path. If the user configuration does not exist,
+    it creates it from the default assets.
+    """
+    user_config_path = _dirs["config"] / "config.json"
+    if user_config_path.exists():
+        return user_config_path
+
+    default_path = _dirs["assets"] / "config.json"
+
+    if default_path.exists():
+
+        with open(default_path, "r", encoding="utf-8") as f:
+            default_config = json.load(f)
+
+        with open(user_config_path, "w", encoding="utf-8") as f:
+            json.dump(default_config, f, indent=2)
+
+    else:
+        with open(user_config_path, "w", encoding="utf-8") as f:
+            json.dump({"ERROR": "ERROR"}, f, indent=2)
+
+    return user_config_path
 
 
 # Convenience constants
@@ -76,5 +104,5 @@ BASE_DIR = APP_DIRS["base"]
 LOGS_DIR = APP_DIRS["logs"]
 REPORTS_DIR = APP_DIRS["reports"]
 ASSETS_DIR = APP_DIRS["assets"]
-CONFIG_PATH = ASSETS_DIR / "config.json"
+CONFIG_PATH = get_config_path(APP_DIRS)
 TEMP_DIR = APP_DIRS["temp"]
