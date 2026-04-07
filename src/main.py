@@ -89,7 +89,7 @@ class App:
 
     def __init__(self) -> None:
         # Load user configs
-        with open(CONFIG_PATH, "r", encoding="uft-8") as f:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             try:
                 cfg = json.load(f)
             except Exception as e:
@@ -97,7 +97,7 @@ class App:
         # Initialize the root ttk windmw
         self.window = ttk.Window(
             title="λ Workbook Automation & Verification Engine",
-            themename=cfg.get("theme", default="litera"),
+            themename=cfg.get("theme", "litera"),
             size=APP_SIZE,
             minsize=APP_MINSIZE,
         )
@@ -111,7 +111,7 @@ class App:
         self.report.debug("App starting...")
         self.report.debug("GUI window created.")
         # Init ttk variables
-        self.selected_theme = ttk.StringVar(value="litera")
+        self.selected_theme = ttk.StringVar(value=cfg.get("theme", "litera"))
         self.selected_data_table = ttk.StringVar()
         self.selected_process = ttk.IntVar(value=ProcessType.NONE.value)
         self.filter_string = ttk.StringVar(value="")
@@ -120,12 +120,8 @@ class App:
         self.input_selected = ttk.BooleanVar(value=False)
         self.mtl_file_path = ttk.StringVar(value="Select a file.")
         self.mtl_selected = ttk.BooleanVar(value=False)
-        self.use_timestamps = ttk.BooleanVar(
-            value=cfg.get("use_timestamps", default=False)
-        )
-        self.use_msg_types = ttk.BooleanVar(
-            value=cfg.get("use_msg_types", default=False)
-        )
+        self.use_timestamps = ttk.BooleanVar(value=cfg.get("use_timestamps", False))
+        self.use_msg_types = ttk.BooleanVar(value=cfg.get("use_msg_types", False))
         self.report.debug("TTK object variables created.")
         # Init other app variables
         self.process_thread = None
