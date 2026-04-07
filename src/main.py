@@ -43,6 +43,25 @@ LOGO_PATH = ASSETS_DIR / "logo.png"
 LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
 LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}_general_error.log"
 
+# CONSTANTS
+THEMES = ("cosmo", "flatly", "litera", "superhero", "darkly", "vapor")
+FRAME_PADDING = 16
+ROW_PADDING = 8
+APP_SIZE = (1280, 720)
+APP_MINSIZE = (1280, 450)
+
+INSRUCTIONS = """First - Be sure to have all Excel instances closed. This application uses its own instances of excel to format any appended data witout disturbing any formatting or settings.
+Setup - Using PI Builder, pull information from the data historian and save the data as a comma separated value file. File types can be changed with the "Save As" dialog box. Although not nescessary, having the dataset cleaned at this stage will have the best results. Otherwise, the app will do it's best to clean and filter the data during processing.
+
+1. Use the "Pick file" buttons to select a local version of the MTL/CMD and your exported PI Builder information.
+2. Use the "Filter" input box if you need to filter for specific data objects. For example, filtering for "_LOC_" will help the system remove any unwanted objects that may be named "_LOCobject_".
+    2.1. WHEN APPENDING DATA - NOT ENTERING FILTERS WILL HAVE THE BEST RESULTS.
+3. Select the table that the information will be appended or compared to.
+4. This tool has only guaranteed compatability with the posted MTL version.
+5. Select your process with the radio buttons near the progress bar.
+6. Logs of the process will be available when the process completes.
+"""
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     filename=LOG_FILENAME,
@@ -71,10 +90,11 @@ class App:
         # Initialize the root ttk windmw
         self.window = ttk.Window(
             title="λ Workbook Automation & Verification Engine",
-            themename="superhero",
-            size=(1280, 720),
-            minsize=(1175, 450),
+            themename="litera",
+            size=APP_SIZE,
+            minsize=APP_MINSIZE,
         )
+        self.style = ttk.Style()
         self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
         self.window.iconphoto(False, self.icon)
         # Init Reporting
@@ -84,6 +104,7 @@ class App:
         self.report.debug("App starting...")
         self.report.debug("GUI window created.")
         # Init ttk variables
+        self.selected_theme = ttk.StringVar(value="litera")
         self.selected_data_table = ttk.StringVar()
         self.selected_process = ttk.IntVar(value=ProcessType.NONE.value)
         self.filter_string = ttk.StringVar(value="")
@@ -103,6 +124,7 @@ class App:
         self.debug_style = ttk.Style()
         self.debug_style.configure("Debug.TFrame", background="white")
         # Initialize ttkboostrap frames and widgets
+        self._setup_menus()
         self.create_main_content_frame()
         self.create_file_select_frame()
         self.create_option_frame()
@@ -113,6 +135,46 @@ class App:
             f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}. Other versions may fail. Make sure that the MTL is not opened while using this tool. Finally, please make sure the input files do not contain or try to pre-populate a Version column. Thank you.",
             popup=True,
         )
+
+    def _on_theme_select(self, theme: str) -> None:
+        """
+        Changes variables and the on theme select.
+        """
+        self.selected_theme.set(theme)
+        self.style.theme_use(theme)
+        self.report.debug(f"Theme changed: {theme}", report=False)
+
+    def _setup_menus(self):
+        self.menubar = ttk.Menu(self.window)
+
+        self.file_menu = ttk.Menu(self.menubar, tearoff=0)
+        self.file_menu.add_command(label="Exit", command=self.window.destroy)
+
+        self.menubar.add_cascade(label="File", menu=self.file_menu)
+
+        self.theme_menu = ttk.Menu(self.menubar, tearoff=0)
+
+        for theme in THEMES:
+            self.theme_menu.add_radiobutton(
+                label=theme.capitalize(),
+                value=theme,
+                variable=self.selected_theme,
+                command=lambda t=theme: self._on_theme_select(t),
+            )
+
+        self.menubar.add_cascade(label="Themes", menu=self.theme_menu)
+
+        self.help_menu = ttk.Menu(self.menubar, tearoff=0)
+        self.help_menu.add_command(
+            label="Instructions",
+            command=lambda: self.report.info(
+                INSRUCTIONS, log=False, verbose=False, popup=True
+            ),
+        )
+
+        self.menubar.add_cascade(label="Help", menu=self.help_menu)
+
+        self.window.config(menu=self.menubar)
 
     def get_filepath(
         self,
@@ -196,10 +258,11 @@ class App:
         )
         input_button.pack(side=RIGHT)
 
-    def on_combobox_select(self, event=None):
+    def _on_combobox_select(self, event=None):
         """
         Determines functionality when the type option combo box changes.
         """
+
         selected_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(selected_value)
         self.report.debug(f"Selected: {selected_value}", report=False)
@@ -238,7 +301,7 @@ class App:
         )
         self.mtl_table_cbox.pack(side=LEFT, fill=X, expand=YES, padx=10)
         self.mtl_table_cbox.current(0)
-        self.mtl_table_cbox.bind("<<ComboboxSelected>>", self.on_combobox_select)
+        self.mtl_table_cbox.bind("<<ComboboxSelected>>", self._on_combobox_select)
         default_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(default_value)
         self.report.debug(
