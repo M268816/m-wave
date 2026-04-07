@@ -390,7 +390,7 @@ class Reporting:
         """
         A full-width light divider. Used between minor sections.
         """
-        self.info("-" * self.width)
+        self.error("-" * self.width)
 
     def error_section(self) -> None:
         """

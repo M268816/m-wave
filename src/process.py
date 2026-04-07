@@ -67,10 +67,9 @@ class Process:
         can_compare = self.metadata.can_compare_worksheet()
         if not can_compare:
             self.report.highlight_titled_error(
-                "✗ This table does not yet have the capability to process data.",
+                "This table does not yet have the capability to process data.",
             )
             self.report.error("Stopping process...")
-            self.report.save_report()
             return False
         return True
 
@@ -274,14 +273,14 @@ class Process:
             # NOTE: COMPARISON PHASE
             self.report.simple_title("Comparison Phase")
             self.report.simple_title("General Data Frame Comparison, Sanity Check")
-            comparable = self.data_comparator.compare_shapes(
+            shape_comparison = self.data_comparator.compare_shapes(
                 mtl_dataframe, input_dataframe
             )
-            if not comparable:
+            if len(shape_comparison) == 0:
                 return False
 
             self.report.info("Shape comparison completed:")
-            for key, value in comparable.items():
+            for key, value in shape_comparison.items():
                 self.report.info(f"    {key}: {value}")
 
             # NOTE: APPEND PHASE

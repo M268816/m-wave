@@ -104,7 +104,7 @@ class AppMetadata:
     def get_table_index_keys(self) -> list[str]:
         return TABLE_FORMATTING[self._table_type]["Index Keys"]
 
-    def should_filter_on_keys(self) -> list[str]:
+    def should_filter_on_keys(self) -> bool:
         return TABLE_FORMATTING[self._table_type]["Filter on Keys"]
 
     def get_table_filter_keys(self) -> list[str]:

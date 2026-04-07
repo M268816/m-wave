@@ -92,9 +92,10 @@ class App:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             try:
                 cfg = json.load(f)
+            # FIX: This exception shoudn't raise like this.
             except Exception as e:
                 raise KeyError(e)
-        # Initialize the root ttk windmw
+        # Initialize the root ttk window
         self.window = ttk.Window(
             title="λ Workbook Automation & Verification Engine",
             themename=cfg.get("theme", "litera"),
@@ -161,6 +162,14 @@ class App:
         """
         Sets a new report by re-initializing the self.report variable.
         """
+        if self.process_thread and self.process_thread.is_alive():
+            self.use_timestamps.set(self.report.use_timestamps)
+            self.use_msg_types.set(self.report.use_msg_types)
+            self.report.error(
+                "Cannot update reporting settings while a process is running",
+                popup=True,
+            )
+            return
         self.report = Reporting(
             self.window,
             REPORTS_DIR,
@@ -323,7 +332,6 @@ class App:
         """
         Determines functionality when the type option combo box changes.
         """
-
         selected_value = self.mtl_table_cbox.get()
         self.selected_data_table.set(selected_value)
         self.report.debug(f"Selected: {selected_value}", report=False)
@@ -443,12 +451,6 @@ class App:
 
         self.process_thread = threading.Thread(target=subroutine, daemon=True)
         self.process_thread.start()
-
-    def _update_process_type(self, type: ProcessType) -> None:
-        """
-        Updates the process type variable
-        """
-        self.process_type = type
 
     def create_footer_frame(self) -> None:
         """

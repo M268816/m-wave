@@ -94,7 +94,7 @@ class DataAppender:
         mtl.
         """
         if not output_file_path:
-            output_file_path = self.report.report_folder / "20171406_appended.xlsx"
+            output_file_path = self.report.report_folder / "20471406_appended.xlsx"
 
         table_id = self.metadata.get_table_id()
         worksheet_name = self.metadata.get_worksheet_name()

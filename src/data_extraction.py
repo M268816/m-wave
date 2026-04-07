@@ -34,7 +34,7 @@ class DataExtractor:
         excel = None
         workbook = None
         try:
-            excel = xl.App(visible=False)
+            excel = xl.App(visible=False, add_book=False)
             workbook = excel.books.open(mtl_file_path)
             worksheet = workbook.sheets[self.metadata.get_worksheet_name()]
             table = worksheet.tables[self.metadata.get_table_id()]

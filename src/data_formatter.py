@@ -138,7 +138,7 @@ class DataFormatter:
 
             # Save each data frame to keep a record
             comparable_mtl.to_csv(
-                self.report.report_folder / "compareable_rows.csv", index=False
+                self.report.report_folder / "comparable_rows.csv", index=False
             )
             non_comparable.to_csv(
                 self.report.report_folder / "non_comparable_rows.csv", index=False

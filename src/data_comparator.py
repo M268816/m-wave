@@ -84,7 +84,7 @@ class DataComparator:
                 mtl_rows_filename = "rows_only_within_MTL.csv"
                 mtl_rows_filepath = self.report.report_folder / mtl_rows_filename
                 mtl_only_rows.to_csv(mtl_rows_filepath, index=False)
-                self.report.info(f"Exported to:/n{mtl_rows_filepath}")
+                self.report.info(f"Exported to:\n{mtl_rows_filepath}")
             else:
                 self.report.info("No rows found exclusively in MTL")
 

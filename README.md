@@ -131,7 +131,7 @@ pip install -r requirements.txt
 ### Run
 
 ```bash
-pyton -m src.main
+python -m src.main
 ```
 
 > If you don't have a `requirements.txt` yet, create one (either curated or via `pip freeze > requirements.txt`)
@@ -148,7 +148,7 @@ pip install pyinstaller
 ### Build
 
 ```bash
-pyinstller wave.spec
+pyinstaller wave.spec
 ```
 
 Build artifacts will be under `dist/` (depending on `wave.spec`).
@@ -169,7 +169,7 @@ Build artifacts will be under `dist/` (depending on `wave.spec`).
 
 - WAVE attempts to fallback encoding conversion of UTF-8 files and may emit a `*_fixed.csv` in the run report folder. If this automatic process fails, try to save the CSV file as a `UTF-8 encoded CSV` file via the newest version of Excel that you have available to you.
 
-## Project Structure (siggested)
+## Project Structure (suggested)
 
 Typical Layout:
 

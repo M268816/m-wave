@@ -91,6 +91,7 @@ def get_config_path(_dirs: dict[str, Path]):
         with open(user_config_path, "w", encoding="utf-8") as f:
             json.dump(default_config, f, indent=2)
 
+    # FIX: This shoudnt just output errored config data.
     else:
         with open(user_config_path, "w", encoding="utf-8") as f:
             json.dump({"ERROR": "ERROR"}, f, indent=2)

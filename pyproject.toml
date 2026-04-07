@@ -5,12 +5,12 @@ description = "A helper process to format Master Tag List and Context Master Dat
 readme = "README.md"
 requires-python = ">=3.11.3"
 license = "MIT"
-license-files = ["LICENCSE.*"]
+license-files = ["LICENSE.*"]
 authors = [
   { name = "Raymond Comeau", email = "raymond.comeau@milliporesigma.com" },
 ]
 maintainers = [
-  { name = "Raymond Comeau", email = "raymond.comeau@millipresigma.com" }
+  { name = "Raymond Comeau", email = "raymond.comeau@milliporesigma.com" }
 ]
 keywords = ["CMD", "DDS", "Jaffrey", "MTL", "USJA"]
 classifiers = [
@@ -33,20 +33,11 @@ dependencies = [
 ]
 
 [project.urls]
-"Bug Tracker" = "https://github.com/me/spam/issues"
-Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
-Documentation = "https://readthedocs.org"
-Homepage = "https://example.com"
-Repository = "https://github.com/M268816/mtl-cmd"
-
-[project.scripts]
-spam-cli = "spam:main_cli"
-
-[project.gui-scripts]
-spam-gui = "spam:main_gui"
-
-[project.entry-points."spam.magical"]
-tomatoes = "spam:main"
+"Bug Tracker" = "http://157.93.24.68/M268816/WAVE/issues"
+Changelog = "http://157.93.24.68/M268816/WAVE/blob/main/CHANGELOG.md"
+# Documentation = "https://readthedocs.org"
+# Homepage = "https://example.com"
+Repository = "https://157.92.24.68/M268816/WAVE"
 
 [project.optional-dependencies]
 
