@@ -5,22 +5,22 @@
 <h1 align="center">WAVE</h1>
 <p align="center"><strong>Workbook Automation &amp; Verification Engine</strong></p>
 
-<p align="center">
-  <!-- Badges (replace ORG/REPO + workflow file names/branches as needed) -->
-  <a href="https://github.com/M268816/mtl-cmd/releases">
-    <img alt="Release" src="https://img.shields.io/github/v/release/M268816/mtl-cmd?sort=semver" />
-  </a>
-  <a href="https://github.com/M268816/mtl-cmd/actions">
-    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/M268816/mtl-cmd/build.yml?branch=main" />
-  </a>
-  <a href="https://github.com/M268816/mtl-cmd/issues">
-    <img alt="Issues" src="https://img.shields.io/github/issues/M268816/mtl-cmd" />
-  </a>
-  <a href="https://github.com/M268816/mtl-cmd/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/M268816/mtl-cmd" />
-  </a>
-  <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue" />
-</p>
+<!-- <p align="center"> -->
+<!--   <!-- Badges (replace ORG/REPO + workflow file names/branches as needed) --> -->
+<!--   <a href="https://github.com/M268816/mtl-cmd/releases"> -->
+<!--     <img alt="Release" src="https://img.shields.io/github/v/release/M268816/mtl-cmd?sort=semver" /> -->
+<!--   </a> -->
+<!--   <a href="https://github.com/M268816/mtl-cmd/actions"> -->
+<!--     <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/M268816/mtl-cmd/build.yml?branch=main" /> -->
+<!--   </a> -->
+<!--   <a href="https://github.com/M268816/mtl-cmd/issues"> -->
+<!--     <img alt="Issues" src="https://img.shields.io/github/issues/M268816/mtl-cmd" /> -->
+<!--   </a> -->
+<!--   <a href="https://github.com/M268816/mtl-cmd/blob/main/LICENSE"> -->
+<!--     <img alt="License" src="https://img.shields.io/github/license/M268816/mtl-cmd" /> -->
+<!--   </a> -->
+<!--   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue" /> -->
+<!-- </p> -->
 
 ---
 
