@@ -110,4 +110,5 @@ LOGS_DIR = APP_DIRS["logs"]
 REPORTS_DIR = APP_DIRS["reports"]
 ASSETS_DIR = APP_DIRS["assets"]
 CONFIG_PATH = get_config_path(APP_DIRS)
+INSTRUCTIONS_PATH = ASSETS_DIR / "instructions.txt"
 TEMP_DIR = APP_DIRS["temp"]
