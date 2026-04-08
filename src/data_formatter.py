@@ -165,8 +165,9 @@ class DataFormatter:
 
     def _mask_to_regex(self, mask: str) -> str:
         """
-        Convert an Aveva Pi Builder style filter mask using '*' wildcards into
-        a regular expression.
+        Convert an Aveva Pi Builder style filter mask using '*' wild cards into a
+        regular expression.
+
         *FILTER* -> contains the filter
         *FILTER -> ends with the filter
         FILTER* -> starts with the filter
@@ -178,7 +179,6 @@ class DataFormatter:
         escaped = "".join(".*" if c == "*" else re.escape(c) for c in reg_mask)
         return f"^{escaped}$"
 
-    # TEST:
     def filter_by_string(
         self,
         df: pd.DataFrame,
@@ -232,49 +232,6 @@ class DataFormatter:
             e = str(e)
             self.report.exception(e)
             return output
-
-    # def filter(
-    #     self, df: pd.DataFrame | None, filter_string: str | None = None
-    # ) -> pd.DataFrame:
-    #     """
-    #     Helper function that filters the data to the user's filter string.
-    #     Returns an empty data frame if it fails.
-    #     """
-    #     output = pd.DataFrame()
-    #     try:
-    #         if df is None:
-    #             self.report.error("There was a problem filtering the data frame.")
-    #             self.report.error(
-    #                 "Cannot filter an empty data frame."
-    #             )  # Filter the data
-    #             return pd.DataFrame()
-    #
-    #         table_type = self.metadata.get_table_type()
-    #
-    #         self.report.info(f"Filtering Table: {table_type.name}")
-    #         self.report.info(f"Filtering by: {filter_string}")
-    #
-    #         if filter_string:
-    #             filter_keys = self.metadata.get_table_filter_keys()
-    #             mask = pd.Series(False, index=df.index)
-    #             for key in filter_keys:
-    #                 if key in df.columns:
-    #                     mask = mask | df[key].str.contains(
-    #                         filter_string, case=False, na=False
-    #                     )
-    #             output = df.loc[mask].copy()
-    #         else:
-    #             # Else just copy the input data frame
-    #             output = df.copy()
-    #
-    #         self.report.info("Filter applied")
-    #         return output
-    #
-    #     except Exception as e:
-    #         self.report.error(f"{e}")
-    #         return output
-
-    # TEST: END
 
     def sort(self, df: pd.DataFrame) -> pd.DataFrame:
         """
