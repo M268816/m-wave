@@ -122,6 +122,7 @@ class Reporting:
         # NOTE: "my report"
 
         self.cleaned_name = self.name.replace(" ", "_")
+        self.cleaned_name = self.cleaned_name.replace("*", "")
         # NOTE: "my_report"
 
         self.report_name = f"{self.timestamp}_{self.cleaned_name}"

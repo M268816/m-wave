@@ -48,18 +48,19 @@ LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}_general_error.log"
 THEMES = ("cosmo", "flatly", "litera", "superhero", "darkly", "vapor")
 FRAME_PADDING = 16
 ROW_PADDING = 8
-APP_SIZE = (1280, 720)
-APP_MINSIZE = (1280, 450)
+# APP_SIZE = (1280, 720)
+APP_SIZE = (920, 460)
+APP_MINSIZE = (920, 460)
 
-INSTRUCTIONS = """First - Be sure to have all Excel instances closed. This application uses its own instances of excel to format any appended data witout disturbing any formatting or settings.
-Setup - Using PI Builder, pull information from the data historian and save the data as a comma separated value file. File types can be changed with the "Save As" dialog box. Although not nescessary, having the dataset cleaned at this stage will have the best results. Otherwise, the app will do it's best to clean and filter the data during processing.
+INSTRUCTIONS = """First - Be sure to have all Excel instances closed. This application uses its own instances of excel to format any appended data without disturbing any formatting or settings.
+Setup - Using PI Builder, pull information from the data historian and save the data as a comma separated value file. File types can be changed with the "Save As" dialog box. Although not necessary, having the dataset cleaned at this stage will have the best results. Otherwise, the app will do it's best to clean and filter the data during processing.
 
 1. Use the "Pick file" buttons to select a local version of the MTL/CMD and your exported PI Builder information.
 2. Use the "Filter" input box if you need to filter for specific data objects. For example, filtering for "_LOC_" will help the system remove any unwanted objects that may be named "_LOCobject_".
     2.1. WHEN APPENDING DATA - NOT ENTERING FILTERS WILL HAVE THE BEST RESULTS.
 3. Select the table that the information will be appended or compared to.
-4. This tool has only guaranteed compatability with the posted MTL version.
-5. Select your process with the radio buttons near the progress bar.
+4. This tool has only guaranteed compatibility with the posted MTL version.
+5. Select your process with the radio buttons near the progress bar, then click the "Process" button to start.
 6. Logs of the process will be available when the process completes.
 """
 

@@ -100,6 +100,9 @@ class Process:
                 self.input_file_path, self.filter_string
             )
             if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
+                self.report.warning(
+                    "Could not extract data sets. Process stopped.", popup=True
+                )
                 return False
 
             # NOTE: FORMATTING PHASE
@@ -113,6 +116,9 @@ class Process:
             input_dataframe = self.data_formatter.format(input_dataframe)
 
             if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
+                self.report.warning(
+                    "Could not format the data sets. Process stopped.", popup=True
+                )
                 return False
 
             # NOTE: FORMATTING PHASE 2: COLUMNS
@@ -125,6 +131,10 @@ class Process:
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
             if mtl_dataframe.empty or input_dataframe.empty:
+                self.report.warning(
+                    "Could not align columns between the data sets. Process stopped.",
+                    popup=True,
+                )
                 return False
 
             # NOTE: FILTERING PHASE
@@ -135,6 +145,10 @@ class Process:
                     mtl_dataframe, input_dataframe
                 )
                 if mtl_dataframe.empty or input_dataframe.empty:
+                    self.report.warning(
+                        "Tried to filter on column keys but failed. Stopping process.",
+                        popup=True,
+                    )
                     return False
 
             elif self.filter_string:
@@ -143,15 +157,22 @@ class Process:
                     "Filtering the inputs to the user's filter string"
                 )
                 self.report.info("Filtering the MTL.")
-                mtl_dataframe = self.data_formatter.filter(
+                mtl_dataframe = self.data_formatter.filter_by_string(
                     mtl_dataframe, self.filter_string
                 )
                 self.report.info("Filtering the input.")
-                input_dataframe = self.data_formatter.filter(
+                input_dataframe = self.data_formatter.filter_by_string(
                     input_dataframe, self.filter_string
                 )
                 if mtl_dataframe.empty or input_dataframe.empty:
-                    self.report.error("Could not filter the data frames!")
+                    self.report.warning(
+                        "Data frames returned empty after trying to filter them.",
+                        popup=True,
+                    )
+                    self.report.warning(
+                        "This may not be an error, but a bad filter string. Check your logs for erorrs, or change your filter string.",
+                        popup=True,
+                    )
                     return False
             else:
                 self.report.info("No filter found, filtering skipped.")
@@ -164,7 +185,9 @@ class Process:
             self.report.info("Sorting the input.")
             input_dataframe = self.data_formatter.sort(input_dataframe)
             if mtl_dataframe.empty or input_dataframe.empty:
-                self.report.error("Could not sort the data frames!")
+                self.report.warning(
+                    "Could not sort the data frames! Stopping process.", popup=True
+                )
                 return False
 
             # NOTE: COMPARISON PHASE 1: GENERAL COMPARISON
@@ -174,6 +197,10 @@ class Process:
                 mtl_dataframe, input_dataframe
             )
             if len(shape_comparison) == 0:
+                self.report.warning(
+                    "No data found within the data frames where there should be data. Stopping process.",
+                    popup=True,
+                )
                 return False
             self.report.info("Shape comparison completed:")
             for key, value in shape_comparison.items():
@@ -187,6 +214,10 @@ class Process:
                 input_dataframe,
             )
             if not comparable:
+                self.report.warning(
+                    "Could not compare data between data set rows. Stopping process.",
+                    popup=True,
+                )
                 return False
 
             # NOTE: REPORT PHASE
@@ -228,6 +259,9 @@ class Process:
             )
 
             if not self.data_extractor.could_extract(mtl_dataframe, input_dataframe):
+                self.report.warning(
+                    "Could not extract data sets. Process stopped.", popup=True
+                )
                 return False
 
             # NOTE: FORMATTING PHASE 1: GENERAL
@@ -241,6 +275,9 @@ class Process:
             input_dataframe = self.data_formatter.format(input_dataframe)
 
             if not self.data_formatter.could_format(mtl_dataframe, input_dataframe):
+                self.report.warning(
+                    "Could not format the data sets. Process stopped.", popup=True
+                )
                 return False
 
             # NOTE: FORMATTING PHASE 2: COLUMNS
@@ -253,6 +290,10 @@ class Process:
             # Apply the conforming process to the working data frames.
             mtl_dataframe, input_dataframe = conform_result
             if mtl_dataframe.empty or input_dataframe.empty:
+                self.report.warning(
+                    "Could not align columns between the data sets. Process stopped.",
+                    popup=True,
+                )
                 return False
 
             # NOTE: FILTERING PHASE
@@ -262,11 +303,18 @@ class Process:
                     "Filtering the inputs to the user's filter string"
                 )
                 self.report.info("Filtering the Input.")
-                input_dataframe = self.data_formatter.filter(
+                input_dataframe = self.data_formatter.filter_by_string(
                     input_dataframe, self.filter_string
                 )
                 if mtl_dataframe.empty or input_dataframe.empty:
-                    self.report.error("Could not filter the data frames!")
+                    self.report.warning(
+                        "Data frames returned empty after trying to filter them.",
+                        popup=True,
+                    )
+                    self.report.warning(
+                        "This may not be an error, but a bad filter string. Check your logs for erorrs, or change your filter string.",
+                        popup=True,
+                    )
                     return False
             else:
                 self.report.info("No filter found, filtering skipped.")
@@ -277,6 +325,10 @@ class Process:
                 mtl_dataframe, input_dataframe
             )
             if len(shape_comparison) == 0:
+                self.report.warning(
+                    "No data found within the data frames where there should be data. Stopping process.",
+                    popup=True,
+                )
                 return False
 
             self.report.info("Shape comparison completed:")
@@ -289,6 +341,9 @@ class Process:
                 mtl_dataframe, input_dataframe
             )
             if appended_dataframe.empty:
+                self.report.warning(
+                    "Could not append data. Check your logs.", popup=True
+                )
                 return False
 
             # NOTE: REPORT PHASE

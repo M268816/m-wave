@@ -4,6 +4,7 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
+import re
 
 # third party
 import pandas as pd
@@ -111,7 +112,7 @@ class DataFormatter:
         """
         Helper function that filters data to the column keys.
         Returns a tuple of data frames. Comparable, and non comparable rows.
-        Returns an empty data frame if it fails.
+        Returns a empty data frames if it fails.
         """
         output = (pd.DataFrame(), pd.DataFrame())
         try:
@@ -128,9 +129,11 @@ class DataFormatter:
             comparable_mtl = keyed_mtl[
                 keyed_mtl.index.isin(keyed_input.index)
             ].reset_index()[original_columns]
+
             comparable_input = keyed_input[
                 keyed_input.index.isin(keyed_mtl.index)
             ].reset_index()[original_columns]
+
             # input keys not present in the MTL
             non_comparable = keyed_input[
                 ~keyed_input.index.isin(keyed_mtl.index)
@@ -144,9 +147,8 @@ class DataFormatter:
                 self.report.report_folder / "non_comparable_rows.csv", index=False
             )
 
-            output = comparable_mtl, comparable_input
-
-            return output
+            output = (comparable_mtl, comparable_input)
+            return output  # type: ignore
 
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
@@ -161,46 +163,118 @@ class DataFormatter:
             self.report.exception(error_msg)
             return output
 
-    def filter(
-        self, df: pd.DataFrame | None, filter_string: str | None = None
+    def _mask_to_regex(self, mask: str) -> str:
+        """
+        Convert an Aveva Pi Builder style filter mask using '*' wildcards into
+        a regular expression.
+        *FILTER* -> contains the filter
+        *FILTER -> ends with the filter
+        FILTER* -> starts with the filter
+        *A*B* -> A before B
+        A*B -> starts with A, ends with B
+        """
+        reg_mask = (mask or "").strip()
+
+        escaped = "".join(".*" if c == "*" else re.escape(c) for c in reg_mask)
+        return f"^{escaped}$"
+
+    # TEST:
+    def filter_by_string(
+        self,
+        df: pd.DataFrame,
+        filter_string: str | None = None,
+        case_sensitive: bool = False,
+        filter_na: bool = False,
     ) -> pd.DataFrame:
-        """
-        Helper function that filters the data to the user's filter string.
-        Returns an empty data frame if it fails.
-        """
         output = pd.DataFrame()
         try:
-            if df is None:
-                self.report.error("There was a problem filtering the data frame.")
+            if df.empty:
                 self.report.error(
-                    "Cannot filter an empty data frame."
-                )  # Filter the data
-                return pd.DataFrame()
+                    "The process passed an empty data frame through the filtering process."
+                )
+                self.report.error("Cannot filter empty data frames. Process failed.")
+                return output
 
             table_type = self.metadata.get_table_type()
 
-            self.report.info(f"Filtering Table: {table_type.name}")
+            self.report.info(f"Filtering table: {table_type.name}")
+
+            if not filter_string:
+                return df.copy()
+
             self.report.info(f"Filtering by: {filter_string}")
+            filter_keys = self.metadata.get_table_filter_keys()
+            filter_keys = [key for key in filter_keys if key in df.columns]
 
-            if filter_string:
-                filter_keys = self.metadata.get_table_filter_keys()
-                mask = pd.Series(False, index=df.index)
-                for key in filter_keys:
-                    if key in df.columns:
-                        mask = mask | df[key].str.contains(
-                            filter_string, case=False, na=False
-                        )
-                output = df.loc[mask].copy()
-            else:
-                # Else just copy the input data frame
-                output = df.copy()
+            if not filter_keys:
+                self.report.warning(
+                    "No filter keys found in dataframe; returning unfiltered data frame."
+                )
+                return df.copy()
 
-            self.report.info("Filter applied")
+            regex_pattern = self._mask_to_regex(filter_string)
+            mask = pd.Series(False, index=df.index)
+
+            self.report.debug(f"regex_pattern type: {type(regex_pattern)}")
+            self.report.debug(f"regex_pattern representation: {regex_pattern!r}")
+            for key in filter_keys:
+                as_string = df[key].astype("string")
+                mask = mask | as_string.str.match(
+                    regex_pattern,
+                    case=case_sensitive,
+                    na=filter_na,  # flags=re.DOTALL
+                )
+
+            output = df.loc[mask].copy()
+            self.report.info("Filter applied!")
             return output
-
         except Exception as e:
-            self.report.error(f"{e}")
+            e = str(e)
+            self.report.exception(e)
             return output
+
+    # def filter(
+    #     self, df: pd.DataFrame | None, filter_string: str | None = None
+    # ) -> pd.DataFrame:
+    #     """
+    #     Helper function that filters the data to the user's filter string.
+    #     Returns an empty data frame if it fails.
+    #     """
+    #     output = pd.DataFrame()
+    #     try:
+    #         if df is None:
+    #             self.report.error("There was a problem filtering the data frame.")
+    #             self.report.error(
+    #                 "Cannot filter an empty data frame."
+    #             )  # Filter the data
+    #             return pd.DataFrame()
+    #
+    #         table_type = self.metadata.get_table_type()
+    #
+    #         self.report.info(f"Filtering Table: {table_type.name}")
+    #         self.report.info(f"Filtering by: {filter_string}")
+    #
+    #         if filter_string:
+    #             filter_keys = self.metadata.get_table_filter_keys()
+    #             mask = pd.Series(False, index=df.index)
+    #             for key in filter_keys:
+    #                 if key in df.columns:
+    #                     mask = mask | df[key].str.contains(
+    #                         filter_string, case=False, na=False
+    #                     )
+    #             output = df.loc[mask].copy()
+    #         else:
+    #             # Else just copy the input data frame
+    #             output = df.copy()
+    #
+    #         self.report.info("Filter applied")
+    #         return output
+    #
+    #     except Exception as e:
+    #         self.report.error(f"{e}")
+    #         return output
+
+    # TEST: END
 
     def sort(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -420,7 +494,7 @@ class DataFormatter:
             self.report.info("Data types aligned!")
 
             output = (_mtl, _input)
-            return output
+            return output  # type: ignore
 
         except KeyError as e:
             error_msg = "Column mismatch: The input file is missing required columns."
