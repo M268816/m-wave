@@ -6,6 +6,7 @@
 # stdlib
 import sys
 import json
+import warnings
 from pathlib import Path
 
 
@@ -91,10 +92,13 @@ def get_config_path(_dirs: dict[str, Path]):
         with open(user_config_path, "w", encoding="utf-8") as f:
             json.dump(default_config, f, indent=2)
 
-    # FIX: This shoudnt just output errored config data.
     else:
-        with open(user_config_path, "w", encoding="utf-8") as f:
-            json.dump({"ERROR": "ERROR"}, f, indent=2)
+        warnings.warn(
+            "Could not create a user configuraion path! Using defaults, but cannot save user settings.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return default_path
 
     return user_config_path
 

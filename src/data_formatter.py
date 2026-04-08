@@ -215,14 +215,18 @@ class DataFormatter:
             regex_pattern = self._mask_to_regex(filter_string)
             mask = pd.Series(False, index=df.index)
 
-            self.report.debug(f"regex_pattern type: {type(regex_pattern)}")
-            self.report.debug(f"regex_pattern representation: {regex_pattern!r}")
+            self.report.debug(
+                f"regex_pattern type: {type(regex_pattern)}", report=False
+            )
+            self.report.debug(
+                f"regex_pattern representation: {regex_pattern!r}", report=False
+            )
             for key in filter_keys:
                 as_string = df[key].astype("string")
                 mask = mask | as_string.str.match(
                     regex_pattern,
                     case=case_sensitive,
-                    na=filter_na,  # flags=re.DOTALL
+                    na=filter_na,
                 )
 
             output = df.loc[mask].copy()

@@ -94,8 +94,16 @@ class App:
             try:
                 cfg = json.load(f)
             # FIX: This exception shoudn't raise like this.
+            except json.JSONDecodeError as e:
+                raise json.JSONDecodeError(
+                    f"Failed to parse config file at: 'CONFIG_PATH': {e.msg}",
+                    e.doc,
+                    e.pos,
+                )
             except Exception as e:
-                raise KeyError(e)
+                raise RuntimeError(
+                    f"An unexpected error occurred during loading the configuration.\n{e}"
+                )
         # Initialize the root ttk window
         self.window = ttk.Window(
             title="λ Workbook Automation & Verification Engine",
