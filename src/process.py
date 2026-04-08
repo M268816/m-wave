@@ -139,8 +139,10 @@ class Process:
 
             # NOTE: FILTERING PHASE
             if self.metadata.should_filter_on_keys():
-                self.report.info("String filtering for this table is unstable.")
-                self.report.info("Filtering on column keys instead.")
+                self.report.info(
+                    "String filtering for this table is unstable. Will attempt to filter on index keys instead. If the outcome is not as expected, try sanitizing your PI Builder inputs.",
+                    popup=True,
+                )
                 mtl_dataframe, input_dataframe = self.data_formatter.filter_on_keys(
                     mtl_dataframe, input_dataframe
                 )

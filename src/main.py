@@ -93,7 +93,6 @@ class App:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             try:
                 cfg = json.load(f)
-            # FIX: This exception shoudn't raise like this.
             except json.JSONDecodeError as e:
                 raise json.JSONDecodeError(
                     f"Failed to parse config file at: 'CONFIG_PATH': {e.msg}",
