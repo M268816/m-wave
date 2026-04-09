@@ -40,7 +40,9 @@ from src.reporting import Reporting
 
 # Logging initialization
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
+# FIX: Move this to metadata
 LOGO_PATH = ASSETS_DIR / "logo.png"
+# FIX: END
 LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
 LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}_general_error.log"
 
@@ -48,7 +50,6 @@ LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}_general_error.log"
 THEMES = ("cosmo", "flatly", "litera", "superhero", "darkly", "vapor")
 FRAME_PADDING = 16
 ROW_PADDING = 8
-# APP_SIZE = (1280, 720)
 APP_SIZE = (920, 460)
 APP_MINSIZE = (920, 460)
 
@@ -81,10 +82,68 @@ class App:
     """
 
     def __init__(self) -> None:
-        # Load user configs
+        config = self._load_user_configs()
+
+        # Initialize the root ttk window and options
+        self.window = ttk.Window(
+            title="λ Workbook Automation & Verification Engine",
+            themename=config.get("theme", "litera"),
+            size=APP_SIZE,
+            minsize=APP_MINSIZE,
+        )
+        self.style = ttk.Style()
+        self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
+        self.window.iconphoto(False, self.icon)
+
+        # Init Reporting
+        self.report = Reporting(
+            self.window, REPORTS_DIR, use_timestamps=False, use_msg_types=False
+        )
+
+        # Init ttk variables
+        self.selected_theme = ttk.StringVar(value=config.get("theme", "litera"))
+        self.use_timestamps = ttk.BooleanVar(value=config.get("use_timestamps", False))
+        self.use_msg_types = ttk.BooleanVar(value=config.get("use_msg_types", False))
+
+        ## Strings
+        self.selected_data_table = ttk.StringVar()
+        self.mtl_version = ttk.StringVar(value=MTL_VERSION)
+        self.input_file_path = ttk.StringVar(value="Select a file.")
+        self.mtl_file_path = ttk.StringVar(value="Select a file.")
+        self.filter_string = ttk.StringVar(value="")
+
+        ## Ints
+        self.selected_process = ttk.IntVar(value=ProcessType.NONE.value)
+
+        ## Booleans
+        self.input_selected = ttk.BooleanVar(value=False)
+        self.mtl_selected = ttk.BooleanVar(value=False)
+
+        # Init other app variables
+        self.process_thread = None
+        self.worksheets = {
+            name: table_id for name, table_id in WORKSHEET_METADATA.items()
+        }
+
+        # Debug gui setup - Remove?
+        # self.debug_style = ttk.Style()
+        # self.debug_style.configure("Debug.TFrame", background="white")
+
+        # Initialize ttkboostrap frames and widgets
+        self.setup_menus()
+        self.create_main_content_frame()
+        self.create_file_select_frame()
+        self.create_option_frame()
+        self.create_footer_frame()
+
+    def _load_user_configs(self) -> dict:
+        """
+        Tries to load the user configurations and returns a dict of settings.
+        """
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             try:
                 cfg = json.load(f)
+                return cfg
             except json.JSONDecodeError as e:
                 raise json.JSONDecodeError(
                     f"Failed to parse config file at: 'CONFIG_PATH': {e.msg}",
@@ -95,60 +154,10 @@ class App:
                 raise RuntimeError(
                     f"An unexpected error occurred during loading the configuration.\n{e}"
                 )
-        # Initialize the root ttk window
-        self.window = ttk.Window(
-            title="λ Workbook Automation & Verification Engine",
-            themename=cfg.get("theme", "litera"),
-            size=APP_SIZE,
-            minsize=APP_MINSIZE,
-        )
-        self.style = ttk.Style()
-        self.icon = ttk.PhotoImage(file=str(LOGO_PATH))
-        self.window.iconphoto(False, self.icon)
-        # Init Reporting
-        self.report = Reporting(
-            self.window, REPORTS_DIR, use_timestamps=False, use_msg_types=False
-        )
-        self.report.debug("App starting...")
-        self.report.debug("GUI window created.")
-        # Init ttk variables
-        self.selected_theme = ttk.StringVar(value=cfg.get("theme", "litera"))
-        self.selected_data_table = ttk.StringVar()
-        self.selected_process = ttk.IntVar(value=ProcessType.NONE.value)
-        self.filter_string = ttk.StringVar(value="")
-        self.mtl_version = ttk.StringVar(value=MTL_VERSION)
-        self.input_file_path = ttk.StringVar(value="Select a file.")
-        self.input_selected = ttk.BooleanVar(value=False)
-        self.mtl_file_path = ttk.StringVar(value="Select a file.")
-        self.mtl_selected = ttk.BooleanVar(value=False)
-        self.use_timestamps = ttk.BooleanVar(value=cfg.get("use_timestamps", False))
-        self.use_msg_types = ttk.BooleanVar(value=cfg.get("use_msg_types", False))
-        self.report.debug("TTK object variables created.")
-        # Init other app variables
-        self.process_thread = None
-        self.report.debug("App variables created.")
-        self.worksheets = {
-            name: table_id for name, table_id in WORKSHEET_METADATA.items()
-        }
-        # Debug gui setup
-        self.debug_style = ttk.Style()
-        self.debug_style.configure("Debug.TFrame", background="white")
-        # Initialize ttkboostrap frames and widgets
-        self._setup_menus()
-        self.create_main_content_frame()
-        self.create_file_select_frame()
-        self.create_option_frame()
-        self.create_footer_frame()
-        self.report.debug("Frames and widgets created.")
-
-        self.report.info(
-            f"This app is tested and compatible with MTL/CMD Version: {MTL_VERSION}. Other versions may fail. Make sure that the MTL is not opened while using this tool. Finally, please make sure the input files do not contain or try to pre-populate a Version column. Thank you.",
-            popup=True,
-        )
 
     def _update_config(self, key, value) -> None:
         """
-        Updates the user configuration for theme, timestamps, and message types.
+        Updates the user configuration for theme, time stamps, and message types.
         """
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg = json.load(f)
@@ -170,14 +179,17 @@ class App:
                 popup=True,
             )
             return
+
         self.report = Reporting(
             self.window,
             REPORTS_DIR,
             use_timestamps=self.use_timestamps.get(),
             use_msg_types=self.use_msg_types.get(),
         )
+
         self._update_config("use_timestamps", self.use_timestamps.get())
         self._update_config("use_msg_types", self.use_msg_types.get())
+
         self.report.debug("Report options changed: ", report=False)
         self.report.debug(
             f"Use Timestamps is: {self.use_timestamps.get()}", report=False
@@ -188,14 +200,14 @@ class App:
 
     def _on_theme_select(self, theme: str) -> None:
         """
-        Changes variables and the on theme select.
+        Changes variables and theme, on theme selected/changed.
         """
         self.selected_theme.set(theme)
         self.style.theme_use(theme)
         self._update_config("theme", self.selected_theme.get())
         self.report.debug(f"Theme changed: {theme}", report=False)
 
-    def _setup_menus(self):
+    def setup_menus(self):
         """
         Setup the header menus.
         """
@@ -387,7 +399,7 @@ class App:
 
     def _process_handler(self) -> None:
         """
-        Run the data transfer/validate process.
+        Run the data transfer/comparison process.
         """
 
         selected_process = ProcessType(self.selected_process.get())
@@ -404,6 +416,7 @@ class App:
         if not self.mtl_selected.get() or not self.input_selected.get():
             self.report.error("Please select both input files.", popup=True)
             return
+
         # Check if process is in progress
         if self.process_thread and self.process_thread.is_alive():
             self.report.warning("Process already running!", popup=True)
@@ -414,8 +427,8 @@ class App:
 
         def subroutine():
             """
-            Pushes the process of loading the information to input to another
-            thread.
+            Threaded data processing daemon target.
+            Handles report creation and input processing.
             """
             self.report.debug("Starting subroutine...", report=False)
             try:
@@ -454,10 +467,11 @@ class App:
 
     def create_footer_frame(self) -> None:
         """
-        Creates the row to manage the bottom submit/cancel buttons.
+        Creates a footer frame that contains the process selection and activity widgets.
         """
         row = ttk.Frame(self.content_frame, padding=15)
         row.pack(fill=BOTH, side=BOTTOM, anchor=S)
+
         self.progress_bar = ttk.Progressbar(row, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=15, fill=X)
 

@@ -29,14 +29,14 @@ class Process:
     to the user if the comparison is sound or has differences. These differences shall
     be reported to the user in the form of log files and exported csv files of the data
     frames that were compared. This comparison shall be able to compare full MTL table
-    data along with a user supplied 'object name' that shall attempt to filter each
+    data along with a user supplied 'filter' that shall attempt to filter each
     data frame.
 
     The append function shall attempt to append and update the MTL data frame with
     the input file. The appended or updated data, known as an upsert, shall be reported
     to the user with exported log and csv files. The append function shall attempt to
-    apply these upserts to the MTL directly as well. The user will be  responsible for
-    updating the change log manually.
+    apply these upserts to the MTL directly. The user will be  responsible for updating
+    the change log manually.
     """
 
     def __init__(
@@ -240,7 +240,7 @@ class Process:
 
     def append_input(self) -> bool:
         """
-        Append the supplied PI builder data and the MTL/CMD.
+        Append the supplied PI builder data to the MTL/CMD.
         Returns False if process fails.
         """
         try:

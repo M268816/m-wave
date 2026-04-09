@@ -321,15 +321,6 @@ class Reporting:
         Helper function to highlight an error within the process.
         Uses a double-line box to stand out.
         """
-        # OLD
-        # func = self.critical if is_critical else self.error
-        # inner_padding = self.width - 4
-        # padded = message.center(inner_padding)
-        # func(f"X{'═' * (self.width - 2)}X")
-        # func(f"║ { padded             } ║")
-        # func(f"X{'═' * (self.width - 2)}X")
-
-        # TEST:
         func = self.critical if is_critical else self.error
 
         inner = self.width - 2
@@ -422,7 +413,7 @@ class Reporting:
 if __name__ == "__main__":
     from src.paths import REPORTS_DIR
 
-    window = ttk.Window(themename="superhero")
+    window = ttk.Window()
 
     test = Reporting(window, output_dir=REPORTS_DIR)
     test.create_report("reporting_test")

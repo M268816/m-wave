@@ -54,7 +54,7 @@ class DataAppender:
             keyed_mtl = keyed_mtl[~keyed_mtl.index.isin(keyed_input.index)]
             output = pd.concat([keyed_mtl, keyed_input]).reset_index()[original_columns]
 
-            return output
+            return output  # type: ignore
 
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
