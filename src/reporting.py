@@ -8,10 +8,12 @@ import logging
 from queue import Queue
 from datetime import datetime
 from pathlib import Path
+from tkinter.scrolledtext import ScrolledText
 
 # third party
 import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox as modal
+from ttkbootstrap.constants import END
 
 # local
 from src.metadata import DATETIME_FORMAT
@@ -38,6 +40,7 @@ class Reporting:
         timestamp: datetime | None = None,
     ) -> None:
         self.name = ""
+        self.text_display: ScrolledText | None = None
         self.cleaned_name = ""
         self.report_name = ""
         self.file_path = Path()
@@ -59,6 +62,12 @@ class Reporting:
         self.report_lines = []
         self._modal_queue = Queue()
         self._modal_busy = False
+
+    def attach_text_display(self, text_display: ScrolledText) -> None:
+        """
+        Attach a ScrolledText widget to the reporting instance for live updates.
+        """
+        self.text_display = text_display
 
     def _show_next_modal(self):
         """
@@ -160,6 +169,9 @@ class Reporting:
             print(msg)
         if _report:
             self._add_line(msg, "DEBUG")
+            if self.text_display is not None:
+                self.text_display.insert(END, msg + "\n")
+                self.text_display.see(END)
         if popup:
             self._queue_modal(modal.show_error, msg, "Debugger")
 
@@ -184,6 +196,9 @@ class Reporting:
             print(msg)
         if _report:
             self._add_line(msg, "ERROR")
+            if self.text_display is not None:
+                self.text_display.insert(END, msg + "\n")
+                self.text_display.see(END)
         if popup:
             self._queue_modal(modal.show_error, msg, "An error has occurred!")
 
@@ -209,6 +224,9 @@ class Reporting:
             print(msg)
         if _report:
             self._add_line(msg, "EXCEPTION")
+            if self.text_display is not None:
+                self.text_display.insert(END, msg + "\n")
+                self.text_display.see(END)
         if popup:
             self._queue_modal(modal.show_error, msg, "An exception was thrown!")
 
@@ -233,6 +251,9 @@ class Reporting:
             print(msg)
         if _report:
             self._add_line(msg, "INFO")
+            if self.text_display is not None:
+                self.text_display.insert(END, msg + "\n")
+                self.text_display.see(END)
         if popup:
             self._queue_modal(modal.show_info, msg, "You should know...")
 
@@ -257,6 +278,9 @@ class Reporting:
             print(msg)
         if _report:
             self._add_line(msg, "WARNING")
+            if self.text_display is not None:
+                self.text_display.insert(END, msg + "\n")
+                self.text_display.see(END)
         if popup:
             self._queue_modal(modal.show_warning, msg, "Warning!")
 
@@ -281,6 +305,9 @@ class Reporting:
             print(msg)
         if _report:
             self._add_line(msg, "CRITICAL")
+            if self.text_display is not None:
+                self.text_display.insert(END, msg + "\n")
+                self.text_display.see(END)
         if popup:
             self._queue_modal(modal.show_error, msg, "CRITICAL FAILURE")
 
