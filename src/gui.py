@@ -22,7 +22,6 @@ from ttkbootstrap.constants import (
     BOTH,
     BOTTOM,
     DISABLED,
-    END,
     INDETERMINATE,
     LEFT,
     N,
@@ -79,6 +78,7 @@ class ProcessUi:
     progress_bar: tkb.Progressbar
     process_button: tkb.Button
     opt_process: tkb.IntVar
+    stext: ScrolledText
 
 
 class Controller:
@@ -123,7 +123,7 @@ class Controller:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
 
-    def set_report(self) -> None:
+    def set_report(self, text_display: ScrolledText) -> None:
         """
         Sets/creates a new report by re-initializing
         """
@@ -141,6 +141,8 @@ class Controller:
             use_msg_types=self.user_configs.get("use_msg_types"),  # type: ignore
         )
 
+        self.report.attach_text_display(text_display)
+
     def _start_thread(
         self,
         req: ProcessRequest,
@@ -151,6 +153,7 @@ class Controller:
         """
         try:
             self.report.create_report(req.report_name)
+            self.report.attach_text_display(ui.stext)
             process = Process(
                 self.report,
                 req.filter,
@@ -299,6 +302,10 @@ class Gui:
         self.style.theme_use(theme)
         self.controller.set_user_config("theme", self.selected_theme)
 
+    def _on_option_change(self, config_key: str, var: tkb.Variable) -> None:
+        self.controller.set_user_config(config_key, var.get())
+        self.controller.set_report(self.stext)
+
     def _build_menu(self):
         menubar = tkb.Menu(self.content)
 
@@ -310,7 +317,14 @@ class Gui:
         option_menu.add_checkbutton(
             label="Add time stamps to reports.",
             variable=self.opt_timestamps,
-            command=self.controller.set_report,
+            command=lambda: self._on_option_change(
+                "use_timestamps", self.opt_timestamps
+            ),
+        )
+        option_menu.add_checkbutton(
+            label="Add message types to reports.",
+            variable=self.opt_msg_types,
+            command=lambda: self._on_option_change("use_msg_types", self.opt_msg_types),
         )
         menubar.add_cascade(label="Report Options", menu=option_menu)
 
@@ -498,6 +512,7 @@ class Gui:
                 self.progress_bar,
                 self.process_button,
                 self.opt_process,
+                self.stext,
             )
 
             self.controller.start_process(req, ui)
