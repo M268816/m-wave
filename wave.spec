@@ -11,7 +11,7 @@ import os
 from PyInstaller.building.build_main import Analysis, PYZ, EXE
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-# Assumes the spec file lives at the project root (WAVE/)
+# Assumes the spec file lives at the project root (wave/)
 ROOT       = os.path.abspath(".")
 ASSETS_DIR = os.path.join(ROOT, "assets")
 
@@ -30,8 +30,9 @@ a = Analysis(
     # Format: (absolute_source_path, destination_folder_inside_bundle)
     # paths.py reads these via get_temp_path() / sys._MEIPASS at runtime.
     datas=[
-        (os.path.join(ASSETS_DIR, "config.json"), "assets"),
-        (os.path.join(ASSETS_DIR, "logo.png"),    "assets"),
+        (os.path.join(ASSETS_DIR, "config.json"),       "assets"),
+        (os.path.join(ASSETS_DIR, "logo.png"),           "assets"),
+        (os.path.join(ASSETS_DIR, "instructions.txt"),   "assets"),
     ],
 
     # Modules PyInstaller cannot detect automatically (dynamic imports, etc.)
@@ -41,6 +42,7 @@ a = Analysis(
         "tkinter.ttk",
         "tkinter.messagebox",
         "tkinter.filedialog",
+        "tkinter.scrolledtext",
         # ── ttkbootstrap ───────────────────────────────────────────────────────
         "ttkbootstrap",
         "ttkbootstrap.dialogs",
@@ -74,18 +76,19 @@ a = Analysis(
         "openpyxl.writer.excel",
         "openpyxl.chart",
         "openpyxl.chart.label",
+        # ── xlwings ────────────────────────────────────────────────────────────
+        "xlwings",
         # ── numpy ──────────────────────────────────────────────────────────────
         "numpy",
         "numpy.core._methods",
         "numpy.lib.format",
         # ── your src package ───────────────────────────────────────────────────
-        # Needed because main.py uses 'from src.X import ...' style imports.
-        # Without these PyInstaller may not bundle the sub-modules.
         "src",
         "src.data_appender",
         "src.data_comparator",
         "src.data_extraction",
         "src.data_formatter",
+        "src.gui",
         "src.metadata",
         "src.paths",
         "src.process",
@@ -113,43 +116,34 @@ a = Analysis(
 )
 
 # ── PYZ ────────────────────────────────────────────────────────────────────────
-# Compresses your Python bytecode into the archive inside the exe.
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 # ── EXE ────────────────────────────────────────────────────────────────────────
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,       # Include binaries directly (required for onefile)
-    a.zipfiles,       # Include zip data directly
-    a.datas,          # Include data files directly
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
 
-    name="wave",                # Output filename: dist/wave.exe
+    name="wave",
 
     # ── Appearance ─────────────────────────────────────────────────────────────
-    icon=os.path.join(ASSETS_DIR, "logo.png"),  # Window/taskbar icon
+    icon=os.path.join(ASSETS_DIR, "logo.png"),
     # NOTE: PyInstaller requires a .ico file for the exe icon on Windows.
     # If logo.png is your only asset, convert it first:
     #   pip install pillow
     #   python -c "from PIL import Image; Image.open('assets/logo.png').save('assets/logo.ico')"
     # Then change the line above to: icon=os.path.join(ASSETS_DIR, "logo.ico")
 
-    debug=False,          # Set True temporarily if the exe crashes silently
+    debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,             # Compress with UPX if available (reduces exe size)
+    upx=True,
     upx_exclude=[],
 
-    # ── Console window ─────────────────────────────────────────────────────────
-    # console=True  → shows a terminal behind the GUI (useful for debugging)
-    # console=False → GUI-only, no terminal window
-    console=True,
-
-    # ── One-file mode ──────────────────────────────────────────────────────────
-    # onefile=True bundles everything into a single exe.
-    # At runtime PyInstaller extracts to a temp folder (sys._MEIPASS).
-    # paths.py already handles this correctly via get_temp_path().
+    console=False,
     onefile=True,
 
     disable_windowed_traceback=False,
