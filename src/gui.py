@@ -4,12 +4,11 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
+import json
 from dataclasses import dataclass
 from enum import Enum
-import json
 from pathlib import Path
 from threading import Thread
-import threading
 from tkinter import ttk
 from tkinter import font
 from tkinter.constants import NORMAL
@@ -38,7 +37,6 @@ from ttkbootstrap.style import PRIMARY, SUCCESS
 # local
 from src.metadata import MTL_VERSION, WORKSHEET_METADATA
 from src.paths import LOGO_PATH, CONFIG_PATH, INSTRUCTIONS_PATH, REPORTS_DIR
-
 from src.process import Process
 from src.reporting import Reporting
 
@@ -48,7 +46,26 @@ APP_MINSIZE = (850, 525)
 PAD_X = 8
 PAD_Y = 8
 PAD = 8
-THEMES = ("cosmo", "flatly", "litera", "superhero", "darkly", "vapor")
+THEMES = (
+    "cosmo",
+    "flatly",
+    "journal",
+    "litera",
+    "lumen",
+    "minty",
+    "pulse",
+    "sandstone",
+    "united",
+    "yeti",
+    "morph",
+    "simplex",
+    "cerculean",
+    "solar",
+    "superhero",
+    "darkly",
+    "cyborg",
+    "vapor",
+)
 
 with open(INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
     INSTRUCTIONS = f.read()
@@ -116,18 +133,28 @@ class Controller:
             use_msg_types=self.user_configs.get("use_msg_types"),  # type: ignore
         )
 
-    def set_config_value(self, key, value) -> None:
+    def set_config_value(self, key: str, value: tkb.StringVar | tkb.BooleanVar) -> None:
         """
         Write a single user configuration through a dict key.
         """
+        if self.process_thread and self.process_thread.is_alive():
+            value.set(self.user_configs.get(key, False))
+            self.root.after(
+                0,
+                lambda: self.report.warning(
+                    "Cannot change configurations while a process is running.",
+                    popup=True,
+                ),
+            )
+            return
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg = json.load(f)
-        cfg[key] = value
+        cfg[key] = value.get()
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
         self.user_configs = self._load_user_config()
 
-    def reset_report(self, text_display: ScrolledText, filter: tkb.Variable) -> None:
+    def reset_report(self, text_display: ScrolledText, filter_string: str) -> None:
         """
         Sets/creates a new report by re-initializing
         """
@@ -138,7 +165,7 @@ class Controller:
             )
             return
         self.report = self._set_report(self.root)
-        self.report.create_report(filter.get())
+        self.report.create_report(filter_string)
         self.report.attach_text_display(text_display)
 
     def start_process(
@@ -170,9 +197,11 @@ class Controller:
             return
 
         ui.process_button.config(state=DISABLED)
+        self.reset_report(ui.stext, req.report_name)
+
         ui.progress_bar.start()
 
-        self.process_thread = threading.Thread(
+        self.process_thread = Thread(
             target=lambda: self._start_thread(req, ui),
             daemon=True,
         )
@@ -187,8 +216,6 @@ class Controller:
         Opens a new thread and starts the subroutine.
         """
         try:
-            self.report.create_report(req.report_name)
-            self.report.attach_text_display(ui.stext)
             process = Process(
                 self.report,
                 req.filter,
@@ -309,34 +336,43 @@ class Gui:
                 label=theme.capitalize(),
                 value=theme,
                 variable=self.opt_theme,
-                command=lambda t=theme: self._on_theme_change(t),
+                command=lambda t=tkb.StringVar(None, theme): self._on_theme_change(t),
             )
         menubar.add_cascade(label="Themes", menu=theme_menu)
 
         help_menu = tkb.Menu(menubar, tearoff=0)
         help_menu.add_command(
             label="Instructions",
-            command=lambda: self.controller.report.info(
-                INSTRUCTIONS, log=False, verbose=False, popup=True
+            command=lambda: (
+                self.controller.report.info(
+                    "Instructions pushed to text display.",
+                    log=False,
+                    verbose=False,
+                    popup=True,
+                ),
+                self.controller.report.info(
+                    INSTRUCTIONS,
+                    log=False,
+                    verbose=False,
+                ),
             ),
         )
         menubar.add_cascade(label="Help", menu=help_menu)
 
         self.root.config(menu=menubar)
 
-    def _on_theme_change(self, theme) -> None:
+    def _on_theme_change(self, theme: tkb.StringVar) -> None:
         """
         Changes the variables and theme when the theme is changed.
         """
-        self.style.theme_use(theme)
+        self.style.theme_use(theme.get())
         self.controller.set_config_value("theme", theme)
 
-    def _on_option_change(self, config_key: str, var: tkb.Variable) -> None:
+    def _on_option_change(self, config_key: str, var: tkb.BooleanVar) -> None:
         """
         On report option change, updates the configuration and resets the report.
         """
-        self.controller.set_config_value(config_key, var.get())
-        self.controller.reset_report(self.stext, self.opt_filter)
+        self.controller.set_config_value(config_key, var)
 
     def _build_file_select(self) -> None:
         """
@@ -455,7 +491,7 @@ class Gui:
         self.opt_data_table.set(default_value)
 
         version_label = tkb.Label(
-            row, text=f"Compatable MTL Version: {MTL_VERSION}", padding=PAD
+            row, text=f"Compatible MTL Version: {MTL_VERSION}", padding=PAD
         )
         version_label.pack(side=RIGHT, padx=PAD_X)
 
@@ -518,13 +554,12 @@ class Gui:
         )
         self.process_button.pack(side=RIGHT, padx=PAD_X, pady=PAD_Y, fill=Y)
 
-    def _on_process_clicked(self, event) -> None:
+    def _on_process_clicked(self) -> None:
         """
         Builds the requests and ui objects to pass to the process thread when the
         process button is clicked.
         """
-        _ = event
-        if not self._mtl_is_selected.get() and self._input_is_selected.get():
+        if not (self._mtl_is_selected.get() and self._input_is_selected.get()):
             self.controller.report.error("Please select both files to start process.")
             return
 
@@ -541,6 +576,7 @@ class Gui:
             self.opt_process,
             self.stext,
         )
+
         self.controller.start_process(req, ui)
 
     def run(self) -> None:

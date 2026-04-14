@@ -167,7 +167,7 @@ class Reporting:
             else datetime.now().strftime(DATETIME_FORMAT)
         )
 
-        self.name = new_name
+        self.name = new_name.strip() or "No_Filter"
         # NOTE: "*my report"
 
         self.cleaned_name = self.name.replace(" ", "_")
@@ -208,8 +208,13 @@ class Reporting:
         if _report:
             self._add_line(msg, config.msg_type)
             if self.text_display is not None:
-                self.text_display.insert(END, msg + "\n")
-                self.text_display.see(END)
+                self.parent_window.after(
+                    0, lambda func=self.text_display.insert: func(END, msg + "\n")
+                )
+                self.parent_window.after(
+                    0,
+                    lambda func=self.text_display.see: func(END),
+                )
         if popup:
             self._queue_modal(config.modal_func, msg, config.modal_title)
 

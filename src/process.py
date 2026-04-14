@@ -172,7 +172,7 @@ class Process:
                         popup=True,
                     )
                     self.report.warning(
-                        "This may not be an error, but a bad filter string. Check your logs for erorrs, or change your filter string.",
+                        "This may not be an error, but a bad filter string. Check your logs for errors, or change your filter string.",
                         popup=True,
                     )
                     return False
@@ -314,7 +314,7 @@ class Process:
                         popup=True,
                     )
                     self.report.warning(
-                        "This may not be an error, but a bad filter string. Check your logs for erorrs, or change your filter string.",
+                        "This may not be an error, but a bad filter string. Check your logs for errors, or change your filter string.",
                         popup=True,
                     )
                     return False
