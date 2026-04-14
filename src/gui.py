@@ -43,8 +43,8 @@ from src.process import Process
 from src.reporting import Reporting
 
 # CONSTANTS
-APP_SIZE = (920, 450)
-APP_MINSIZE = (920, 450)
+APP_SIZE = (850, 525)
+APP_MINSIZE = (850, 525)
 PAD_X = 8
 PAD_Y = 8
 PAD = 8
@@ -85,13 +85,7 @@ class Controller:
     def __init__(self, window: tkb.Window):
         self.root = window
         self.user_configs: dict = self._load_user_config()
-        self.report: Reporting = Reporting(
-            window,
-            REPORTS_DIR,
-            verbose_printing=False,
-            use_timestamps=self.user_configs.get("use_timestamps"),  # type: ignore
-            use_msg_types=self.user_configs.get("use_msg_types"),  # type: ignore
-        )
+        self.report: Reporting = self._set_report(self.root)
         self.process_thread: Thread | None = None
 
     def _load_user_config(self) -> dict:
@@ -113,7 +107,16 @@ class Controller:
                     f"An unexptected error occurred while trying to load the user configuration file.\n{e}"
                 )
 
-    def set_user_config(self, key, value) -> None:
+    def _set_report(self, window) -> Reporting:
+        return Reporting(
+            window,
+            REPORTS_DIR,
+            verbose_printing=False,
+            use_timestamps=self.user_configs.get("use_timestamps"),  # type: ignore
+            use_msg_types=self.user_configs.get("use_msg_types"),  # type: ignore
+        )
+
+    def set_config_value(self, key, value) -> None:
         """
         Write a single user configuration through a dict key.
         """
@@ -122,8 +125,9 @@ class Controller:
         cfg[key] = value
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
+        self.user_configs = self._load_user_config()
 
-    def set_report(self, text_display: ScrolledText) -> None:
+    def reset_report(self, text_display: ScrolledText, filter: tkb.Variable) -> None:
         """
         Sets/creates a new report by re-initializing
         """
@@ -133,15 +137,46 @@ class Controller:
                 popup=True,
             )
             return
-
-        self.report = Reporting(
-            self.root,
-            REPORTS_DIR,
-            use_timestamps=self.user_configs.get("use_timestamps"),  # type: ignore
-            use_msg_types=self.user_configs.get("use_msg_types"),  # type: ignore
-        )
-
+        self.report = self._set_report(self.root)
+        self.report.create_report(filter.get())
         self.report.attach_text_display(text_display)
+
+    def start_process(
+        self,
+        req: ProcessRequest,
+        ui: ProcessUi,
+    ):
+        """
+        Starts the data processing functions.
+        """
+        if req.process_type == ProcessType.NONE:
+            self.root.after(
+                0,
+                lambda: self.report.error(
+                    "Please select either the Compare or Append radio button.",
+                    popup=True,
+                ),
+            )
+            return
+
+        if self.process_thread and self.process_thread.is_alive():
+            self.root.after(
+                0,
+                lambda: self.report.warning(
+                    "Process already running!",
+                    popup=True,
+                ),
+            )
+            return
+
+        ui.process_button.config(state=DISABLED)
+        ui.progress_bar.start()
+
+        self.process_thread = threading.Thread(
+            target=lambda: self._start_thread(req, ui),
+            daemon=True,
+        )
+        self.process_thread.start()
 
     def _start_thread(
         self,
@@ -186,56 +221,6 @@ class Controller:
             self.root.after(0, lambda: ui.opt_process.set(ProcessType.NONE.value))
             self.root.after(0, lambda: ui.process_button.config(state=NORMAL))
 
-    def _files_selected(self, mtl: Path, input: Path) -> bool:
-        return True if mtl and input else False
-
-    def start_process(
-        self,
-        req: ProcessRequest,
-        ui: ProcessUi,
-    ):
-        """
-        Starts the data processing functions.
-        """
-        if not self._files_selected(req.mtl_file_path, req.input_file_path):
-            self.root.after(
-                0,
-                lambda: self.report.error(
-                    "File selection required. Select an MTL and input file.",
-                    popup=True,
-                ),
-            )
-            return
-
-        if req.process_type == ProcessType.NONE:
-            self.root.after(
-                0,
-                lambda: self.report.error(
-                    "Please select either the Compare or Append radio button.",
-                    popup=True,
-                ),
-            )
-            return
-
-        if self.process_thread and self.process_thread.is_alive():
-            self.root.after(
-                0,
-                lambda: self.report.warning(
-                    "Process already running!",
-                    popup=True,
-                ),
-            )
-            return
-
-        ui.process_button.config(state=DISABLED)
-        ui.progress_bar.start()
-
-        self.process_thread = threading.Thread(
-            target=lambda: self._start_thread(req, ui),
-            daemon=True,
-        )
-        self.process_thread.start()
-
 
 class Gui:
     def __init__(
@@ -247,13 +232,12 @@ class Gui:
         self.root = window
         self.stext = ScrolledText()
         self.controller = Controller(self.root)
+        self.style = tkb.Style()
 
         self.root.geometry(f"{app_size[0]}x{app_size[1]}")
         self.root.minsize(app_minsize[0], app_minsize[1])
         self.logo = tkb.PhotoImage(file=str(LOGO_PATH))
         self.root.iconphoto(False, self.logo)
-
-        self.style = tkb.Style()
 
         # User options
         self.opt_theme = tkb.StringVar(
@@ -270,14 +254,14 @@ class Gui:
         self.opt_input_path = tkb.StringVar(value="Select a file.")
         self.opt_filter = tkb.StringVar()
         self.opt_process = tkb.IntVar(value=ProcessType.NONE.value)
+        self.style.theme_use(self.opt_theme.get())
 
         # Other variables
         self.mtl_version = tkb.StringVar(value=MTL_VERSION)
         self._mtl_is_selected = tkb.BooleanVar(value=False)
         self._input_is_selected = tkb.BooleanVar(value=False)
 
-        self.style.theme_use(self.opt_theme.get())
-
+        # Main content frame
         self.content = ttk.Frame(self.root, padding=PAD)
         self.content.pack(side=TOP, fill=BOTH, expand=YES)
 
@@ -286,27 +270,18 @@ class Gui:
         self._build_config_options()
         self._build_text_display()
         self._build_process_row()
-        self.controller.report.attach_text_display(self.stext)
+
         self.controller.report.info(
             "Welcome to the WAVE. Start the process by choosing your files.", log=False
         )
         self.controller.report.info(
-            "For more information use the Help menu at the top.", log=False
+            "For more information please use the Help Menu.", log=False
         )
 
-    def _on_theme_select(self, theme):
+    def _build_menu(self) -> None:
         """
-        Changes the variables and theme, on theme selected/changed.
+        Builds the header menus for the UI.
         """
-        self.selected_theme = theme
-        self.style.theme_use(theme)
-        self.controller.set_user_config("theme", self.selected_theme)
-
-    def _on_option_change(self, config_key: str, var: tkb.Variable) -> None:
-        self.controller.set_user_config(config_key, var.get())
-        self.controller.set_report(self.stext)
-
-    def _build_menu(self):
         menubar = tkb.Menu(self.content)
 
         file_menu = tkb.Menu(menubar, tearoff=0)
@@ -334,7 +309,7 @@ class Gui:
                 label=theme.capitalize(),
                 value=theme,
                 variable=self.opt_theme,
-                command=lambda t=theme: self._on_theme_select(t),
+                command=lambda t=theme: self._on_theme_change(t),
             )
         menubar.add_cascade(label="Themes", menu=theme_menu)
 
@@ -349,12 +324,87 @@ class Gui:
 
         self.root.config(menu=menubar)
 
+    def _on_theme_change(self, theme) -> None:
+        """
+        Changes the variables and theme when the theme is changed.
+        """
+        self.style.theme_use(theme)
+        self.controller.set_config_value("theme", theme)
+
+    def _on_option_change(self, config_key: str, var: tkb.Variable) -> None:
+        """
+        On report option change, updates the configuration and resets the report.
+        """
+        self.controller.set_config_value(config_key, var.get())
+        self.controller.reset_report(self.stext, self.opt_filter)
+
+    def _build_file_select(self) -> None:
+        """
+        Builds the file selection widgets for the UI.
+        """
+        frame = tkb.Labelframe(
+            self.content,
+            text="Select your files.",
+            padding=PAD,
+        )
+        frame.pack(side=TOP, anchor=N, fill=X, expand=NO)
+
+        self._build_data_row(
+            frame,
+            "Select MTL/CMD:",
+            self.opt_mtl_path,
+            self._mtl_is_selected,
+            20,
+        )
+        self._build_data_row(
+            frame,
+            "Select input CSV:",
+            self.opt_input_path,
+            self._input_is_selected,
+            20,
+            ("*.csv",),
+        )
+
+    def _build_data_row(
+        self,
+        frame: tkb.Labelframe,
+        label_text: str,
+        path_variable: tkb.StringVar,
+        is_selected: tkb.BooleanVar,
+        width: int,
+        file_types: tuple[str] | None = None,
+    ):
+        row = tkb.Frame(frame, padding=PAD)
+        row.pack(fill=X)
+        label = tkb.Label(row, text=label_text, padding=PAD, width=width)
+        label.pack(side=LEFT)
+        entry = tkb.Entry(row, textvariable=path_variable)
+        entry.pack(side=LEFT, fill=BOTH, expand=YES, padx=PAD_X)
+        button = tkb.Button(
+            row,
+            text="Pick file",
+            bootstyle=PRIMARY,
+            padding=PAD,
+            width=width,
+            command=(
+                lambda: self._set_filepath(
+                    path_variable,
+                    is_selected,
+                    file_types,
+                )
+            ),
+        )
+        button.pack(side=RIGHT)
+
     def _set_filepath(
         self,
         string_variable: tkb.StringVar,
         is_selected: tkb.BooleanVar,
         file_types: tuple[str] | None = None,
     ) -> None:
+        """
+        Sets a file path string variable and updates the state tracking boolean.
+        """
         if file_types is None:
             types = [
                 ("Supported files", ("*.xlsx", "*.xlsm")),
@@ -373,60 +423,10 @@ class Gui:
             string_variable.set("Cancelled")
             is_selected.set(False)
 
-    def _build_file_select(self):
-        frame = tkb.Labelframe(
-            self.content,
-            text="Select your files.",
-            padding=PAD,
-        )
-        frame.pack(side=TOP, anchor=N, fill=X, expand=NO)
-
-        def f_row(frame, label_text, path_variable, is_selected, width, file_types):
-            row = tkb.Frame(frame, padding=PAD)
-            row.pack(fill=X)
-            label = tkb.Label(row, text=label_text, padding=PAD, width=width)
-            label.pack(side=LEFT)
-            entry = tkb.Entry(row, textvariable=path_variable)
-            entry.pack(side=LEFT, fill=BOTH, expand=YES, padx=PAD_X)
-            button = tkb.Button(
-                row,
-                text="Pick file",
-                bootstyle=PRIMARY,
-                padding=PAD,
-                width=width,
-                command=(
-                    lambda: self._set_filepath(
-                        path_variable,
-                        is_selected,
-                        file_types,
-                    )
-                ),
-            )
-            button.pack(side=RIGHT)
-
-        f_row(
-            frame,
-            "Select MTL/CMD:",
-            self.opt_mtl_path,
-            self._mtl_is_selected,
-            20,
-            None,
-        )
-        f_row(
-            frame,
-            "Select input CSV:",
-            self.opt_input_path,
-            self._input_is_selected,
-            20,
-            ("*.csv",),
-        )
-
-    def _on_mtl_table_selected(self, event) -> None:
-        event = event
-        val = self.mtl_table_cbox.get()
-        self.opt_data_table.set(val)
-
-    def _build_config_options(self):
+    def _build_config_options(self) -> None:
+        """
+        Builds the processing configuration option widgets for the UI.
+        """
         frame = tkb.Labelframe(
             self.content,
             text="Configure the WAVE processing options.",
@@ -446,9 +446,7 @@ class Gui:
         cbox_label = tkb.Label(row, text="MTL/CMD Table:", padding=PAD)
         cbox_label.pack(side=LEFT, padx=PAD_X)
 
-        options = {name: table_id for name, table_id in WORKSHEET_METADATA.items()}
-
-        self.mtl_table_cbox = tkb.Combobox(row, values=list(options.keys()))
+        self.mtl_table_cbox = tkb.Combobox(row, values=list(WORKSHEET_METADATA.keys()))
         self.mtl_table_cbox.pack(side=LEFT, fill=X, expand=YES, padx=PAD_X)
         self.mtl_table_cbox.current(0)
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self._on_mtl_table_selected)
@@ -461,7 +459,19 @@ class Gui:
         )
         version_label.pack(side=RIGHT, padx=PAD_X)
 
-    def _build_text_display(self):
+    def _on_mtl_table_selected(self, event) -> None:
+        """
+        Gets the new table selection and sets the data_table option when its combobox
+        is changed.
+        """
+        _ = event
+        val = self.mtl_table_cbox.get()
+        self.opt_data_table.set(val)
+
+    def _build_text_display(self) -> None:
+        """
+        Builds the text display widgets for the UI.
+        """
         frame = tkb.Labelframe(self.content, text="Process Output.")
         frame.pack(side=TOP, fill=BOTH, expand=YES)
         frame.pack_propagate(False)
@@ -469,13 +479,13 @@ class Gui:
         self.stext = ScrolledText(frame, height=24)
         self.stext.configure(font=mono)
         self.stext.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=YES)
+        self.controller.report.attach_text_display(self.stext)
 
-    def _files_selected(self) -> bool:
-        mtl = self._mtl_is_selected.get()
-        input = self._input_is_selected.get()
-        return mtl and input
-
-    def _build_process_row(self):
+    def _build_process_row(self) -> None:
+        """
+        Builds the footer row that holds the processing options and progress bar
+        indicator.
+        """
         frame = tkb.Labelframe(self.content, text="Process Status")
         frame.pack(side=BOTTOM, fill=X, anchor=S)
 
@@ -498,36 +508,45 @@ class Gui:
         )
         self.radio_compare.pack(side=LEFT, padx=PAD_X, pady=PAD_Y, fill=Y)
 
-        def on_process_clicked() -> None:
-
-            req = ProcessRequest(
-                ProcessType(self.opt_process.get()),
-                self.opt_filter.get(),
-                self.opt_data_table.get(),
-                Path(self.opt_mtl_path.get()),
-                Path(self.opt_input_path.get()),
-            )
-
-            ui = ProcessUi(
-                self.progress_bar,
-                self.process_button,
-                self.opt_process,
-                self.stext,
-            )
-
-            self.controller.start_process(req, ui)
-
         self.process_button = tkb.Button(
             frame,
             text="Process",
             bootstyle=SUCCESS,
             padding=PAD,
             width=20,
-            command=on_process_clicked,
+            command=self._on_process_clicked,
         )
         self.process_button.pack(side=RIGHT, padx=PAD_X, pady=PAD_Y, fill=Y)
 
-    def run(self):
+    def _on_process_clicked(self, event) -> None:
+        """
+        Builds the requests and ui objects to pass to the process thread when the
+        process button is clicked.
+        """
+        _ = event
+        if not self._mtl_is_selected.get() and self._input_is_selected.get():
+            self.controller.report.error("Please select both files to start process.")
+            return
+
+        req = ProcessRequest(
+            ProcessType(self.opt_process.get()),
+            self.opt_filter.get(),
+            self.opt_data_table.get(),
+            Path(self.opt_mtl_path.get()),
+            Path(self.opt_input_path.get()),
+        )
+        ui = ProcessUi(
+            self.progress_bar,
+            self.process_button,
+            self.opt_process,
+            self.stext,
+        )
+        self.controller.start_process(req, ui)
+
+    def run(self) -> None:
+        """
+        Run the main tk application loop.
+        """
         self.root.mainloop()
 
 
