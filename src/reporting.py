@@ -7,8 +7,10 @@
 import logging
 from queue import Queue
 from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
 from tkinter.scrolledtext import ScrolledText
+from typing import Callable, Final
 
 # third party
 import ttkbootstrap as ttk
@@ -19,6 +21,33 @@ from ttkbootstrap.constants import END
 from src.metadata import DATETIME_FORMAT
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class LogConfig:
+    logger_func: Callable
+    modal_func: Callable
+    msg_type: str
+    modal_title: str
+
+
+_CRITICAL_CONFIG: Final = LogConfig(
+    logger.critical, modal.show_error, "CRITICAL", "CRITICAL FAILURE"
+)
+_DEBUG_CONFIG: Final = LogConfig(logger.debug, modal.show_error, "DEBUG", "Debugger")
+
+_ERROR_CONFIG: Final = LogConfig(
+    logger.error, modal.show_error, "ERROR", "An error has occurred!"
+)
+_EXCEPTION_CONFIG: Final = LogConfig(
+    logger.exception, modal.show_error, "EXCEPTION", "An exception was thrown!"
+)
+_INFO_CONFIG: Final = LogConfig(
+    logger.info, modal.show_info, "INFO", "You should know..."
+)
+_WARNING_CONFIG: Final = LogConfig(
+    logger.warning, modal.show_warning, "WARNING", "Warning!"
+)
 
 
 class Reporting:
@@ -121,32 +150,88 @@ class Reporting:
 
         self.report_lines.append(line)
 
-    def create_report(self, new_name: str, update_dirs: bool = True) -> None:
+    def create_report(
+        self,
+        new_name: str,
+        new_timestamp: datetime | None = None,
+        update_dirs: bool = True,
+    ) -> None:
         """
         Name the report and by default initialize the directories.
         """
         self.report_lines = []
 
+        self.timestamp = (
+            new_timestamp.strftime(DATETIME_FORMAT)
+            if new_timestamp
+            else datetime.now().strftime(DATETIME_FORMAT)
+        )
+
         self.name = new_name
-        # NOTE: "my report"
+        # NOTE: "*my report"
 
         self.cleaned_name = self.name.replace(" ", "_")
         self.cleaned_name = self.cleaned_name.replace("*", "")
         # NOTE: "my_report"
 
-        self.report_name = f"{self.timestamp}_{self.cleaned_name}"
-        # NOTE: "TIMESTAMP_my_report"
+        self.report_name = f"{self.timestamp}_({self.cleaned_name})"
+        # NOTE: "TIMESTAMP_(my_report)"
 
         self.report_folder = self.output_dir / self.report_name
         if update_dirs:
             self.report_folder.mkdir(parents=True, exist_ok=True)
-        # NOTE: "BASE_DIR\TIMESTAMP_my_report"
+        # NOTE: "BASE_DIR\TIMESTAMP_(my_report)"
 
         report_path = self.report_folder / self.cleaned_name
         # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report"
 
         self.file_path = report_path.with_suffix(".log")
         # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report.log"
+
+    def _emit(
+        self,
+        msg: str,
+        config: LogConfig,
+        report: bool | None,
+        log: bool | None,
+        verbose: bool | None,
+        popup: bool,
+    ) -> None:
+        _log = self.logging if log is None else log
+        _verbose = self.verbose if verbose is None else verbose
+        _report = self.report if report is None else report
+
+        if _log:
+            config.logger_func(msg)
+        if _verbose:
+            print(msg)
+        if _report:
+            self._add_line(msg, config.msg_type)
+            if self.text_display is not None:
+                self.text_display.insert(END, msg + "\n")
+                self.text_display.see(END)
+        if popup:
+            self._queue_modal(config.modal_func, msg, config.modal_title)
+
+    def critical(
+        self,
+        msg: str,
+        report: bool | None = None,
+        log: bool | None = None,
+        verbose: bool | None = None,
+        popup: bool = False,
+    ) -> None:
+        """
+        Print, log and report critical failures.
+        """
+        self._emit(
+            msg=msg,
+            config=_CRITICAL_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=popup,
+        )
 
     def debug(
         self,
@@ -156,24 +241,14 @@ class Reporting:
         verbose: bool | None = None,
         popup: bool = False,
     ) -> None:
-        """
-        Print, log and report debug information.
-        """
-        _log = self.logging if log is None else log
-        _verbose = self.verbose if verbose is None else verbose
-        _report = self.report if report is None else report
-
-        if _log:
-            logger.debug(msg)
-        if _verbose:
-            print(msg)
-        if _report:
-            self._add_line(msg, "DEBUG")
-            if self.text_display is not None:
-                self.text_display.insert(END, msg + "\n")
-                self.text_display.see(END)
-        if popup:
-            self._queue_modal(modal.show_error, msg, "Debugger")
+        self._emit(
+            msg=msg,
+            config=_DEBUG_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=popup,
+        )
 
     def error(
         self,
@@ -186,21 +261,14 @@ class Reporting:
         """
         Print, log and report lines with the error tag.
         """
-        _log = self.logging if log is None else log
-        _verbose = self.verbose if verbose is None else verbose
-        _report = self.report if report is None else report
-
-        if _log:
-            logger.error(msg)
-        if _verbose:
-            print(msg)
-        if _report:
-            self._add_line(msg, "ERROR")
-            if self.text_display is not None:
-                self.text_display.insert(END, msg + "\n")
-                self.text_display.see(END)
-        if popup:
-            self._queue_modal(modal.show_error, msg, "An error has occurred!")
+        self._emit(
+            msg=msg,
+            config=_ERROR_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=popup,
+        )
 
     def exception(
         self,
@@ -214,21 +282,14 @@ class Reporting:
         Print, log and report exceptions. This will also display the exception path.
         By default uses instance defaults for report and log behavior.
         """
-        _log = self.logging if log is None else log
-        _verbose = self.verbose if verbose is None else verbose
-        _report = self.report if report is None else report
-
-        if _log:
-            logger.exception(msg)
-        if _verbose:
-            print(msg)
-        if _report:
-            self._add_line(msg, "EXCEPTION")
-            if self.text_display is not None:
-                self.text_display.insert(END, msg + "\n")
-                self.text_display.see(END)
-        if popup:
-            self._queue_modal(modal.show_error, msg, "An exception was thrown!")
+        self._emit(
+            msg=msg,
+            config=_EXCEPTION_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=popup,
+        )
 
     def info(
         self,
@@ -241,21 +302,14 @@ class Reporting:
         """
         Print, log and report standard information.
         """
-        _log = self.logging if log is None else log
-        _verbose = self.verbose if verbose is None else verbose
-        _report = self.report if report is None else report
-
-        if _log:
-            logger.info(msg)
-        if _verbose:
-            print(msg)
-        if _report:
-            self._add_line(msg, "INFO")
-            if self.text_display is not None:
-                self.text_display.insert(END, msg + "\n")
-                self.text_display.see(END)
-        if popup:
-            self._queue_modal(modal.show_info, msg, "You should know...")
+        self._emit(
+            msg=msg,
+            config=_INFO_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=popup,
+        )
 
     def warning(
         self,
@@ -268,48 +322,14 @@ class Reporting:
         """
         Print, log and report lines with the warning tag.
         """
-        _log = self.logging if log is None else log
-        _verbose = self.verbose if verbose is None else verbose
-        _report = self.report if report is None else report
-
-        if _log:
-            logger.warning(msg)
-        if _verbose:
-            print(msg)
-        if _report:
-            self._add_line(msg, "WARNING")
-            if self.text_display is not None:
-                self.text_display.insert(END, msg + "\n")
-                self.text_display.see(END)
-        if popup:
-            self._queue_modal(modal.show_warning, msg, "Warning!")
-
-    def critical(
-        self,
-        msg: str,
-        report: bool | None = None,
-        log: bool | None = None,
-        verbose: bool | None = None,
-        popup: bool = False,
-    ) -> None:
-        """
-        Print, log and report critical failures.
-        """
-        _log = self.logging if log is None else log
-        _verbose = self.verbose if verbose is None else verbose
-        _report = self.report if report is None else report
-
-        if _log:
-            logger.critical(msg)
-        if _verbose:
-            print(msg)
-        if _report:
-            self._add_line(msg, "CRITICAL")
-            if self.text_display is not None:
-                self.text_display.insert(END, msg + "\n")
-                self.text_display.see(END)
-        if popup:
-            self._queue_modal(modal.show_error, msg, "CRITICAL FAILURE")
+        self._emit(
+            msg=msg,
+            config=_WARNING_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=popup,
+        )
 
     def title(self, message: str) -> None:
         """
