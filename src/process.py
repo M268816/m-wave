@@ -3,6 +3,24 @@
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
+"""
+This module handles the logic orchestration. Coordinates sequential phases
+for comparison and append workflows.
+
+Classes
+-------
+Process
+    Master controller of reporting, processing, and configuration parsing.
+
+Gui
+    Master controller of the GUI and object variables.
+
+Exceptions
+----------
+    raise RuntimeError()
+        raises a run time error if run from the module.
+"""
+
 # stdlib
 import logging
 
@@ -37,6 +55,27 @@ class Process:
     to the user with exported log and csv files. The append function shall attempt to
     apply these upserts to the MTL directly. The user will be  responsible for updating
     the change log manually.
+
+    Attributes
+    ----------
+    report: Reporting
+        a pass through for the main reporting class
+    filter_string: str
+        a pass through for the user input filter string
+    selected_data_table:str
+        a pass through for the user  selected data table
+    mtl_file_path: str
+        a pass through for the user selected mtl file path
+    input_file_path: str
+        a pass through for the user selected input file path
+
+    Methods
+    -------
+    compare_input()
+        the main comparison process
+    append_input()
+        the main append process
+
     """
 
     def __init__(

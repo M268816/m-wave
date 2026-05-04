@@ -3,6 +3,19 @@
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
+"""
+The controller and gui classes within this module are used to control and display the
+functionality of the application.
+
+Classes
+-------
+Controller
+    Master controller of reporting, processing, and configuration parsing.
+
+Gui
+    Master controller of the GUI and object variables.
+"""
+
 # stdlib
 import json
 from dataclasses import dataclass
@@ -99,6 +112,26 @@ class ProcessUi:
 
 
 class Controller:
+    """
+    Master controller of the reporting, processing and configuration parsing.
+
+    Attributes
+    ----------
+    window: tkb.Window
+        a root window used to display the application
+
+    Methods
+    -------
+    set_config_value(key, value)
+        writes a single configuration value to the json file.
+
+    reset_report(text_display, filter_value)
+        Sets/creates a new report by re-initializing
+
+    start_process(req, ui)
+        Starts the data processing functions.
+    """
+
     def __init__(self, window: tkb.Window):
         self.root = window
         self.user_configs: dict = self._load_user_config()
@@ -125,6 +158,9 @@ class Controller:
                 )
 
     def _set_report(self, window) -> Reporting:
+        """
+        Instantiates the main reporting class for the current process run.
+        """
         return Reporting(
             window,
             REPORTS_DIR,
@@ -250,6 +286,30 @@ class Controller:
 
 
 class Gui:
+    """
+    Master controller of the GUI and object variables.
+
+    Attributes
+    ----------
+    window: tkb.Window
+        a root window used to display the application
+    app_size: tuple[int,int]
+        the starting size of the application (width,height)
+    app_minsize: tuple[int,int]
+        the minimum size of the application (width,height)
+
+    Methods
+    -------
+    set_config_value(key, value)
+        writes a single configuration value to the json file.
+
+    reset_report(text_display, filter_value)
+        Sets/creates a new report by re-initializing
+
+    start_process(req, ui)
+        Starts the data processing functions.
+    """
+
     def __init__(
         self,
         window: tkb.Window,
@@ -410,6 +470,9 @@ class Gui:
         width: int,
         file_types: tuple[str] | None = None,
     ):
+        """
+        Instantiates/Builds the file picking widgets for the UI.
+        """
         row = tkb.Frame(frame, padding=PAD)
         row.pack(fill=X)
         label = tkb.Label(row, text=label_text, padding=PAD, width=width)

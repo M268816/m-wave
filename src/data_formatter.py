@@ -67,7 +67,7 @@ class DataFormatter:
 
     def _classic_data_check(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Helper function that checks the table type and determines whether or not
+        Helper function that checks the table type and determines whether
         to add classic columns to the table if not already present.
         """
         _df = df.copy()
