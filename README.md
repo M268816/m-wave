@@ -190,3 +190,7 @@ Typical Layout:
 ## License
 
 Internal use only. See [LICENSE](./LICENSE).
+
+## Repositories
+
+You can find this repo on both github and gitea. Consult the WAVE SOP for details.
