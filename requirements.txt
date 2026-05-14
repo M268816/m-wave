@@ -3,3 +3,4 @@ openpyxl
 setuptools
 ttkbootstrap
 xlwings
+pytest
