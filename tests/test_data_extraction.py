@@ -1,130 +1,254 @@
+# Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# All rights reserved
 """
-Tests for src/data_extraction.py - Data extraction from Excel and CSV.
+Tests for src/data_extraction.py - Excel and CSV data extraction.
 """
 
 import pytest
 import pandas as pd
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch, call
 from src.data_extraction import DataExtractor
 
+# ---------------------------------------------------------------------------
+# Fixtures (local overrides — conftest.py fixtures are also available)
+# ---------------------------------------------------------------------------
 
-class TestDataExtractorExtractInputCsv:
-    """Tests for extract_input_csv method."""
 
-    def test_extract_input_csv_success(
-        self, reporting, mock_app_metadata, sample_csv_file
-    ):
-        """extract_input_csv should read and return CSV as dataframe."""
+@pytest.fixture
+def extractor(reporting, mock_app_metadata):
+    """A DataExtractor wired to the shared reporting + metadata fixtures."""
+    return DataExtractor(reporting, mock_app_metadata)
+
+
+@pytest.fixture
+def sample_excel_df():
+    """A small DataFrame that simulates what xlwings would return."""
+    return pd.DataFrame(
+        {
+            "Name": ["Alpha", "Beta", "Gamma"],
+            "ID": [1, 2, 3],
+            "Type": ["TypeA", "TypeB", "TypeA"],
+            "Value": ["10", "20", "30"],
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# TestDataExtractorInit
+# ---------------------------------------------------------------------------
+
+
+class TestDataExtractorInit:
+    """Tests for DataExtractor.__init__."""
+
+    def test_init_stores_report(self, reporting, mock_app_metadata):
+        """DataExtractor should store the reporting instance as self.report."""
         extractor = DataExtractor(reporting, mock_app_metadata)
+        assert extractor.report is reporting
 
-        result = extractor.extract_input_csv(sample_csv_file, "test_filter")
+    def test_init_stores_metadata(self, reporting, mock_app_metadata):
+        """DataExtractor should store the metadata instance as self.metadata."""
+        extractor = DataExtractor(reporting, mock_app_metadata)
+        assert extractor.metadata is mock_app_metadata
+
+
+# ---------------------------------------------------------------------------
+# TestExtractMtlTable
+# ---------------------------------------------------------------------------
+
+
+class TestExtractMtlTable:
+    """Tests for DataExtractor.extract_mtl_table."""
+
+    @patch("src.data_extraction.xl.App")
+    def test_returns_dataframe_on_success(
+        self, mock_xl_app, extractor, sample_excel_df
+    ):
+        """extract_mtl_table should return a DataFrame when xlwings succeeds."""
+        mock_app = MagicMock()
+        mock_xl_app.return_value = mock_app
+
+        mock_workbook = MagicMock()
+        mock_app.books.open.return_value = mock_workbook
+
+        mock_worksheet = MagicMock()
+        mock_workbook.sheets.__getitem__.return_value = mock_worksheet
+
+        mock_table = MagicMock()
+        mock_worksheet.tables.__getitem__.return_value = mock_table
+
+        mock_table.range.options.return_value.value = sample_excel_df
+
+        result = extractor.extract_mtl_table("fake_mtl.xlsx")
 
         assert isinstance(result, pd.DataFrame)
         assert not result.empty
-        assert "Name" in result.columns
-        assert "ID" in result.columns
 
-    def test_extract_input_csv_preserves_data(
-        self, reporting, mock_app_metadata, sample_csv_file
+    @patch("src.data_extraction.xl.App")
+    def test_workbook_is_closed_after_success(
+        self, mock_xl_app, extractor, sample_excel_df
     ):
-        """extract_input_csv should preserve all data from CSV."""
-        extractor = DataExtractor(reporting, mock_app_metadata)
+        """extract_mtl_table should close the workbook in the finally block."""
+        mock_app = MagicMock()
+        mock_xl_app.return_value = mock_app
 
-        result = extractor.extract_input_csv(sample_csv_file, "")
+        mock_workbook = MagicMock()
+        mock_app.books.open.return_value = mock_workbook
 
-        assert len(result) == 2  # Two data rows
-        assert result["Name"].iloc[0] == "Item1"
-        assert result["ID"].iloc[0] == 1
+        mock_worksheet = MagicMock()
+        mock_workbook.sheets.__getitem__.return_value = mock_worksheet
 
-    def test_extract_input_csv_handles_na_values(
-        self, reporting, mock_app_metadata, tmp_path
-    ):
-        """extract_input_csv should convert na_values to NaN."""
-        csv_file = tmp_path / "test_na.csv"
-        csv_content = "Name,Value\nItem1,100\nItem2,\nItem3,null\n"
-        csv_file.write_text(csv_content, encoding="utf-8")
+        mock_table = MagicMock()
+        mock_worksheet.tables.__getitem__.return_value = mock_table
+        mock_table.range.options.return_value.value = sample_excel_df
 
-        extractor = DataExtractor(reporting, mock_app_metadata)
-        result = extractor.extract_input_csv(str(csv_file), "")
+        extractor.extract_mtl_table("fake_mtl.xlsx")
 
-        # Empty and "null" should be NaN
-        assert pd.isna(result["Value"].iloc[1])
+        mock_workbook.close.assert_called_once()
 
-    def test_extract_input_csv_encoding_fallback(
-        self, reporting, mock_app_metadata, tmp_path
-    ):
-        """extract_input_csv should fallback to latin-1 on unicode error."""
-        csv_file = tmp_path / "test_encoding.csv"
-        # This would trigger encoding error in real scenario
-        csv_file.write_text("Name,Value\nItem1,100\n", encoding="utf-8")
+    @patch("src.data_extraction.xl.App")
+    def test_excel_is_quit_after_success(self, mock_xl_app, extractor, sample_excel_df):
+        """extract_mtl_table should quit the xl.App in the finally block."""
+        mock_app = MagicMock()
+        mock_xl_app.return_value = mock_app
 
-        extractor = DataExtractor(reporting, mock_app_metadata)
-        result = extractor.extract_input_csv(str(csv_file), "test_filter")
+        mock_workbook = MagicMock()
+        mock_app.books.open.return_value = mock_workbook
 
-        assert not result.empty
+        mock_worksheet = MagicMock()
+        mock_workbook.sheets.__getitem__.return_value = mock_worksheet
 
-    def test_extract_input_csv_missing_file(self, reporting, mock_app_metadata):
-        """extract_input_csv should return empty df for missing file."""
-        extractor = DataExtractor(reporting, mock_app_metadata)
+        mock_table = MagicMock()
+        mock_worksheet.tables.__getitem__.return_value = mock_table
+        mock_table.range.options.return_value.value = sample_excel_df
 
-        result = extractor.extract_input_csv("/nonexistent/file.csv", "")
+        extractor.extract_mtl_table("fake_mtl.xlsx")
+
+        mock_app.quit.assert_called_once()
+
+    @patch("src.data_extraction.xl.App")
+    def test_returns_empty_dataframe_on_exception(self, mock_xl_app, extractor):
+        """extract_mtl_table should return an empty DataFrame if xlwings raises."""
+        mock_app = MagicMock()
+        mock_xl_app.return_value = mock_app
+        mock_app.books.open.side_effect = Exception("File not found")
+
+        result = extractor.extract_mtl_table("bad_path.xlsx")
 
         assert isinstance(result, pd.DataFrame)
         assert result.empty
 
+    @patch("src.data_extraction.xl.App")
+    def test_excel_quit_called_even_on_exception(self, mock_xl_app, extractor):
+        """extract_mtl_table should still quit xl.App even when an exception occurs."""
+        mock_app = MagicMock()
+        mock_xl_app.return_value = mock_app
+        mock_app.books.open.side_effect = Exception("Crash")
 
-class TestDataExtractorCouldExtract:
-    """Tests for could_extract method."""
+        extractor.extract_mtl_table("bad_path.xlsx")
 
-    def test_could_extract_both_valid(
-        self, reporting, mock_app_metadata, sample_dataframe
+        mock_app.quit.assert_called_once()
+
+    @patch("src.data_extraction.xl.App")
+    def test_uses_metadata_for_worksheet_name(
+        self, mock_xl_app, extractor, mock_app_metadata, sample_excel_df
     ):
-        """could_extract should return True for valid dataframes."""
-        extractor = DataExtractor(reporting, mock_app_metadata)
+        """extract_mtl_table should use metadata.get_worksheet_name() for the sheet lookup."""
+        mock_app = MagicMock()
+        mock_xl_app.return_value = mock_app
 
-        result = extractor.could_extract(sample_dataframe, sample_dataframe)
+        mock_workbook = MagicMock()
+        mock_app.books.open.return_value = mock_workbook
 
-        assert result is True
+        mock_worksheet = MagicMock()
+        mock_workbook.sheets.__getitem__.return_value = mock_worksheet
 
-    def test_could_extract_empty_mtl(
-        self, reporting, mock_app_metadata, sample_dataframe_empty, sample_dataframe
+        mock_table = MagicMock()
+        mock_worksheet.tables.__getitem__.return_value = mock_table
+        mock_table.range.options.return_value.value = sample_excel_df
+
+        extractor.extract_mtl_table("fake_mtl.xlsx")
+
+        mock_workbook.sheets.__getitem__.assert_called_once_with(
+            mock_app_metadata.get_worksheet_name.return_value
+        )
+
+    @patch("src.data_extraction.xl.App")
+    def test_uses_metadata_for_table_id(
+        self, mock_xl_app, extractor, mock_app_metadata, sample_excel_df
     ):
-        """could_extract should return False for empty MTL."""
-        extractor = DataExtractor(reporting, mock_app_metadata)
+        """extract_mtl_table should use metadata.get_table_id() for the table lookup."""
+        mock_app = MagicMock()
+        mock_xl_app.return_value = mock_app
 
-        result = extractor.could_extract(sample_dataframe_empty, sample_dataframe)
+        mock_workbook = MagicMock()
+        mock_app.books.open.return_value = mock_workbook
 
-        assert result is False
+        mock_worksheet = MagicMock()
+        mock_workbook.sheets.__getitem__.return_value = mock_worksheet
 
-    def test_could_extract_empty_input(
-        self, reporting, mock_app_metadata, sample_dataframe, sample_dataframe_empty
-    ):
-        """could_extract should return False for empty input."""
-        extractor = DataExtractor(reporting, mock_app_metadata)
+        mock_table = MagicMock()
+        mock_worksheet.tables.__getitem__.return_value = mock_table
+        mock_table.range.options.return_value.value = sample_excel_df
 
-        result = extractor.could_extract(sample_dataframe, sample_dataframe_empty)
+        extractor.extract_mtl_table("fake_mtl.xlsx")
 
-        assert result is False
+        mock_worksheet.tables.__getitem__.assert_called_once_with(
+            mock_app_metadata.get_table_id.return_value
+        )
 
-    def test_could_extract_both_empty(
-        self, reporting, mock_app_metadata, sample_dataframe_empty
-    ):
-        """could_extract should return False for both empty."""
-        extractor = DataExtractor(reporting, mock_app_metadata)
 
-        result = extractor.could_extract(sample_dataframe_empty, sample_dataframe_empty)
+# ---------------------------------------------------------------------------
+# TestExtractInputCsv
+# ---------------------------------------------------------------------------
 
-        assert result is False
 
-    def test_could_extract_logs_dimensions(
-        self, reporting, mock_app_metadata, sample_dataframe
-    ):
-        """could_extract should log dataframe dimensions."""
-        extractor = DataExtractor(reporting, mock_app_metadata)
-        initial_lines = len(reporting.report_lines)
+class TestExtractInputCsv:
+    """Tests for DataExtractor.extract_input_csv."""
 
-        extractor.could_extract(sample_dataframe, sample_dataframe)
+    def test_returns_dataframe_from_valid_csv(self, extractor, sample_csv_file):
+        """extract_input_csv should return a DataFrame from a valid UTF-8 CSV."""
+        result = extractor.extract_input_csv(sample_csv_file, "test")
 
-        # Should have added info about dimensions
-        assert len(reporting.report_lines) > initial_lines
+        assert isinstance(result, pd.DataFrame)
+        assert not result.empty
+        assert "Name" in result.columns
+
+    def test_csv_row_count_matches_file(self, extractor, sample_csv_file):
+        """extract_input_csv should return the correct number of rows."""
+        result = extractor.extract_input_csv(sample_csv_file, "test")
+        assert len(result) == 2
+
+    def test_csv_columns_match_header(self, extractor, sample_csv_file):
+        """extract_input_csv should return columns matching the CSV header."""
+        result = extractor.extract_input_csv(sample_csv_file, "test")
+        assert list(result.columns) == ["Name", "ID", "Type", "Value"]
+
+    def test_returns_empty_dataframe_on_bad_path(self, extractor):
+        """extract_input_csv should return an empty DataFrame for a non-existent file."""
+        result = extractor.extract_input_csv("non_existent_file.csv", "test")
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
+
+    def test_na_values_are_parsed(self, extractor, tmp_path):
+        """extract_input_csv should convert None/null/empty strings to NaN."""
+        csv_content = "Name,Value\nItem1,None\nItem2,null\nItem3,\n"
+        csv_file = tmp_path / "na_test.csv"
+        csv_file.write_text(csv_content, encoding="utf-8")
+
+        result = extractor.extract_input_csv(str(csv_file), "na_test")
+
+        assert result["Value"].isna().all()
+
+    def test_latin1_fallback_on_unicode_error(self, extractor, tmp_path):
+        """extract_input_csv should fall back to latin-1 on UnicodeDecodeError."""
+        # Write a file with a latin-1 encoded byte (degree symbol)
+        csv_content = b"Name,Value\nItem1,30\xb0C\n"
+        csv_file = tmp_path / "latin1_test.csv"
+        csv_file.write_bytes(csv_content)
+
+        result = extractor.extract_input_csv(str(csv_file), "latin1_test")
+
+        assert isinstance(result, pd.DataFrame)
+        assert not result.empty

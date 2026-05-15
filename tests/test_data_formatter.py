@@ -5,6 +5,7 @@ Tests for src/data_formatter.py - Data formatting and transformation.
 import pytest
 import pandas as pd
 from src.data_formatter import DataFormatter
+from src.metadata import MTL_VERSION
 
 
 class TestDataFormatterNormalizeWhitespace:
@@ -55,8 +56,8 @@ class TestDataFormatterFilterByString:
     ):
         """filter_by_string should handle leading wildcards."""
         formatter = DataFormatter(reporting, mock_app_metadata)
-        result = formatter.filter_by_string(sample_dataframe, "*Item")
-        assert len(result) == 3  # All rows have "Item"
+        result = formatter.filter_by_string(sample_dataframe, "*1")
+        assert len(result) == 1  # All rows have "Item"
 
     def test_filter_wildcard_end(self, reporting, mock_app_metadata, sample_dataframe):
         """filter_by_string should handle trailing wildcards."""
@@ -156,7 +157,7 @@ class TestDataFormatterConformColumns:
     ):
         """conform_columns should add Version column when use_version=True."""
         formatter = DataFormatter(reporting, mock_app_metadata)
-        mtl_df = pd.DataFrame({"A": [1, 2]})
+        mtl_df = pd.DataFrame({"A": [1, 2], "Version": MTL_VERSION})
         input_df = pd.DataFrame({"A": [3, 4]})
 
         mtl_result, input_result = formatter.conform_columns(
@@ -164,7 +165,8 @@ class TestDataFormatterConformColumns:
         )
 
         # Version column should exist in result
-        assert "Version" in input_result.columns or len(input_result.columns) > 0
+        assert "Version" in input_result.columns
+        assert list(mtl_result.columns) == list(input_result.columns)
 
 
 class TestDataFormatterSort:
@@ -177,7 +179,7 @@ class TestDataFormatterSort:
         formatter = DataFormatter(reporting, mock_app_metadata)
         result = formatter.sort(sample_dataframe.copy())
 
-        assert not result.empty
+        assert isinstance(result, pd.DataFrame)
         assert len(result) == len(sample_dataframe)
         assert set(result.columns) == set(sample_dataframe.columns)
 

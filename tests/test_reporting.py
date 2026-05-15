@@ -37,7 +37,7 @@ class TestReportingInitialization:
             temp_report_dir,
             timestamp=custom_time,
         )
-        assert custom_time in str(report.timestamp)
+        assert report.timestamp == custom_time
 
 
 class TestReportingCreateReport:
@@ -139,25 +139,25 @@ class TestReportingFormatting:
     def test_title_creates_box(self, reporting):
         """title() should create a formatted title box."""
         reporting.title("My Title")
-        assert any("╔" in line for line in report.report_lines)
-        assert any("╗" in line for line in report.report_lines)
-        assert any("My Title" in line for line in report.report_lines)
+        assert any("╔" in line for line in reporting.report_lines)
+        assert any("╗" in line for line in reporting.report_lines)
+        assert any("My Title" in line for line in reporting.report_lines)
 
     def test_subtitle_creates_light_box(self, reporting):
         """subtitle() should create a light formatted box."""
         reporting.subtitle("My Subtitle")
-        assert any("┌" in line for line in report.report_lines)
-        assert any("┐" in line for line in report.report_lines)
+        assert any("┌" in line for line in reporting.report_lines)
+        assert any("┐" in line for line in reporting.report_lines)
 
     def test_divider_creates_full_width_line(self, reporting):
         """divider() should create a full-width heavy line."""
         reporting.divider()
-        assert any("═" * 10 in line for line in report.report_lines)
+        assert any("═" * 10 in line for line in reporting.report_lines)
 
     def test_separator_creates_light_line(self, reporting):
         """separator() should create a light divider."""
         reporting.separator()
-        assert any("─" * 10 in line for line in report.report_lines)
+        assert any("─" * 10 in line for line in reporting.report_lines)
 
 
 class TestReportingSaveReport:

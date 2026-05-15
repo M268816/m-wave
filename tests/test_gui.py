@@ -99,7 +99,7 @@ def controller(mock_window):
 
     with (
         patch("builtins.open", mock_open(read_data=config_json)),
-        patch("gui.Reporting") as mock_reporting_cls,
+        patch("src.gui.Reporting") as mock_reporting_cls,
     ):
 
         mock_reporting_cls.return_value = MagicMock()
@@ -114,7 +114,7 @@ class TestControllerLoadConfig:
         config_json = json.dumps(FAKE_CONFIG)
         with (
             patch("builtins.open", mock_open(read_data=config_json)),
-            patch("gui.Reporting"),
+            patch("src.gui.Reporting"),
         ):
             ctrl = Controller(mock_window)
         assert ctrl.user_configs["theme"] == "litera"
@@ -123,7 +123,7 @@ class TestControllerLoadConfig:
     def test_raises_on_invalid_json(self, mock_window):
         with (
             patch("builtins.open", mock_open(read_data="not valid json")),
-            patch("gui.Reporting"),
+            patch("src.gui.Reporting"),
         ):
             with pytest.raises(json.JSONDecodeError):
                 Controller(mock_window)
