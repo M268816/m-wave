@@ -4,3 +4,4 @@ setuptools
 ttkbootstrap
 xlwings
 pytest
+pytest-cov
