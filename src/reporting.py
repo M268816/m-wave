@@ -10,7 +10,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter.scrolledtext import ScrolledText
-from typing import Callable, Final
+from typing import Callable
 
 # third party
 import ttkbootstrap as ttk
@@ -31,21 +31,23 @@ class LogConfig:
     modal_title: str
 
 
-_CRITICAL_CONFIG: Final = LogConfig(
+_CRITICAL_CONFIG: LogConfig = LogConfig(
     logger.critical, modal.show_error, "CRITICAL", "CRITICAL FAILURE"
 )
-_DEBUG_CONFIG: Final = LogConfig(logger.debug, modal.show_error, "DEBUG", "Debugger")
+_DEBUG_CONFIG: LogConfig = LogConfig(
+    logger.debug, modal.show_error, "DEBUG", "Debugger"
+)
 
-_ERROR_CONFIG: Final = LogConfig(
+_ERROR_CONFIG: LogConfig = LogConfig(
     logger.error, modal.show_error, "ERROR", "An error has occurred!"
 )
-_EXCEPTION_CONFIG: Final = LogConfig(
+_EXCEPTION_CONFIG: LogConfig = LogConfig(
     logger.exception, modal.show_error, "EXCEPTION", "An exception was thrown!"
 )
-_INFO_CONFIG: Final = LogConfig(
+_INFO_CONFIG: LogConfig = LogConfig(
     logger.info, modal.show_info, "INFO", "You should know..."
 )
-_WARNING_CONFIG: Final = LogConfig(
+_WARNING_CONFIG: LogConfig = LogConfig(
     logger.warning, modal.show_warning, "WARNING", "Warning!"
 )
 
@@ -197,6 +199,9 @@ class Reporting:
         verbose: bool | None,
         popup: bool,
     ) -> None:
+        """
+        A helper function that pushes report logging lines to pre-configured outputs.
+        """
         _log = self.logging if log is None else log
         _verbose = self.verbose if verbose is None else verbose
         _report = self.report if report is None else report
@@ -246,6 +251,9 @@ class Reporting:
         verbose: bool | None = None,
         popup: bool = False,
     ) -> None:
+        """
+        Print, log, and report debug information.
+        """
         self._emit(
             msg=msg,
             config=_DEBUG_CONFIG,

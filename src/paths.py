@@ -73,7 +73,7 @@ def get_app_directories() -> dict[str, Path]:
     }
 
 
-def get_config_path(_dirs: dict[str, Path]):
+def get_config_path(_dirs: dict[str, Path]) -> Path:
     """
     Returns the configuration path. If the user configuration does not exist,
     it creates it from the default assets.
