@@ -8,8 +8,12 @@ The GUI classe within this module is used to control the display of the applicat
 
 Classes
 -------
-Gui
-    Master controller of the GUI and object variables.
+Launcher
+    GUI controller for protocol selection.
+MESGui
+    Master controller of the MESGui and its object variables.
+MTLGui
+    Master controller of the MTLGUI and its object variables.
 """
 
 # stdlib
@@ -73,9 +77,89 @@ with open(INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
     INSTRUCTIONS = f.read()
 
 
-class Gui:
+class Launcher:
     """
-    Master controller of the GUI and object variables.
+    The process launcher GUI. Creates a method of extensibility for commanding various
+    comparison protocols.
+
+    Attributes
+    ----------
+    window: tkb.Window
+        a root window used to display the application
+    app_size: tuple[int,int]
+        the starting size of the application (width,height)
+    app_minsize: tuple[int,int]
+        the minimum size of the application (width,height)
+
+    Methods
+    ----------
+
+    """
+
+    def __init__(
+        self,
+        window: tkb.Window,
+        app_size: tuple[int, int] = APP_SIZE,
+        app_minsize: tuple[int, int] = APP_MINSIZE,
+    ) -> None:
+        self.root = window
+        self.style = tkb.Style()
+
+        self.root.geometry(f"{app_size[0]}x{app_size[1]}")
+        self.root.minsize(app_minsize[0], app_minsize[1])
+        self.logo = tkb.PhotoImage(file=str(LOGO_PATH))
+        self.root.iconphoto(False, self.logo)
+
+        # Main content frame
+        self.content = ttk.Frame(self.root, padding=PAD)
+        self.content.pack(side=TOP, fill=BOTH, expand=YES)
+
+        self._build_protocol_select()
+
+    def _build_protocol_select(self) -> None:
+        pass
+
+
+class MESGui:
+    """
+    Master controller of the MES protocol GUI and its object variables.
+
+    Attributes
+    ----------
+    window: tkb.Window
+        a root window used to display the application
+    app_size: tuple[int,int]
+        the starting size of the application (width,height)
+    app_minsize: tuple[int,int]
+        the minimum size of the application (width,height)
+
+    Methods
+    -------
+
+    """
+
+    def __init__(
+        self,
+        window: tkb.Window,
+        app_size: tuple[int, int] = APP_SIZE,
+        app_minsize: tuple[int, int] = APP_MINSIZE,
+    ) -> None:
+        self.root = window
+        self.style = tkb.Style()
+
+        self.root.geometry(f"{app_size[0]}x{app_size[1]}")
+        self.root.minsize(app_minsize[0], app_minsize[1])
+        self.logo = tkb.PhotoImage(file=str(LOGO_PATH))
+        self.root.iconphoto(False, self.logo)
+
+        # Main content frame
+        self.content = ttk.Frame(self.root, padding=PAD)
+        self.content.pack(side=TOP, fill=BOTH, expand=YES)
+
+
+class MTLGui:
+    """
+    Master controller of the MTL/CMD protocol GUI and its object variables.
 
     Attributes
     ----------
@@ -439,5 +523,5 @@ class Gui:
 
 if __name__ == "__main__":
     window = tkb.Window(title="Testing")
-    test = Gui(window)
+    test = MTLGui(window)
     test.run()
