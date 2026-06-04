@@ -28,10 +28,9 @@ import logging
 from datetime import datetime
 
 # third party
-import ttkbootstrap as tkb
 
 # local
-from src.gui import Gui
+from src.gui import AppWindow
 from src.metadata import DATETIME_FORMAT
 from src.paths import LOGS_DIR
 
@@ -67,13 +66,10 @@ class Main:
     """
 
     def __init__(self):
-        self.window = tkb.Window(
-            title="λ Workbook Automation & Verification Engine",
-        )
-        self.gui = Gui(self.window)
+        self.app: AppWindow = AppWindow()
 
     def run(self):
-        self.gui.run()
+        self.app.run()
 
 
 if __name__ == "__main__":

@@ -468,21 +468,3 @@ class Reporting:
         except Exception as e:
             error_msg = f"Error saving report:\n{e}"
             self.exception(error_msg, popup=True)
-
-
-if __name__ == "__main__":
-    from src.paths import REPORTS_DIR
-
-    window = ttk.Window()
-
-    test = Reporting(window, output_dir=REPORTS_DIR)
-    test.create_report("reporting_test")
-    test.info("Saving to test_reporting dir.")
-    test.info("Only shown in logging, not reporting", log=False)
-    test.info("Showing popup!", popup=True)
-    test.debug("Debugging")
-    test.error("Error")
-    test.exception("Exception!")
-    test.save_report()
-
-    window.mainloop()
