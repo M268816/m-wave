@@ -22,7 +22,7 @@ import pytest
 import pandas as pd
 from unittest.mock import MagicMock, patch, call
 
-from src.process import Process
+from src.mtl.process import Process
 
 # ---------------------------------------------------------------------------
 # Shared sample data

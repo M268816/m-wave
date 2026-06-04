@@ -4,7 +4,7 @@ Tests for src/data_formatter.py - Data formatting and transformation.
 
 import pytest
 import pandas as pd
-from src.data_formatter import DataFormatter
+from src.mtl.formatter import DataFormatter
 from src.metadata import MTL_VERSION
 
 

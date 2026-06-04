@@ -8,7 +8,7 @@ import pytest
 import pandas as pd
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
-from src.data_extraction import DataExtractor
+from src.mtl.extraction import DataExtractor
 
 # ---------------------------------------------------------------------------
 # Fixtures (local overrides — conftest.py fixtures are also available)

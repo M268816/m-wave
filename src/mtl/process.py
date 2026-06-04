@@ -27,10 +27,10 @@ import logging
 # third party
 
 # local
-from src.data_appender import DataAppender
-from src.data_extraction import DataExtractor
-from src.data_formatter import DataFormatter
-from src.data_comparator import DataComparator
+from src.mtl.appender import DataAppender
+from src.mtl.extraction import DataExtractor
+from src.mtl.formatter import DataFormatter
+from src.mtl.comparator import DataComparator
 from src.metadata import AppMetadata
 from src.reporting import Reporting
 

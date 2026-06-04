@@ -13,10 +13,10 @@ from tempfile import TemporaryDirectory
 # Import your classes
 from src.reporting import Reporting
 from src.metadata import AppMetadata, TableType
-from src.data_extraction import DataExtractor
-from src.data_formatter import DataFormatter
-from src.data_comparator import DataComparator
-from src.data_appender import DataAppender
+from src.mtl.extraction import DataExtractor
+from src.mtl.formatter import DataFormatter
+from src.mtl.comparator import DataComparator
+from src.mtl.appender import DataAppender
 
 
 @pytest.fixture

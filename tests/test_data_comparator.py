@@ -4,7 +4,7 @@ Tests for src/data_comparator.py - Data comparison functionality.
 
 import pytest
 import pandas as pd
-from src.data_comparator import DataComparator
+from src.mtl.comparator import DataComparator
 
 
 class TestDataComparatorShapes:

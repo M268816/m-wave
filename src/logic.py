@@ -39,7 +39,7 @@ from ttkbootstrap.constants import NORMAL, DISABLED
 
 # local
 from src.paths import CONFIG_PATH, REPORTS_DIR
-from src.process import Process
+from src.mtl.process import Process
 from src.reporting import Reporting
 
 
