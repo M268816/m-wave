@@ -1,6 +1,6 @@
 [project]
-name = "mtl-cmd"
-version = "0.1.0-pre_alpha.2"
+name = "wave"
+version = "0.1.0-pre_alpha.4"
 description = "A helper process to format Master Tag List and Context Master Data for LS_DH_USJA_DDS 20471406"
 readme = "README.md"
 requires-python = ">=3.11.3"
