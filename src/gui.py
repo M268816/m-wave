@@ -50,7 +50,7 @@ from ttkbootstrap.dialogs import Messagebox
 # local
 from src.metadata import MTL_VERSION, WORKSHEET_METADATA
 from src.paths import LOGO_PATH, INSTRUCTIONS_PATH
-from src.logic import (
+from src.controllers import (
     AppController,
     MTLController,
     MESController,
