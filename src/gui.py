@@ -145,9 +145,9 @@ class AppWindow(tkb.Window):
         saved_theme = self.controller.user_configs.get("theme", "litera")
         self.style.theme_use(saved_theme)
 
-        self.add_protocol("MTL-CMD", MTLFrame)
-        self.add_protocol("Example", ExampleFrame)
-        # self.add_protocol("MES", MESFrame)
+        self.add_protocol("MTL-CMD", MTLFrame)  # type: ignore
+        self.add_protocol("Example", ExampleFrame)  # type: ignore
+        self.add_protocol("MES", ExampleFrame)  # type: ignore
 
         self.launcher = LauncherFrame(self.container, self)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
@@ -164,7 +164,7 @@ class AppWindow(tkb.Window):
         Build the chosen protocol, destroy the launcher screen, and update the
         window title to reflect the locked session.
         """
-        app_frame = frame_cls(parent=self.container, window=self)
+        app_frame = frame_cls(parent=self.container, window=self)  # type: ignore
         app_frame.grid(row=0, column=0, sticky=NSEW)
         app_frame.tkraise()
         self.controller.set_process_controller(app_frame.proc_ctrl)
