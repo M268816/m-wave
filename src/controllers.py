@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 # stdlib
 import json
+import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -198,6 +199,7 @@ class MTLController(ProcessController):
         """
         Opens a new thread and starts the subroutine.
         """
+        _started = time.perf_counter()
         try:
             process = Process(
                 self._controller.report,
@@ -220,6 +222,7 @@ class MTLController(ProcessController):
                 popup=True,
             )
         finally:
+            _ended = time.perf_counter()
             self.window.after(
                 0,
                 lambda: self._controller.report.info(
@@ -230,6 +233,10 @@ class MTLController(ProcessController):
             self.window.after(0, lambda: ui.progress_bar.stop())
             self.window.after(1, lambda: ui.opt_process.set(ProcessType.NONE.value))
             self.window.after(2, lambda: ui.process_button.config(state=NORMAL))
+            completion_time = _ended - _started
+            self._controller.report.simple_title(
+                f"Processing took: {completion_time:.4f}s"
+            )
 
     def start_process(
         self,

@@ -4,6 +4,7 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
+import getpass
 import json
 from dataclasses import dataclass
 from enum import Enum
@@ -42,6 +43,8 @@ class TableInfo:
     can_compare: bool = False
 
 
+USER = getpass.getuser()
+
 WORKSHEET_METADATA = {
     sheet_name: TableInfo(
         table_id=entry["table_id"],
@@ -67,6 +70,7 @@ TABLE_FORMATTING = {
 DATAFRAME_FORMATTING = _config["dataframe_formatting"]
 
 DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
+DATETIME_FORMAT_MERCK = "%d-%b-%Y %H:%M:%S"
 
 MTL_VERSION = _config["mtl_version"]
 

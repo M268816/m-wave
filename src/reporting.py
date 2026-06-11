@@ -18,7 +18,7 @@ from ttkbootstrap.dialogs import Messagebox as modal
 from ttkbootstrap.constants import END
 
 # local
-from src.metadata import DATETIME_FORMAT
+from src.metadata import DATETIME_FORMAT, DATETIME_FORMAT_MERCK, USER
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +84,13 @@ class Reporting:
         self.logging = populate_log
         self.report = populate_report
         self.width = 88
+        self.user = USER
 
         if timestamp:
             self.timestamp = timestamp
         else:
             self.timestamp = datetime.now().strftime(DATETIME_FORMAT)
+        self.timestamp_merck = datetime.now().strftime(DATETIME_FORMAT_MERCK)
 
         self.report_lines = []
         self._modal_queue = Queue()
