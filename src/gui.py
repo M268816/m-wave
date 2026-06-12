@@ -44,8 +44,9 @@ from ttkbootstrap.constants import (
     Y,
     YES,
 )
-from ttkbootstrap.style import PRIMARY, SUCCESS
 from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.scrolled import ScrolledFrame
+from ttkbootstrap.style import PRIMARY, SUCCESS
 
 # local
 from src.metadata import MTL_VERSION, WORKSHEET_METADATA
@@ -146,10 +147,10 @@ class AppWindow(tkb.Window):
         self.style.theme_use(saved_theme)
 
         self.add_protocol("MTL-CMD", MTLFrame)  # type: ignore
-        self.add_protocol("Example", ExampleFrame)  # type: ignore
-        self.add_protocol("MES", ExampleFrame)  # type: ignore
+        # self.add_protocol("Example", ExampleFrame) # type: ignore
+        # self.add_protocol("MES", ExampleFrame) # type: ignore
 
-        self.launcher = LauncherFrame(self.container, self)
+        self.launcher = LauncherFrame(self.container, self, grid_width=1)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
 
@@ -159,7 +160,7 @@ class AppWindow(tkb.Window):
         """
         self.protocols[name] = frame_cls
 
-    def lock_protocol(self, frame_cls: ProtocolFrame) -> None:
+    def lock_protocol(self, name: str, frame_cls: ProtocolFrame) -> None:
         """
         Build the chosen protocol, destroy the launcher screen, and update the
         window title to reflect the locked session.
@@ -171,9 +172,7 @@ class AppWindow(tkb.Window):
         self.active_app = app_frame
         self.launcher.destroy()
 
-        self.title(
-            f"λ Workbook Automation & Verification Engine | {app_frame.__class__.__name__}"
-        )
+        self.title(f"λ Workbook Automation & Verification Engine | {name}")
         self.geometry(f"{APP_SIZE[0]}x{APP_SIZE[1]}")
         self.minsize(APP_MINSIZE[0], APP_MINSIZE[1])
         self.resizable(True, True)
@@ -280,9 +279,12 @@ class LauncherFrame(ProtocolFrame):
         A back reference to the root window.
     """
 
-    def __init__(self, parent: tkb.Frame, window: AppWindow) -> None:
+    def __init__(
+        self, parent: tkb.Frame, window: AppWindow, grid_width: int = 3
+    ) -> None:
         super().__init__(parent)
         self.window = window
+        self.grid_width = grid_width
 
         tkb.Label(self, text="Select Protocol", font=H1).pack(padx=PAD_X, pady=PAD_Y)
         tkb.Label(
@@ -290,20 +292,32 @@ class LauncherFrame(ProtocolFrame):
             text=(
                 "You will be locked into your protocol\n"
                 "selection for the duration of your session.\n"
-                "Restart the application to change protocols."
+                "Restart the application to change protocols.\n"
+                "\n"
+                "Currently, only the MTL-CMD protocol is available.\n"
             ),
             font=FONT,
             foreground="gray",
             justify=CENTER,
         ).pack(pady=PAD_Y)
 
-        for name, frame_cls in self.window.protocols.items():
+        tkb.Separator(self, orient="horizontal", bootstyle=PRIMARY).pack(fill=X, padx=PAD_X)
+
+        self.scroll_frame = ScrolledFrame(self, padding=PAD)
+        self.scroll_frame.pack(fill=BOTH, padx=PAD_X, pady=PAD_Y)
+
+        for index, (name, frame_cls) in enumerate(self.window.protocols.items()):
+            row = index // self.grid_width
+            col = index % self.grid_width
             tkb.Button(
-                self,
+                self.scroll_frame,
                 text=name,
                 width=25,
                 command=lambda n=name, fc=frame_cls: self._confirm_and_launch(n, fc),
-            ).pack(pady=PAD_Y)
+            ).grid(row=row, column=col, padx=PAD_X, pady=PAD_Y)
+
+        for col in range(self.grid_width):
+            self.scroll_frame.columnconfigure(col, weight=1)
 
     def _confirm_and_launch(self, name: str, frame_cls: ProtocolFrame) -> None:
         """
@@ -318,7 +332,7 @@ class LauncherFrame(ProtocolFrame):
             ),
         )
         if confirmed:
-            self.window.lock_protocol(frame_cls)
+            self.window.lock_protocol(name, frame_cls)
 
     def on_teardown(self) -> None:
         """
