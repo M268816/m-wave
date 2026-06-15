@@ -30,9 +30,9 @@ from datetime import datetime
 # third party
 
 # local
-from src.gui import AppWindow
-from src.metadata import DATETIME_FORMAT
-from src.paths import LOGS_DIR
+from src.app.gui import AppWindow
+from src.app.metadata import DATETIME_FORMAT
+from src.app.paths import LOGS_DIR
 
 # Logging initialization
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"

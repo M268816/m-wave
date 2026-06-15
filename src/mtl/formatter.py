@@ -10,8 +10,8 @@ import re
 import pandas as pd
 
 # local
-from src.metadata import DATAFRAME_FORMATTING, MTL_VERSION, AppMetadata, TableType
-from src.reporting import Reporting
+from src.app.metadata import DATAFRAME_FORMATTING, MTL_VERSION, AppMetadata, TableType
+from src.app.reporting import Reporting
 
 _VALUE_NORMALIZATION_MAP: dict = {
     "TRUE": True,

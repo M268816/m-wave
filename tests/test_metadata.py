@@ -7,7 +7,7 @@ No GUI dependency.
 """
 
 import pytest
-from src.metadata import TableType, TableInfo, AppMetadata, WORKSHEET_METADATA
+from src.main.metadata import TableType, TableInfo, AppMetadata, WORKSHEET_METADATA
 
 
 class TestTableType:

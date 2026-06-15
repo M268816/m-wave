@@ -9,7 +9,7 @@ No GUI dependency.
 import pytest
 import pandas as pd
 from src.mtl.formatter import DataFormatter
-from src.metadata import MTL_VERSION
+from src.main.metadata import MTL_VERSION
 
 
 class TestNormalizeWhitespace:

@@ -18,8 +18,9 @@ def get_base_path() -> Path:
         # Running as compiled executable
         return Path(sys.executable).parent
     else:
-        # Running as script - project root is one level up from src/
-        return Path(__file__).parent.parent
+        # Running as script - project root is two levels up from src/
+        # paths lives two levels up in src/app/
+        return Path(__file__).parent.parent.parent
 
 
 def get_temp_path() -> Path:

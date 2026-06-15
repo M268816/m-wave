@@ -8,8 +8,8 @@ import pandas as pd
 import xlwings as xl
 
 # local
-from src.reporting import Reporting
-from src.metadata import AppMetadata
+from src.app.reporting import Reporting
+from src.app.metadata import AppMetadata
 
 
 class DataExtractor:

@@ -31,8 +31,8 @@ from src.mtl.appender import DataAppender
 from src.mtl.extraction import DataExtractor
 from src.mtl.formatter import DataFormatter
 from src.mtl.comparator import DataComparator
-from src.metadata import AppMetadata
-from src.reporting import Reporting
+from src.app.metadata import AppMetadata
+from src.app.reporting import Reporting
 
 logger = logging.getLogger(__name__)
 

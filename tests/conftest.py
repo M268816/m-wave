@@ -125,7 +125,7 @@ def mock_app_metadata():
 @pytest.fixture
 def mock_metadata():
     """AppMetadata mock for ANALYTICS type -- used by process tests."""
-    from src.metadata import AppMetadata, TableType
+    from src.main.metadata import AppMetadata, TableType
 
     meta = MagicMock(spec=AppMetadata)
     meta.get_worksheet_name.return_value = "TestTable"

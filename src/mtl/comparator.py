@@ -9,8 +9,8 @@
 import pandas as pd
 
 # local
-from src.metadata import AppMetadata
-from src.reporting import Reporting
+from src.app.metadata import AppMetadata
+from src.app.reporting import Reporting
 
 
 class DataComparator:

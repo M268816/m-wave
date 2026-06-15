@@ -9,16 +9,16 @@ from queue import Queue
 from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
-from tkinter.scrolledtext import ScrolledText
 from typing import Callable
 
 # third party
 import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox as modal
 from ttkbootstrap.constants import END
+from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
-from src.metadata import DATETIME_FORMAT, DATETIME_FORMAT_MERCK, USER
+from src.app.metadata import DATETIME_FORMAT, DATETIME_FORMAT_MERCK, USER
 
 logger = logging.getLogger(__name__)
 

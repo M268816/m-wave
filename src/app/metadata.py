@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 # local
-from src.paths import CONFIG_PATH
+from src.app.paths import CONFIG_PATH
 
 try:
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
