@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Callable
 
 # third party
-import ttkbootstrap as ttk
+import ttkbootstrap as tkb
 from ttkbootstrap.dialogs import Messagebox as modal
-from ttkbootstrap.constants import END
+from ttkbootstrap.constants import DISABLED, END, NORMAL
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
@@ -61,7 +61,7 @@ class Reporting:
 
     def __init__(
         self,
-        parent_window: ttk.Window,
+        parent_window: tkb.Window,
         output_dir: Path,
         verbose_printing: bool = True,
         populate_report: bool = True,
@@ -85,6 +85,7 @@ class Reporting:
         self.report = populate_report
         self.width = 88
         self.user = USER
+        self.text_display: ScrolledText
 
         if timestamp:
             self.timestamp = timestamp
@@ -215,15 +216,26 @@ class Reporting:
         if _report:
             self._add_line(msg, config.msg_type)
             if self.text_display is not None:
-                self.parent_window.after(
-                    0, lambda func=self.text_display.insert: func(END, msg + "\n")
-                )
-                self.parent_window.after(
-                    0,
-                    lambda func=self.text_display.see: func(END),
-                )
+                self._handle_text_display(msg)
         if popup:
             self._queue_modal(config.modal_func, msg, config.modal_title)
+
+    def _handle_text_display(self, msg) -> None:
+        """
+        Write a message to the text_display (ScrolledText) on the main thread.
+        """
+        if self.text_display is None:
+            return
+
+        def _write() -> None:
+            tw = self.text_display.text
+            tw.configure(state=NORMAL)  # type: ignore
+            tw.insert(END, msg + "\n")
+            tw.configure(state=DISABLED)  # type: ignore
+
+            tw.see(END)
+
+        self.parent_window.after(0, _write)
 
     def critical(
         self,

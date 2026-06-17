@@ -12,12 +12,6 @@ from enum import Enum
 # local
 from src.app.paths import CONFIG_PATH
 
-try:
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        _config = json.load(f)
-except Exception as e:
-    raise SystemExit(f"Configuration not found. Cannot run application.\n{e}")
-
 
 class TableType(int, Enum):
     UNKNOWN = 0
@@ -43,6 +37,16 @@ class TableInfo:
     can_compare: bool = False
 
 
+def load_user_config() -> dict:
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        raise SystemExit(f"Configuration not found. Cannot run application.\n{e}")
+
+
+_config = load_user_config()
+
 USER = getpass.getuser()
 
 WORKSHEET_METADATA = {
@@ -61,8 +65,7 @@ TABLE_FORMATTING = {
         "Filter Keys": entry["filter_keys"],
         "Object Type Order": entry["object_type_order"],
         "Sort Order": entry["sort_order"],
-        # TODO: Change to "sort ascending"
-        "Sort Direction": entry["sort_direction"],
+        "Sort Ascending": entry["sort_ascending"],
     }
     for key, entry in _config["table_formatting"].items()
 }

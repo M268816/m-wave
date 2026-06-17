@@ -14,7 +14,20 @@ from tkinter.filedialog import askopenfilename
 
 # third-party
 import ttkbootstrap as tkb
-from ttkbootstrap.constants import TOP, BOTH, NSEW, X, NO, LEFT, PRIMARY, RIGHT, YES
+from ttkbootstrap.constants import (
+    TOP,
+    BOTH,
+    NSEW,
+    X,
+    NO,
+    LEFT,
+    PRIMARY,
+    RIGHT,
+    YES,
+    BOTTOM,
+    S,
+    INDETERMINATE,
+)
 
 # local
 from src.app.utils import ProtocolFrame, PAD, PAD_X, PAD_Y
@@ -38,8 +51,76 @@ class TagFormatterFrame(ProtocolFrame):
 
         self.tag_form_rows: int = 0
 
+        self._build_footer()  # Building the footer first ensures its bottom sticky
         self._build_file_inputs()
         self._build_tag_form()
+
+    @property
+    def report(self):
+        return self.window.controller.report
+
+    def _build_footer(self) -> None:
+        """
+        Builds the footer row that holds the processing options and progress bar
+        indicator.
+        """
+        frame = tkb.Labelframe(self.container, text="Process Status")
+        frame.pack(side=BOTTOM, fill=X, anchor=S, padx=PAD_X, pady=PAD_Y)
+
+        self.progress_bar = tkb.Progressbar(frame, mode=INDETERMINATE)
+        self.progress_bar.pack(side=LEFT, expand=YES, padx=PAD_X, pady=PAD_Y, fill=X)
+
+        # self.radio_append = tkb.Radiobutton(
+        #     frame,
+        #     text="Append",
+        #     variable=self.opt_process,
+        #     value=MTLProcessorType.APPEND.value,
+        # )
+        # self.radio_append.pack(side=LEFT, padx=PAD_X, pady=PAD_Y, fill=Y)
+        #
+        # self.radio_compare = tkb.Radiobutton(
+        #     frame,
+        #     text="Compare",
+        #     variable=self.opt_process,
+        #     value=MTLProcessorType.COMPARE.value,
+        # )
+        # self.radio_compare.pack(side=LEFT, padx=PAD_X, pady=PAD_Y, fill=Y)
+
+        self.process_button = tkb.Button(
+            frame,
+            text="Process",
+            bootstyle=SUCCESS,
+            padding=PAD,
+            width=20,
+            command=self._on_process_clicked,
+        )
+        self.process_button.pack(side=RIGHT, padx=PAD_X, pady=PAD_Y, fill=Y)
+        pass
+
+    def _on_process_clicked(self) -> None:
+        """
+        Builds the requests and ui objects to pass to the process thread when the
+        process button is clicked.
+        """
+        if not (self._plc_list_selected.get() and self._tag_list_selected.get()):
+            self.report.error("Please select both files to start process.")
+            return
+
+        # req = MTLRequest(
+        #     MTLProcessorType(self.opt_process.get()),
+        #     self.opt_filter.get(),
+        #     self.opt_data_table.get(),
+        #     Path(self.opt_mtl_path.get()),
+        #     Path(self.opt_input_path.get()),
+        # )
+        # ui = MTLUi(
+        #     self.progress_bar,
+        #     self.process_button,
+        #     self.opt_process,
+        #     self.stext,
+        # )
+
+        self.proc_ctrl.start_process(req, ui)
 
     def _build_file_inputs(self) -> None:
         """
