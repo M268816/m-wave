@@ -95,16 +95,21 @@ class AppController:
         self.report.create_report(report_name)
         self.report.attach_text_display(text_display)
 
-    def set_config_value(self, key: str, value: tkb.StringVar | tkb.BooleanVar) -> None:
+    def set_config_value(self, key: str, value: tkb.StringVar | tkb.BooleanVar) -> bool:
         """
         Write a single user configuration through a dict key.
+        Returns True if the value was written.
+        Returns False if blocked by running process.
         """
         if (
             self.proc_ctrl
             and self.proc_ctrl.process_thread
             and self.proc_ctrl.process_thread.is_alive()
         ):
+            # If there is a process controller, it has a thread, and the thread is alive
+            # Set the widget to the previous value, denying the change
             value.set(self.user_configs.get(key, False))
+
             self.window.after(
                 0,
                 lambda: self.report.warning(
@@ -112,10 +117,16 @@ class AppController:
                     popup=True,
                 ),
             )
-            return
+            return False
+
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg = json.load(f)
+
         cfg[key] = value.get()
+
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
+
         self.user_configs = self._load_user_configs()
+
+        return True

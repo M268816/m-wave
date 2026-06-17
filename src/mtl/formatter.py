@@ -257,7 +257,7 @@ class DataFormatter:
             self.report.info("Sorting...")
             df = df.sort_values(
                 by=config["Sort Order"],
-                ascending=config["Sort Direction"],
+                ascending=config["Sort Ascending"],
                 ignore_index=True,
                 kind="stable",
             )

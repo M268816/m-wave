@@ -85,7 +85,6 @@ class Reporting:
         self.report = populate_report
         self.width = 88
         self.user = USER
-        self.text_display: ScrolledText
 
         if timestamp:
             self.timestamp = timestamp
@@ -228,7 +227,7 @@ class Reporting:
             return
 
         def _write() -> None:
-            tw = self.text_display.text
+            tw = self.text_display.text  # type: ignore
             tw.configure(state=NORMAL)  # type: ignore
             tw.insert(END, msg + "\n")
             tw.configure(state=DISABLED)  # type: ignore

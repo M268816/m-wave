@@ -205,7 +205,7 @@ class AppWindow(tkb.Window):
                     "Any unsaved work will be lost."
                 ),
             )
-            if not confirmed:
+            if confirmed == "No":
                 return
             try:
                 self.active_app.on_teardown()  # type: ignore
@@ -217,11 +217,17 @@ class AppWindow(tkb.Window):
         self.destroy()
 
     def _on_option_change(self, config_key: str, var: tkb.BooleanVar) -> None:
+        """
+        If an option changes, try to set the config value.
+        """
         self.controller.set_config_value(config_key, var)
 
     def _on_theme_change(self, theme: tkb.StringVar) -> None:
-        self.style.theme_use(theme.get())
-        self.controller.set_config_value("theme", theme)
+        """
+        If the theme changes, try to set the config value, if true (success), change the theme.
+        """
+        if self.controller.set_config_value("theme", theme):
+            self.style.theme_use(theme.get())
 
     def _show_mtl_instructions(self) -> None:
         self.controller.report.info(
@@ -302,7 +308,7 @@ class LauncherFrame(ProtocolFrame):
                 "Continue?"
             ),
         )
-        if confirmed:
+        if confirmed == "Yes":
             self.window.lock_protocol(name, frame_cls)
 
     def on_teardown(self) -> None:
@@ -334,7 +340,7 @@ class ExampleFrame(ProtocolFrame):
         self.label = tkb.Label(
             self.container,
             textvariable=self.label_var,
-            background="gray",
+            background="yellow",
             justify=CENTER,
             anchor=CENTER,
         )

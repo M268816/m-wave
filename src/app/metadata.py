@@ -121,7 +121,7 @@ class AppMetadata:
         return TABLE_FORMATTING[self._table_type]["Sort Order"]
 
     def get_table_sort_direction(self) -> list[bool]:
-        return TABLE_FORMATTING[self._table_type]["Sort Direction"]
+        return TABLE_FORMATTING[self._table_type]["Sort Ascending"]
 
     def get_table_type_order(self) -> dict | None:
         return TABLE_FORMATTING[self._table_type]["Object Type Order"]
