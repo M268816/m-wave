@@ -4,11 +4,13 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
+import time
 from pathlib import Path
 
 # third party
 import pandas as pd
 import xlwings as xl
+import pywintypes
 
 # local
 from src.mtl.metadata import MtlMetadata
@@ -88,10 +90,12 @@ class DataAppender:
         appended_dataframe: pd.DataFrame,
         mtl_file_path: str,
         output_file_path: Path | None = None,
+        retries: int = 3,
+        delay: float = 3.0,
     ) -> None:
         """
         Supply a data frame that will attempt to replace the corresponding table in the
-        mtl.
+        mtl. Retries saving the new copy for OLE Busy errors (likely OneDrive problems).
         """
         if not output_file_path:
             output_file_path = self.report.report_folder / "20471406_appended.xlsx"
@@ -112,7 +116,20 @@ class DataAppender:
             self.report.info("Workbook found.")
 
             self.report.info("Saving a working copy...")
-            workbook.save(output_file_path)
+            for attempt in range(retries):
+                try:
+                    self.report.info(f"Save attempt {attempt + 1} of {retries}.")
+                    workbook.save(output_file_path)
+                    break
+                except pywintypes.com_error as e:
+                    if e.args[0] == -2146777998:  # OLE Busy
+                        if attempt < retries - 1:
+                            time.sleep(delay)
+                            continue
+                    raise
+            else:
+                raise RuntimeError(f"Failed to save workbook after {retries} attempts.")
+
             workbook.close()
             self.report.info("Saved...")
 

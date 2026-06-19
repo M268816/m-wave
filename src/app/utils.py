@@ -14,9 +14,6 @@ import ttkbootstrap as tkb
 # local
 
 # CONSTANTS
-APP_SIZE = (850, 525)
-APP_MINSIZE = (850, 525)
-
 H1 = ("Verdana", 20, font.BOLD)
 H2 = ("Verdana", 16, font.NORMAL)
 H3 = ("Verdana", 14, font.NORMAL)
@@ -46,9 +43,22 @@ class ProtocolFrame(tkb.Frame):
     Class helper for type assignment
     """
 
-    def __init__(self, parent: tkb.Frame) -> None:
+    def __init__(
+        self,
+        parent: tkb.Frame,
+        height: int,
+        height_min: int,
+        width: int,
+        width_min: int,
+        resizable: tuple[bool, bool],
+    ) -> None:
         super().__init__(parent)
         self.proc_ctrl: ProcessController
+        self.height = height
+        self.height_min = height_min
+        self.width = width
+        self.width_min = width_min
+        self.resizable = resizable
 
     def on_teardown(self) -> None:
         return None

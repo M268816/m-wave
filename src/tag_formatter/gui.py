@@ -27,6 +27,8 @@ from ttkbootstrap.constants import (
     BOTTOM,
     S,
     INDETERMINATE,
+    Y,
+    SUCCESS,
 )
 
 # local
@@ -36,7 +38,14 @@ from src.tag_formatter.controller import TagFormatterController
 
 class TagFormatterFrame(ProtocolFrame):
     def __init__(self, parent: tkb.Frame, window: AppWindow) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            height=640,
+            height_min=640,
+            width=640,
+            width_min=640,
+            resizable=(True, True),
+        )
         self.window = window
         self.proc_ctrl: TagFormatterController = TagFormatterController(window)
 
@@ -120,7 +129,7 @@ class TagFormatterFrame(ProtocolFrame):
         #     self.stext,
         # )
 
-        self.proc_ctrl.start_process(req, ui)
+        # self.proc_ctrl.start_process(req, ui)
 
     def _build_file_inputs(self) -> None:
         """

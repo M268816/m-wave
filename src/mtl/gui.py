@@ -53,8 +53,16 @@ class MTLFrame(ProtocolFrame):
     """
 
     def __init__(self, parent: tkb.Frame, window: AppWindow) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            height=525,
+            height_min=525,
+            width=850,
+            width_min=850,
+            resizable=(True, True),
+        )
         self.window = window
+
         self.proc_ctrl: MTLController = MTLController(window)
         self.stext: ScrolledText
 

@@ -41,8 +41,6 @@ from src.app.utils import (
     PAD,
     PAD_X,
     PAD_Y,
-    APP_SIZE,
-    APP_MINSIZE,
     H1,
     FONT,
 )
@@ -50,8 +48,6 @@ from src.mtl.gui import MTLFrame
 from src.tag_formatter.gui import TagFormatterFrame
 
 # CONSTANTS
-LAUNCH_SIZE = (512, 512)
-RESIZABLE = (False, False)
 THEMES = (
     "cosmo",
     "flatly",
@@ -96,8 +92,8 @@ class AppWindow(tkb.Window):
         self.active_app = None
 
         self.title("λ Workbook Automation & Verification Engine | Launcher")
-        self.geometry(f"{LAUNCH_SIZE[0]}x{LAUNCH_SIZE[1]}")
-        self.resizable(RESIZABLE[0], RESIZABLE[1])
+        self.geometry("100x100")
+        self.resizable(False, False)
         self.logo = tkb.PhotoImage(file=str(LOGO_PATH))
         self.iconphoto(False, self.logo)
         self.protocol("WM_DELETE_WINDOW", self._on_close_requested)
@@ -112,13 +108,20 @@ class AppWindow(tkb.Window):
         saved_theme = self.controller.user_preferences.get("theme", "litera")
         self.style.theme_use(saved_theme)
 
+        self.init_protocols()
+        self.start_launcher()
+
+    def init_protocols(self) -> None:
         self.add_protocol("MTL-CMD", MTLFrame)  # type: ignore
-        self.add_protocol("Tag Formatter", TagFormatterFrame)  # type: ignore
+        # self.add_protocol("Tag Formatter", TagFormatterFrame)  # type: ignore
         self.add_protocol("Example", ExampleFrame)  # type: ignore
 
-        self.launcher = LauncherFrame(self.container, self, grid_width=3)
+    def start_launcher(self) -> None:
+        self.launcher = LauncherFrame(self.container, self, grid_width=1)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
+        self.geometry(f"{self.launcher.height}x{self.launcher.width}")
+        self.resizable(self.launcher.resizable[0], self.launcher.resizable[1])
 
     def add_protocol(self, name: str, frame_cls: ProtocolFrame) -> None:
         """
@@ -139,9 +142,9 @@ class AppWindow(tkb.Window):
         self.launcher.destroy()
 
         self.title(f"λ Workbook Automation & Verification Engine | {name}")
-        self.geometry(f"{APP_SIZE[0]}x{APP_SIZE[1]}")
-        self.minsize(APP_MINSIZE[0], APP_MINSIZE[1])
-        self.resizable(True, True)
+        self.geometry(f"{app_frame.width}x{app_frame.height}")
+        self.minsize(app_frame.width_min, app_frame.height_min)
+        self.resizable(app_frame.resizable[0], app_frame.resizable[1])
 
     def run(self) -> None:
         self.mainloop()
@@ -265,12 +268,16 @@ class LauncherFrame(ProtocolFrame):
     def __init__(
         self, parent: tkb.Frame, window: AppWindow, grid_width: int = 3
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            height=640,
+            height_min=640,
+            width=480,
+            width_min=480,
+            resizable=(False, False),
+        )
         self.window = window
         self.grid_width = grid_width
-        image = Image.open(str(LOGO_PATH))
-        resized_image = image.resize((32, 32), Image.Resampling.LANCZOS)
-        self.logo = ImageTk.PhotoImage(resized_image)
 
         tkb.Label(self, text="Select Protocol", font=H1).pack(padx=PAD_X, pady=PAD_Y)
         tkb.Label(
@@ -296,24 +303,16 @@ class LauncherFrame(ProtocolFrame):
 
         for index, (name, frame_cls) in enumerate(self.window.protocols.items()):
             row = index // self.grid_width
-            col = index % self.grid_width + 1
+            col = index % self.grid_width
             tkb.Button(
                 self.scroll_frame,
                 text=name,
-                image=self.logo,
-                compound=TOP,
-                width=10,
+                width=24,
                 command=lambda n=name, fc=frame_cls: self._confirm_and_launch(n, fc),
             ).grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
 
         for col in range(self.grid_width):
-            self.scroll_frame.columnconfigure(col, weight=0)
-
-        self.scroll_frame.columnconfigure(0, weight=1)
-        self.scroll_frame.columnconfigure(self.scroll_frame.grid_size()[0], weight=1)
-
-        for row in range(self.scroll_frame.grid_size()[1]):
-            self.scroll_frame.rowconfigure(row, minsize=100, weight=0)
+            self.scroll_frame.columnconfigure(col, weight=1)
 
     def _confirm_and_launch(self, name: str, frame_cls: ProtocolFrame) -> None:
         """
@@ -342,15 +341,18 @@ class ExampleFrame(ProtocolFrame):
         self,
         parent: tkb.Frame,
         window: AppWindow,
-        frame_size: tuple[int, int] = (850, 525),
-        frame_min_size: tuple[int, int] = (360, 360),
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            height=320,
+            height_min=320,
+            width=320,
+            width_min=320,
+            resizable=(True, True),
+        )
         self.window = window
         # A process controller must be created to handle the process thread
         # self.proc_ctrl: ExampleProcess = ExampleProcess(window)
-        self.frame_size = frame_size
-        self.frame_min_size = frame_min_size
 
         self.container = tkb.Frame(self, padding=PAD)
         self.container.pack(side=TOP, fill=BOTH, expand=True)

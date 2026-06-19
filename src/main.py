@@ -31,7 +31,7 @@ from datetime import datetime
 
 # local
 from src.app.gui import AppWindow
-from src.app.metadata import DATETIME_FORMAT
+from src.app.utils import DATETIME_FORMAT
 from src.app.paths import LOGS_DIR
 
 # Logging initialization

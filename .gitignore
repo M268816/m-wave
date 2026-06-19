@@ -4,6 +4,7 @@ logs/
 src/test_reporting/
 reports/
 config/
+user_prefs/
 
 # security checks
 sec-*.*
