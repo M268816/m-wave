@@ -36,7 +36,7 @@ from src.app.utils import (
     PAD_X,
     PAD_Y,
 )
-from src.app.metadata import MTL_VERSION, WORKSHEET_METADATA
+from src.mtl.metadata import MTL_VERSION, WORKSHEET_METADATA
 from src.mtl.controller import MTLController, MTLProcessorType, MTLRequest, MTLUi
 
 

@@ -4,6 +4,7 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdio
+import getpass
 from threading import Thread
 from tkinter import font
 
@@ -25,6 +26,10 @@ FONT = ("Verdana", 10, font.NORMAL)
 PAD_X = 8
 PAD_Y = 8
 PAD = 8
+
+USER = getpass.getuser()
+DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
+DATETIME_FORMAT_MERCK = "%d-%b-%Y %H:%M:%S"
 
 
 class ProcessController:

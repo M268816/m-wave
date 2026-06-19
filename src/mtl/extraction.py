@@ -9,7 +9,7 @@ import xlwings as xl
 
 # local
 from src.app.reporting import Reporting
-from src.app.metadata import AppMetadata
+from src.mtl.metadata import MtlMetadata
 
 
 class DataExtractor:
@@ -18,7 +18,7 @@ class DataExtractor:
     within the WAVE tool.
     """
 
-    def __init__(self, report: Reporting, metadata: AppMetadata) -> None:
+    def __init__(self, report: Reporting, metadata: MtlMetadata) -> None:
         self.report = report
         self.metadata = metadata
 

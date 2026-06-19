@@ -9,8 +9,8 @@
 import pandas as pd
 
 # local
-from src.app.metadata import AppMetadata
 from src.app.reporting import Reporting
+from src.mtl.metadata import MtlMetadata
 
 
 class DataComparator:
@@ -18,7 +18,7 @@ class DataComparator:
     Attempts to compare and report differences in supplied MTL and input data frames.
     """
 
-    def __init__(self, report: Reporting, metadata: AppMetadata) -> None:
+    def __init__(self, report: Reporting, metadata: MtlMetadata) -> None:
         self.report = report
         self.metadata = metadata
 

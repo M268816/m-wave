@@ -10,7 +10,7 @@ import re
 import pandas as pd
 
 # local
-from src.app.metadata import DATAFRAME_FORMATTING, MTL_VERSION, AppMetadata, TableType
+from src.mtl.metadata import MtlMetadata, TableType, DATAFRAME_FORMATTING, MTL_VERSION
 from src.app.reporting import Reporting
 
 _VALUE_NORMALIZATION_MAP: dict = {
@@ -35,7 +35,7 @@ class DataFormatter:
     Helper class that handles all MTL and INPUT CSV formatting.
     """
 
-    def __init__(self, report: Reporting, metadata: AppMetadata) -> None:
+    def __init__(self, report: Reporting, metadata: MtlMetadata) -> None:
         self.report = report
         self.metadata = metadata
 

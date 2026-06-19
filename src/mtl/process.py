@@ -31,7 +31,7 @@ from src.mtl.appender import DataAppender
 from src.mtl.extraction import DataExtractor
 from src.mtl.formatter import DataFormatter
 from src.mtl.comparator import DataComparator
-from src.app.metadata import AppMetadata
+from src.mtl.metadata import MtlMetadata
 from src.app.reporting import Reporting
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class Process:
         self.input_file_path = input_file_path
 
         self.report = report
-        self.metadata = AppMetadata(self.mtl_worksheet_name)
+        self.metadata = MtlMetadata(self.mtl_worksheet_name)
 
         self.data_appender = DataAppender(self.report, self.metadata)
         self.data_extractor = DataExtractor(self.report, self.metadata)

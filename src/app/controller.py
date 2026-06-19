@@ -16,13 +16,14 @@ AppController
 
 # stdlib
 import json
+from pathlib import Path
 
 # third party
 import ttkbootstrap as tkb
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
-from src.app.paths import CONFIG_PATH, REPORTS_DIR
+from src.app.paths import MTL_CONFIG_PATH, REPORTS_DIR, USER_PREFS_PATH
 from src.app.reporting import Reporting
 from src.app.utils import ProcessController
 
@@ -34,7 +35,8 @@ class AppController:
 
     def __init__(self, window: tkb.Window) -> None:
         self.window: tkb.Window = window
-        self.user_configs: dict = self._load_user_configs()
+        self.user_preferences: dict = self._load_configs(USER_PREFS_PATH)
+        self.mtl_configs: dict = self._load_configs(MTL_CONFIG_PATH)
         self.report: Reporting = self._set_report(window)
 
         # Set when process frame is created
@@ -43,23 +45,23 @@ class AppController:
     def set_process_controller(self, controller: ProcessController) -> None:
         self.proc_ctrl = controller
 
-    def _load_user_configs(self) -> dict:
+    def _load_configs(self, path: Path) -> dict:
         """
-        Read the user configuration settings returned in a dict.
+        Read a configuration setting file and return a dict of settings.
         """
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             try:
                 cfg = json.load(f)
                 return cfg
             except json.JSONDecodeError as e:
                 raise json.JSONDecodeError(
-                    f"Failed to parse config file at: {CONFIG_PATH}: {e.msg}",
+                    f"Failed to parse file at: {path}: {e.msg}",
                     e.doc,
                     e.pos,
                 )
             except Exception as e:
                 raise RuntimeError(
-                    f"An unexptected error occurred while trying to load the user configuration file.\n{e}"
+                    f"An unexptected error occurred while trying to load the configuration file.\n{e}"
                 )
 
     def _set_report(self, window: tkb.Window) -> Reporting:
@@ -70,8 +72,8 @@ class AppController:
             window,
             REPORTS_DIR,
             verbose_printing=False,
-            use_timestamps=self.user_configs.get("use_timestamps", False),  # type: ignore
-            use_msg_types=self.user_configs.get("use_msg_types", False),  # type: ignore
+            use_timestamps=self.user_preferences.get("use_timestamps", False),  # type: ignore
+            use_msg_types=self.user_preferences.get("use_msg_types", False),  # type: ignore
         )
 
     def reset_report(
@@ -95,7 +97,13 @@ class AppController:
         self.report.create_report(report_name)
         self.report.attach_text_display(text_display)
 
-    def set_config_value(self, key: str, value: tkb.StringVar | tkb.BooleanVar) -> bool:
+    def set_config_value(
+        self,
+        config_path: Path,
+        config_variable: dict,
+        key: str,
+        value: tkb.StringVar | tkb.BooleanVar,
+    ) -> bool:
         """
         Write a single user configuration through a dict key.
         Returns True if the value was written.
@@ -108,7 +116,7 @@ class AppController:
         ):
             # If there is a process controller, it has a thread, and the thread is alive
             # Set the widget to the previous value, denying the change
-            value.set(self.user_configs.get(key, False))
+            value.set(config_variable.get(key, False))
 
             self.window.after(
                 0,
@@ -119,14 +127,14 @@ class AppController:
             )
             return False
 
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
 
         cfg[key] = value.get()
 
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
 
-        self.user_configs = self._load_user_configs()
+        config_variable = self._load_configs(config_path)
 
         return True

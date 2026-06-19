@@ -4,13 +4,12 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
-import getpass
 import json
 from dataclasses import dataclass
 from enum import Enum
 
 # local
-from src.app.paths import CONFIG_PATH
+from src.app.paths import MTL_CONFIG_PATH
 
 
 class TableType(int, Enum):
@@ -37,17 +36,16 @@ class TableInfo:
     can_compare: bool = False
 
 
-def load_user_config() -> dict:
+def load_mtl_configs() -> dict:
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(MTL_CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         raise SystemExit(f"Configuration not found. Cannot run application.\n{e}")
 
 
-_config = load_user_config()
+_config = load_mtl_configs()
 
-USER = getpass.getuser()
 
 WORKSHEET_METADATA = {
     sheet_name: TableInfo(
@@ -72,19 +70,16 @@ TABLE_FORMATTING = {
 
 DATAFRAME_FORMATTING = _config["dataframe_formatting"]
 
-DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
-DATETIME_FORMAT_MERCK = "%d-%b-%Y %H:%M:%S"
-
 MTL_VERSION = _config["mtl_version"]
 
 
-class AppMetadata:
+class MtlMetadata:
     """
-    Each data class that needs metadata for a worksheet constructs this one instance
+    Each class that needs metadata for a mtl worksheet constructs this one instance
     and uses it throughout:
 
     Usage:
-    meta = AppMetadata(worksheet_name)
+    meta = MtlMetadata(worksheet_name)
     keys = meta.get_merge_keys()
     sort = meta.get_sort_order()
     """

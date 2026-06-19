@@ -11,7 +11,7 @@ import pandas as pd
 import xlwings as xl
 
 # local
-from src.app.metadata import AppMetadata
+from src.mtl.metadata import MtlMetadata
 from src.app.reporting import Reporting
 
 
@@ -19,7 +19,7 @@ class DataAppender:
     def __init__(
         self,
         report: Reporting,
-        metadata: AppMetadata,
+        metadata: MtlMetadata,
     ) -> None:
         self.report = report
         self.metadata = metadata

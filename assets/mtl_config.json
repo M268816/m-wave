@@ -1,8 +1,7 @@
 {
   "mtl_version": "21.0",
-  "theme": "cosmo",
-  "use_timestamps": false,
-  "use_msg_types": false,
+  "mtl_help_vid_url": "https://github.com/M268816/wave/blob/main/assets/instructions.txt",
+  "mtl_instructions_git_url": "https://mdigital.sharepoint.com/:v:/r/sites/JaffreyOSIPI-JaffreyDHCoreTeam/Shared%20Documents/Jaffrey%20DH%20Core%20Team/WAVE%20Project/WAVE_Demo_pre.3.mp4?csf=1&web=1&e=L0G0Ic",
   "worksheet_metadata": {
     "MTL-Digital Sets-VAL&PROD": {
       "table_id": "Table5",
@@ -87,7 +86,7 @@
       "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
-      "sort_direction": [true]
+      "sort_ascending": [true]
     },
     "CATEGORIES": {
       "index_keys": ["Name"],
@@ -95,7 +94,7 @@
       "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
-      "sort_direction": [true]
+      "sort_ascending": [true]
     },
     "DIGITAL_SET": {
       "index_keys": ["Parent", "Name"],
@@ -106,7 +105,7 @@
         "DigitalState": 1
       },
       "sort_order": ["type_order", "EnumerationValue"],
-      "sort_direction": [true, true]
+      "sort_ascending": [true, true]
     },
     "ELEMENT": {
       "index_keys": ["Parent", "Name", "Template"],
@@ -117,7 +116,7 @@
         "Attribute": 1
       },
       "sort_order": ["Parent", "type_order", "Name"],
-      "sort_direction": [true, false, true]
+      "sort_ascending": [true, false, true]
     },
     "ELEMENT_TEMPLATE": {
       "index_keys": ["Parent", "Name"],
@@ -131,7 +130,7 @@
         "TemplateAnalysisRule": 4
       },
       "sort_order": ["type_order", "Parent", "Name"],
-      "sort_direction": [true, true, true]
+      "sort_ascending": [true, true, true]
     },
     "ENUM_SET": {
       "index_keys": ["Parent", "Name"],
@@ -142,7 +141,7 @@
         "EnumerationValue": 1
       },
       "sort_order": ["Parent", "type_order", "Name"],
-      "sort_direction": [true, true, true]
+      "sort_ascending": [true, true, true]
     },
     "EVENT_FRAME": {
       "index_keys": ["Parent", "Name"],
@@ -153,7 +152,7 @@
         "AttributeTemplate": 1
       },
       "sort_order": ["type_order", "Parent", "Name"],
-      "sort_direction": [true, true, true]
+      "sort_ascending": [true, true, true]
     },
     "GXP": {
       "index_keys": ["Name", "ObjectType"],
@@ -161,7 +160,7 @@
       "filter_keys": ["Name"],
       "object_type_order": null,
       "sort_order": ["Name"],
-      "sort_direction": [true]
+      "sort_ascending": [true]
     },
     "TABLES": {
       "index_keys": ["Parent", "Name"],
@@ -173,7 +172,7 @@
         "TableDataItem": 2
       },
       "sort_order": ["Parent", "type_order", "Name"],
-      "sort_direction": [true, true, true]
+      "sort_ascending": [true, true, true]
     }
   },
   "dataframe_formatting": {

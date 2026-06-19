@@ -18,7 +18,7 @@ from ttkbootstrap.constants import DISABLED, END, NORMAL
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
-from src.app.metadata import DATETIME_FORMAT, DATETIME_FORMAT_MERCK, USER
+from src.app.utils import DATETIME_FORMAT, DATETIME_FORMAT_MERCK, USER
 
 logger = logging.getLogger(__name__)
 

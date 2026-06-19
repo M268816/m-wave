@@ -37,8 +37,8 @@ def get_resource_path(relative_path: str) -> Path:
     """
     Get path to bundled resource (assets, config, etc.)
     """
-    base = get_temp_path()
-    return base / relative_path
+    temp = get_temp_path()
+    return temp / relative_path
 
 
 def get_data_path(relative_path: str) -> Path:
@@ -65,52 +65,53 @@ def get_app_directories() -> dict[str, Path]:
     temp = get_temp_path()
 
     return {
+        "assets": get_resource_path("assets"),
         "base": base,
         "logs": ensure_directory(get_data_path("logs")),
+        "user_prefs": ensure_directory(get_data_path("user_prefs")),
         "reports": ensure_directory(get_data_path("reports")),
-        "config": ensure_directory(get_data_path("config")),
-        "assets": temp / "assets",
         "temp": temp,
     }
 
 
-def get_config_path(_dirs: dict[str, Path]) -> Path:
+def get_user_prefs(_dirs: dict[str, Path]) -> Path:
     """
-    Returns the configuration path. If the user configuration does not exist,
-    it creates it from the default assets.
+    Returns the user preferences path. If the user preferences do not exist,
+    it creates them form the default assets.
     """
-    user_config_path = _dirs["config"] / "config.json"
-    if user_config_path.exists():
-        return user_config_path
+    user_prefs_path = _dirs["user_prefs"] / "user_preferences.json"
+    if user_prefs_path.exists():
+        return user_prefs_path
 
-    default_path = _dirs["assets"] / "config.json"
+    default_path = _dirs["assets"] / "user_preferences.json"
 
     if default_path.exists():
-
         with open(default_path, "r", encoding="utf-8") as f:
-            default_config = json.load(f)
+            default_prefs = json.load(f)
 
-        with open(user_config_path, "w", encoding="utf-8") as f:
-            json.dump(default_config, f, indent=2)
-
+        with open(user_prefs_path, "w", encoding="utf-8") as f:
+            json.dump(default_prefs, f, indent=2)
     else:
         warnings.warn(
-            "Could not create a user configuraion path! Using defaults, but cannot save user settings.",
+            "Could not create a user preferences path! Using defaults, but cannot save user settings.",
             RuntimeWarning,
             stacklevel=2,
         )
         return default_path
 
-    return user_config_path
+    return user_prefs_path
 
 
 # Convenience constants
 APP_DIRS = get_app_directories()
 BASE_DIR = APP_DIRS["base"]
+TEMP_DIR = APP_DIRS["temp"]
+
+ASSETS_DIR = APP_DIRS["assets"]
 LOGS_DIR = APP_DIRS["logs"]
 REPORTS_DIR = APP_DIRS["reports"]
-ASSETS_DIR = APP_DIRS["assets"]
-CONFIG_PATH = get_config_path(APP_DIRS)
+
 LOGO_PATH = ASSETS_DIR / "logo.png"
+MTL_CONFIG_PATH = ASSETS_DIR / "mtl_config.json"
 INSTRUCTIONS_PATH = ASSETS_DIR / "instructions.txt"
-TEMP_DIR = APP_DIRS["temp"]
+USER_PREFS_PATH = get_user_prefs(APP_DIRS)

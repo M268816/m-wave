@@ -18,6 +18,7 @@ LauncherFrame
 import webbrowser
 
 # third party
+from PIL import Image, ImageTk
 import ttkbootstrap as tkb
 from ttkbootstrap.constants import (
     BOTH,
@@ -31,7 +32,7 @@ from ttkbootstrap.widgets.scrolled import ScrolledFrame
 from ttkbootstrap.style import PRIMARY
 
 # local
-from src.app.paths import LOGO_PATH, INSTRUCTIONS_PATH
+from src.app.paths import LOGO_PATH, INSTRUCTIONS_PATH, USER_PREFS_PATH
 from src.app.controller import (
     AppController,
 )
@@ -49,7 +50,8 @@ from src.mtl.gui import MTLFrame
 from src.tag_formatter.gui import TagFormatterFrame
 
 # CONSTANTS
-LAUNCH_SIZE = (360, 360)
+LAUNCH_SIZE = (512, 512)
+RESIZABLE = (False, False)
 THEMES = (
     "cosmo",
     "flatly",
@@ -72,7 +74,7 @@ THEMES = (
 )
 
 with open(INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
-    INSTRUCTIONS = f.read()
+    MTL_INSTRUCTIONS = f.read()
 
 
 class AppWindow(tkb.Window):
@@ -95,7 +97,7 @@ class AppWindow(tkb.Window):
 
         self.title("λ Workbook Automation & Verification Engine | Launcher")
         self.geometry(f"{LAUNCH_SIZE[0]}x{LAUNCH_SIZE[1]}")
-        self.resizable(False, False)
+        self.resizable(RESIZABLE[0], RESIZABLE[1])
         self.logo = tkb.PhotoImage(file=str(LOGO_PATH))
         self.iconphoto(False, self.logo)
         self.protocol("WM_DELETE_WINDOW", self._on_close_requested)
@@ -107,14 +109,14 @@ class AppWindow(tkb.Window):
 
         self._build_menu()
 
-        saved_theme = self.controller.user_configs.get("theme", "litera")
+        saved_theme = self.controller.user_preferences.get("theme", "litera")
         self.style.theme_use(saved_theme)
 
         self.add_protocol("MTL-CMD", MTLFrame)  # type: ignore
         self.add_protocol("Tag Formatter", TagFormatterFrame)  # type: ignore
         self.add_protocol("Example", ExampleFrame)  # type: ignore
 
-        self.launcher = LauncherFrame(self.container, self, grid_width=1)
+        self.launcher = LauncherFrame(self.container, self, grid_width=3)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
 
@@ -161,7 +163,9 @@ class AppWindow(tkb.Window):
             ("Report Timestamps", "use_timestamps"),
             ("Report Message Types", "use_msg_types"),
         ):
-            cfg_var = tkb.BooleanVar(value=self.controller.user_configs.get(key, False))
+            cfg_var = tkb.BooleanVar(
+                value=self.controller.user_preferences.get(key, False)
+            )
             report_menu.add_checkbutton(
                 label=menu_label,
                 variable=cfg_var,
@@ -171,7 +175,7 @@ class AppWindow(tkb.Window):
 
         # Themes
         theme_var = tkb.StringVar(
-            value=self.controller.user_configs.get("theme", "litera")
+            value=self.controller.user_preferences.get("theme", "litera")
         )
         theme_menu = tkb.Menu(menubar, tearoff=0)
         for theme in THEMES:
@@ -220,13 +224,17 @@ class AppWindow(tkb.Window):
         """
         If an option changes, try to set the config value.
         """
-        self.controller.set_config_value(config_key, var)
+        self.controller.set_config_value(
+            USER_PREFS_PATH, self.controller.user_preferences, config_key, var
+        )
 
     def _on_theme_change(self, theme: tkb.StringVar) -> None:
         """
         If the theme changes, try to set the config value, if true (success), change the theme.
         """
-        if self.controller.set_config_value("theme", theme):
+        if self.controller.set_config_value(
+            USER_PREFS_PATH, self.controller.user_preferences, "theme", theme
+        ):
             self.style.theme_use(theme.get())
 
     def _show_mtl_instructions(self) -> None:
@@ -235,10 +243,10 @@ class AppWindow(tkb.Window):
             log=False,
             verbose=False,
         )
-        self.controller.report.info(INSTRUCTIONS, log=False, verbose=False)
-        url = "https://github.com/M268816/wave/blob/main/assets/instructions.txt"
-        vid_link = "https://mdigital.sharepoint.com/:v:/r/sites/JaffreyOSIPI-JaffreyDHCoreTeam/Shared%20Documents/Jaffrey%20DH%20Core%20Team/WAVE%20Project/WAVE_Demo_pre.3.mp4?csf=1&web=1&e=L0G0Ic"
-        webbrowser.open(url)
+        self.controller.report.info(MTL_INSTRUCTIONS, log=False, verbose=False)
+        git_url = self.controller.mtl_configs["mtl_instructions_git_url"]
+        vid_link = self.controller.mtl_configs["mtl_help_vid_url"]
+        webbrowser.open(git_url)
         webbrowser.open_new_tab(vid_link)
 
 
@@ -260,6 +268,9 @@ class LauncherFrame(ProtocolFrame):
         super().__init__(parent)
         self.window = window
         self.grid_width = grid_width
+        image = Image.open(str(LOGO_PATH))
+        resized_image = image.resize((32, 32), Image.Resampling.LANCZOS)
+        self.logo = ImageTk.PhotoImage(resized_image)
 
         tkb.Label(self, text="Select Protocol", font=H1).pack(padx=PAD_X, pady=PAD_Y)
         tkb.Label(
@@ -281,20 +292,28 @@ class LauncherFrame(ProtocolFrame):
         )
 
         self.scroll_frame = ScrolledFrame(self, padding=PAD)
-        self.scroll_frame.pack(fill=BOTH, padx=PAD_X, pady=PAD_Y)
+        self.scroll_frame.pack(fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=True)
 
         for index, (name, frame_cls) in enumerate(self.window.protocols.items()):
             row = index // self.grid_width
-            col = index % self.grid_width
+            col = index % self.grid_width + 1
             tkb.Button(
                 self.scroll_frame,
                 text=name,
-                width=25,
+                image=self.logo,
+                compound=TOP,
+                width=10,
                 command=lambda n=name, fc=frame_cls: self._confirm_and_launch(n, fc),
-            ).grid(row=row, column=col, padx=PAD_X, pady=PAD_Y)
+            ).grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
 
         for col in range(self.grid_width):
-            self.scroll_frame.columnconfigure(col, weight=1)
+            self.scroll_frame.columnconfigure(col, weight=0)
+
+        self.scroll_frame.columnconfigure(0, weight=1)
+        self.scroll_frame.columnconfigure(self.scroll_frame.grid_size()[0], weight=1)
+
+        for row in range(self.scroll_frame.grid_size()[1]):
+            self.scroll_frame.rowconfigure(row, minsize=100, weight=0)
 
     def _confirm_and_launch(self, name: str, frame_cls: ProtocolFrame) -> None:
         """
