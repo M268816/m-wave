@@ -1,18 +1,7 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
+##
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
-
-"""
-The GUI classes within this module are used to control the display of the application.
-
-Classes
--------
-AppWindow
-    The root TK window.
-LauncherFrame
-    GUI controller for protocol selection, the "protocol launcher".
-"""
 
 # stdlib
 import webbrowser
@@ -37,15 +26,18 @@ from src.app.controller import (
     AppController,
 )
 from src.app.utils import (
-    ProtocolFrame,
+    FONT_SMALL,
     PAD,
     PAD_X,
     PAD_Y,
     H1,
     FONT,
+    WavePackFrame,
 )
+from src.kepware.gui import KepwareFrame
 from src.mtl.gui import MTLFrame
-from src.tag_formatter.gui import TagFormatterFrame
+from src.example.gui import ExampleFrame
+from src.tag_doc_gen.gui import TagDocGenFrame
 
 # CONSTANTS
 THEMES = (
@@ -75,20 +67,18 @@ with open(INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
 
 class AppWindow(tkb.Window):
     """
-    Root TK window. Owns the shared style object, protocol registry, menubar,
+    Root TK window. Owns the shared style object, WavePack registry, menu bar,
     and the single frame switcher container.
-
-    Parameters
-    ----------
-    controller : AppController
-        Business logic controller injected at construction time.
     """
 
     def __init__(self) -> None:
         super().__init__()
 
         self.controller: AppController = AppController(self)
-        self.protocols: dict[str, ProtocolFrame] = {}
+
+        # Usage, { Key: (WavePack, Description) }
+        self.wavepacks: dict[str, tuple[WavePackFrame, str]] = {}
+
         self.active_app = None
 
         self.title("λ Workbook Automation & Verification Engine | Launcher")
@@ -108,30 +98,47 @@ class AppWindow(tkb.Window):
         saved_theme = self.controller.user_preferences.get("theme", "litera")
         self.style.theme_use(saved_theme)
 
-        self.init_protocols()
+        self.init_wavepacks()
         self.start_launcher()
 
-    def init_protocols(self) -> None:
-        self.add_protocol("MTL-CMD", MTLFrame)  # type: ignore
-        # self.add_protocol("Tag Formatter", TagFormatterFrame)  # type: ignore
-        self.add_protocol("Example", ExampleFrame)  # type: ignore
+    def init_wavepacks(self) -> None:
+        self.add_wavepack(
+            "Master Tag List Processor",
+            MTLFrame,  # type: ignore
+            "Compare or append new PI AF records to the MTL/CMD.",
+        )
+        self.add_wavepack(
+            "Example Package",
+            ExampleFrame,  # type: ignore
+            "This is just an example of an additional WavePack!",
+        )
+        self.add_wavepack(
+            "Kepware Environment Comparison",
+            KepwareFrame,  # type: ignore
+            "Compare environment (VAL, DEV) CSV tag exports.",
+        )
+        self.add_wavepack(
+            "Tag Document Genereator",
+            TagDocGenFrame,  # type: ignore
+            "Generate Kepware/PI tag documents.",
+        )
+
+    def add_wavepack(self, key: str, frame_cls: WavePackFrame, desc: str) -> None:
+        """
+        Register a new WavePack frame class under *name*.
+        """
+        self.wavepacks[key] = (frame_cls, desc)
 
     def start_launcher(self) -> None:
         self.launcher = LauncherFrame(self.container, self, grid_width=1)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
-        self.geometry(f"{self.launcher.height}x{self.launcher.width}")
+        self.geometry(f"{self.launcher.width}x{self.launcher.height}")
         self.resizable(self.launcher.resizable[0], self.launcher.resizable[1])
 
-    def add_protocol(self, name: str, frame_cls: ProtocolFrame) -> None:
+    def lock_wavepack(self, name: str, frame_cls: WavePackFrame) -> None:
         """
-        Register a new protocol frame class under *name*.
-        """
-        self.protocols[name] = frame_cls
-
-    def lock_protocol(self, name: str, frame_cls: ProtocolFrame) -> None:
-        """
-        Build the chosen protocol, destroy the launcher screen, and update the
+        Build the chosen WavePack, destroy the launcher screen, and update the
         window title to reflect the locked session.
         """
         app_frame = frame_cls(parent=self.container, window=self)  # type: ignore
@@ -195,19 +202,20 @@ class AppWindow(tkb.Window):
         help_menu.add_command(
             label="MTL/CMD Instructions", command=self._show_mtl_instructions
         )
+        help_menu.add_command(label="About", command=self._show_about_window)
         menubar.add_cascade(label="Help", menu=help_menu)
 
         self.config(menu=menubar)
 
     def _on_close_requested(self) -> None:
         """
-        Warn the user if a protocol session is active before closing.
+        Warn the user if a WavePack session is active before closing.
         """
         if self.active_app is not None:
             confirmed = Messagebox.yesno(
                 title="Confirm Exit.",
                 message=(
-                    "A protocol session is active.\n\n"
+                    "A session is active.\n\n"
                     "Are you sure you want to exit?\n"
                     "Any unsaved work will be lost."
                 ),
@@ -249,13 +257,85 @@ class AppWindow(tkb.Window):
         self.controller.report.info(MTL_INSTRUCTIONS, log=False, verbose=False)
         git_url = self.controller.mtl_configs["mtl_instructions_git_url"]
         vid_link = self.controller.mtl_configs["mtl_help_vid_url"]
-        webbrowser.open(git_url)
-        webbrowser.open_new_tab(vid_link)
+        webbrowser.open(vid_link, new=1)
+        webbrowser.open(git_url, new=2)
+
+    def _show_about_window(self) -> None:
+        about = tkb.Toplevel()
+        about.title("About")
+        about.iconphoto(False, self.logo)
+        about.lift()
+        about.focus_force()
+        about.grab_set()
+
+        container = tkb.Frame(about, padding=PAD)
+        container.pack(expand=True, fill=BOTH)
+
+        img = Image.open(str(LOGO_PATH))
+        img = img.resize((128, 128), Image.LANCZOS)  # type: ignore
+        self._about_img = ImageTk.PhotoImage(img)
+
+        canv = tkb.Label(
+            container,
+            image=self._about_img,
+            anchor=CENTER,
+        )
+        canv.pack(fill=X)
+
+        ver = tkb.Label(
+            container,
+            font=FONT_SMALL,
+            text="Workbook Automation & Verification Engine\nVersion: 0.1.0.prealpha.5",
+            padding=PAD,
+        )
+        ver.pack(fill=X)
+
+        tkb.Separator(container, orient="horizontal", bootstyle=PRIMARY).pack(fill=X)
+
+        cright = (
+            "Copyright 2026\n\n"
+            + "Merck KGaA, Darmstadt Germany and/or its affiliates.\n"
+            + "All right reserved"
+        )
+        cright_label = tkb.Label(
+            container,
+            font=FONT_SMALL,
+            text=cright,
+            padding=PAD,
+        )
+        cright_label.pack(fill=X)
+
+        tkb.Separator(container, orient="horizontal", bootstyle=PRIMARY).pack(fill=X)
+
+        auth = (
+            "Authored by:\nRaymond Comeau\n"
+            + "MilliporeSigma Data Systems Technician\n"
+            + "Jaffrey, NH"
+        )
+        auth_label = tkb.Label(
+            container,
+            font=FONT_SMALL,
+            text=auth,
+            padding=PAD,
+        )
+        auth_label.pack(fill=X)
+
+        close_btn = tkb.Button(container, text="Nice", command=about.destroy)
+        close_btn.pack(padx=PAD_X, pady=PAD_Y)
+
+        def _on_resize(event):
+            cright_label.config(wraplength=event.width)
+            auth_label.config(wraplength=event.width)
+            ver.config(wraplength=event.width)
+
+        container.bind("<Configure>", _on_resize)
+
+        about.resizable(False, False)
 
 
-class LauncherFrame(ProtocolFrame):
+class LauncherFrame(WavePackFrame):
     """
-    Protocol selection screen shown at startup.
+    WavePack selection screen shown at startup.
 
     Parameters
     ----------
@@ -270,8 +350,8 @@ class LauncherFrame(ProtocolFrame):
     ) -> None:
         super().__init__(
             parent,
-            height=640,
-            height_min=640,
+            height=360,
+            height_min=360,
             width=480,
             width_min=480,
             resizable=(False, False),
@@ -279,15 +359,17 @@ class LauncherFrame(ProtocolFrame):
         self.window = window
         self.grid_width = grid_width
 
-        tkb.Label(self, text="Select Protocol", font=H1).pack(padx=PAD_X, pady=PAD_Y)
+        tkb.Label(self, text="Select a Session Type", font=H1).pack(
+            padx=PAD_X, pady=PAD_Y
+        )
         tkb.Label(
             self,
             text=(
-                "You will be locked into your protocol\n"
-                "selection for the duration of your session.\n"
-                "Restart the application to change protocols.\n"
-                "\n"
-                "Currently, only the MTL-CMD protocol is available.\n"
+                "You will be locked into your session type\n"
+                "(also called a Wave Process Package or WavePack)\n"
+                "for the duration of your session.\n"
+                "Restart the application to change sessions.\n"
+                "Currently, only the MTL WavePack is available.\n"
             ),
             font=FONT,
             foreground="gray",
@@ -301,85 +383,43 @@ class LauncherFrame(ProtocolFrame):
         self.scroll_frame = ScrolledFrame(self, padding=PAD)
         self.scroll_frame.pack(fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=True)
 
-        for index, (name, frame_cls) in enumerate(self.window.protocols.items()):
+        for index, (name, info) in enumerate(self.window.wavepacks.items()):
+            frame_cls = info[0]
+            desc = info[1]
             row = index // self.grid_width
             col = index % self.grid_width
+
+            f = tkb.Frame(self.scroll_frame)
+            f.grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
+
             tkb.Button(
-                self.scroll_frame,
+                f,
                 text=name,
-                width=24,
+                width=32,
                 command=lambda n=name, fc=frame_cls: self._confirm_and_launch(n, fc),
-            ).grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
+            ).grid(row=0, column=0, padx=PAD_X, pady=PAD_Y)
+
+            tkb.Label(
+                f,
+                text=desc,
+                justify="left",
+                wraplength=180,
+            ).grid(row=0, column=1, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
 
         for col in range(self.grid_width):
             self.scroll_frame.columnconfigure(col, weight=1)
 
-    def _confirm_and_launch(self, name: str, frame_cls: ProtocolFrame) -> None:
+    def _confirm_and_launch(self, name: str, frame_cls: WavePackFrame) -> None:
         """
-        Ask the user to confirm the protocol before locking in.
+        Ask the user to confirm the WavePack before locking in.
         """
         confirmed = Messagebox.yesno(
-            title="Confirm Protocol",
+            title="Confirm Session",
             message=(
-                f"You are about to start a session with procol:\n    {name}\n"
-                "You cannot change protocols without restarting.\n\n"
+                f"You are about to start a session with WavePack:\n    {name}\n"
+                "You cannot change sessions without restarting.\n\n"
                 "Continue?"
             ),
         )
         if confirmed == "Yes":
-            self.window.lock_protocol(name, frame_cls)
-
-    def on_teardown(self) -> None:
-        """
-        Called by AppWindow before the application closes.
-        """
-        pass
-
-
-class ExampleFrame(ProtocolFrame):
-    def __init__(
-        self,
-        parent: tkb.Frame,
-        window: AppWindow,
-    ) -> None:
-        super().__init__(
-            parent,
-            height=320,
-            height_min=320,
-            width=320,
-            width_min=320,
-            resizable=(True, True),
-        )
-        self.window = window
-        # A process controller must be created to handle the process thread
-        # self.proc_ctrl: ExampleProcess = ExampleProcess(window)
-
-        self.container = tkb.Frame(self, padding=PAD)
-        self.container.pack(side=TOP, fill=BOTH, expand=True)
-
-        self.label_var = tkb.StringVar(value="Hello, World.")
-        self.label = tkb.Label(
-            self.container,
-            textvariable=self.label_var,
-            background="yellow",
-            justify=CENTER,
-            anchor=CENTER,
-        )
-        self.label.pack(
-            expand=True,
-            fill=X,
-            side=TOP,
-        )
-
-        self.button_var = tkb.StringVar(value="Click me.")
-        self.button = tkb.Button(
-            self.container,
-            textvariable=self.button_var,
-            padding=PAD,
-            width=32,
-            command=self._on_button_pressed,
-        )
-        self.button.pack(side=TOP)
-
-    def _on_button_pressed(self) -> None:
-        Messagebox.ok(title="Hello", message="You pressed the button!")
+            self.window.lock_wavepack(name, frame_cls)

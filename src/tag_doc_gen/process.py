@@ -7,15 +7,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.tag_formatter.controller import TagFormatterRequest, TagFormatterUi
+    from src.tag_doc_gen.controller import TagDocGenRequest
 
 # stdio
+from datetime import datetime
 
 # third-party
-import pandas as pd
 
 # local
 from src.app.reporting import Reporting
+from src.app.utils import DATETIME_FORMAT_MERCK, USER
 
 UA_FILTER_HEADERS = [
     "KepwareTag",
@@ -35,11 +36,13 @@ FILTER_FILE_HEADERS = [
 ]
 
 
-class TagBuilder:
+class Process:
     def __init__(
         self,
-        req: TagFormatterRequest,
+        report: Reporting,
+        req: TagDocGenRequest,
     ) -> None:
+        self.report = report
         self.site = "USJA"
         self.dept = req.department_code.get()
         self.equipment_code = req.equipment_code.get()
@@ -90,53 +93,10 @@ class TagBuilder:
     def create_instrument_tag(self, node_id: str) -> str:
         return node_id[8:]
 
+    def run(self):
+        self.report.title("Tag Document Generator")
+        merck_datetime = datetime.now().strftime(DATETIME_FORMAT_MERCK)
+        self.report.subtitle(f"Started by {USER} on {merck_datetime}")
+        self.report.info("This is just a test!")
 
-class TagFormatterProcess:
-    def __init__(
-        self, report: Reporting, req: TagFormatterRequest, ui: TagFormatterUi
-    ) -> None:
-        self.report = report
-        self.tag_builder = TagBuilder(req)
-        self.plc_tags = ""  # This needs to be a CSV import.
-        self.kepware_tags = ""  # This needs to be a CSV import
-
-    def run(self) -> None:
-        self.report.debug("Testing", popup=True)
-
-
-if __name__ == "__main__":
-    import ttkbootstrap as tkb
-    from src.tag_formatter.controller import TagProcessorType, TagFormatterRequest
-
-    app = tkb.Window()
-
-    req = TagFormatterRequest(
-        equipment_code=tkb.StringVar(value="FC01"),
-        kepware_channel=tkb.StringVar(value="MB000"),
-        kepware_device=tkb.StringVar(value="DRTSTDC"),
-        department_code=tkb.StringVar(value="EXP"),
-        tag_prefix_length=tkb.StringVar(value="15"),
-        node_id_prefix=tkb.StringVar(value="ns=2;s="),
-        namespace_index=tkb.StringVar(value="2"),
-        processor_type=TagProcessorType.KEPWARE_TO_FILTER,
-    )
-
-    tag_name = "Lot_Number"
-    pi_attribute = "Axis01.Temp"
-
-    b = TagBuilder(req=req)
-
-    t = b.create_config_string(pi_attribute)
-    print(t)
-
-    t = b.create_node_id(tag_name)
-    print(t)
-
-    t = b.create_instrument_tag(t)
-    print(t)
-
-    t = b.create_stream_id(tag_name)
-    print(t)
-
-    t = b.create_tag(pi_attribute)
-    print(t)
+        self.report.save_report()

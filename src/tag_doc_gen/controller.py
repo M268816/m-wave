@@ -6,8 +6,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from ttkbootstrap.dialogs import Messagebox
-
 if TYPE_CHECKING:
     from src.app.gui import AppWindow
     from src.app.controller import AppController
@@ -20,25 +18,28 @@ from threading import Thread
 
 # third-party
 import ttkbootstrap as tkb
-from ttkbootstrap.constants import DISABLED
+from ttkbootstrap.constants import DISABLED, NORMAL
+from ttkbootstrap.scrolled import ScrolledText
 
 # local
 from src.app.utils import ProcessController
-from src.tag_formatter.process import TagFormatterProcess
+from src.tag_doc_gen.process import Process
 
 
-class TagProcessorType(int, Enum):
-    NONE = 0
-    TAG_TO_ATTRIBUTE = 1
-    KEPWARE_TO_FILTER = 2
+class TagGeneratorType(str, Enum):
+    NONE = "None"
+    ALL = "All Documents"
+    KEPWARE_TAG_TO_ATTRIBUTE = "Kepware Tags to Pi Attributes"
+    KEPWARE_TO_FILTER = "Kepware Tags to Filter File"
 
 
 @dataclass
-class TagFormatterRequest:
+class TagDocGenRequest:
     """
     Data class that captures a processes data for manipulation.
     """
 
+    report_name: str
     equipment_code: tkb.StringVar
     kepware_channel: tkb.StringVar
     kepware_device: tkb.StringVar
@@ -46,11 +47,11 @@ class TagFormatterRequest:
     tag_prefix_length: tkb.StringVar
     node_id_prefix: tkb.StringVar
     namespace_index: tkb.StringVar
-    processor_type: TagProcessorType
+    processor_type: TagGeneratorType
 
 
 @dataclass
-class TagFormatterUi:
+class TagDocGenUi:
     """
     Data class that captures a processes UI widgets for manipulation.
     """
@@ -63,10 +64,12 @@ class TagFormatterUi:
     node_id_prefix: tkb.Entry
     namespace_index: tkb.Spinbox
     progress_bar: tkb.Progressbar
-    start_button: tkb.Button
+    gen_opt_cbox: tkb.Combobox
+    scrolled_text: ScrolledText
+    process_button: tkb.Button
 
 
-class TagFormatterController(ProcessController):
+class TagDocGenController(ProcessController):
     """
     Master controller of the MES process.
     """
@@ -76,26 +79,28 @@ class TagFormatterController(ProcessController):
         self.window = window
         self._controller: AppController = window.controller
 
+    @property
+    def report(self):
+        return self._controller.report
+
     def _start_thread(
         self,
-        req: TagFormatterRequest,
-        ui: TagFormatterUi,
+        req: TagDocGenRequest,
+        ui: TagDocGenUi,
     ) -> None:
         """
         Opens a new thread and starts the subroutine.
         """
         _started = time.perf_counter()
         try:
-            process = TagFormatterProcess(self._controller.report, req, ui)
+            process = Process(self.report, req)
 
-            if req.processor_type == TagProcessorType.KEPWARE_TO_FILTER:
-                self._controller.report.info("Appending data...")
+            if req.processor_type == TagGeneratorType.ALL.value:
+                self.report.info("Started the process from the controller!")
                 process.run()
             else:
-                Messagebox.ok(
-                    title="Testing",
-                    message="This is just a test, no processor type caught selected.",
-                )
+                self.report.info("For now, choose all documents.", popup=True)
+                return
 
         except Exception as e:
             self._controller.report.exception(
@@ -112,7 +117,9 @@ class TagFormatterController(ProcessController):
                 ),
             )
             self.window.after(0, lambda: ui.progress_bar.stop())
-            self.window.after(1, lambda: ui.opt_process.set(ProcessType.NONE.value))
+            self.window.after(
+                1, lambda: ui.gen_opt_cbox.set(TagGeneratorType.NONE.value)
+            )
             self.window.after(2, lambda: ui.process_button.config(state=NORMAL))
             completion_time = _ended - _started
             self._controller.report.simple_title(
@@ -121,17 +128,17 @@ class TagFormatterController(ProcessController):
 
     def start_process(
         self,
-        req: TagFormatterRequest,
-        ui: TagFormatterUi,
+        req: TagDocGenRequest,
+        ui: TagDocGenUi,
     ):
         """
         Starts the data processing functions.
         """
-        if req.process_type == TagProcessorType.NONE:
+        if req.processor_type == TagGeneratorType.NONE.value:
             self.window.after(
                 0,
                 lambda: self._controller.report.error(
-                    "Please select either the Compare or Append radio button.",
+                    "Please select a document to generate.",
                     popup=True,
                 ),
             )
@@ -148,7 +155,7 @@ class TagFormatterController(ProcessController):
             return
 
         ui.process_button.config(state=DISABLED)
-        self._controller.reset_report(ui.stext, req.report_name)
+        self._controller.reset_report(ui.scrolled_text, req.report_name)
 
         ui.progress_bar.start()
 

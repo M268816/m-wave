@@ -19,6 +19,14 @@ H2 = ("Verdana", 16, font.NORMAL)
 H3 = ("Verdana", 14, font.NORMAL)
 H4 = ("Verdana", 12, font.NORMAL)
 FONT = ("Verdana", 10, font.NORMAL)
+FONT_SMALL = ("Verdana", 8, font.NORMAL)
+FONT_SMALLER = ("Verdana", 7, font.NORMAL)
+_MONO = "Consolas"
+FONT_MONO = (_MONO, 10, font.NORMAL)
+FONT_MONO_SMALL = (_MONO, 8, font.NORMAL)
+FONT_MONO_SMALLER = (_MONO, 7, font.NORMAL)
+FONT_MONO_BIG = (_MONO, 12, font.NORMAL)
+FONT_MONO_BIGGER = (_MONO, 14, font.NORMAL)
 
 PAD_X = 8
 PAD_Y = 8
@@ -38,7 +46,7 @@ class ProcessController:
         self.process_thread: Thread | None = None
 
 
-class ProtocolFrame(tkb.Frame):
+class WavePackFrame(tkb.Frame):
     """
     Class helper for type assignment
     """
@@ -61,4 +69,7 @@ class ProtocolFrame(tkb.Frame):
         self.resizable = resizable
 
     def on_teardown(self) -> None:
+        """
+        Called by AppWindow before the application closes.
+        """
         return None

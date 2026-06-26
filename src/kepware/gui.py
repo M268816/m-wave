@@ -1,3 +1,8 @@
+# Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# All rights reserved
+#
+# Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
@@ -30,13 +35,12 @@ from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
 from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
-from src.mtl.metadata import MTL_VERSION, WORKSHEET_METADATA
-from src.mtl.controller import MTLController, MTLProcessorType, MTLRequest, MTLUi
+from src.kepware.controller import KepwareController, KepwareRequest, KepwareUi
 
 
-class MTLFrame(WavePackFrame):
+class KepwareFrame(WavePackFrame):
     """
-    Master controller of the MTL/CMD WavePack GUI and its object variables.
+    Master controller of the Kepware CSV Comparison WavePack GUI and its object variables.
 
     Parameters
     ----------
@@ -57,25 +61,20 @@ class MTLFrame(WavePackFrame):
         )
         self.window = window
 
-        self.proc_ctrl: MTLController = MTLController(window)
+        self.proc_ctrl: KepwareController = KepwareController(window)
         self.stext: ScrolledText
 
         # TK Variables options
-        self.opt_data_table = tkb.StringVar()
-        self.opt_mtl_path = tkb.StringVar(value="Select a file.")
-        self.opt_input_path = tkb.StringVar(value="Select a file.")
-        self.opt_filter = tkb.StringVar()
-        self.opt_process = tkb.IntVar(value=MTLProcessorType.NONE.value)
-        self.mtl_version = tkb.StringVar(value=MTL_VERSION)
-        self._mtl_is_selected = tkb.BooleanVar(value=False)
-        self._input_is_selected = tkb.BooleanVar(value=False)
+        self.opt_input_1_path = tkb.StringVar(value="Select a file.")
+        self.opt_input_2_path = tkb.StringVar(value="Select a file.")
+        self.input_1_is_selected = tkb.BooleanVar(value=False)
+        self.input_2_is_selected = tkb.BooleanVar(value=False)
 
         # Main content frame
         self.container = ttk.Frame(self, padding=PAD)
         self.container.pack(side=TOP, fill=BOTH, expand=YES)
 
         self._build_file_select()
-        self._build_config_options()
         self._build_process_row()
         self._build_text_display()
 
@@ -101,18 +100,17 @@ class MTLFrame(WavePackFrame):
 
         self._build_file_row(
             frame,
-            "Select MTL/CMD:",
-            self.opt_mtl_path,
-            self._mtl_is_selected,
-            20,
+            "Select a Kepware CSV Export:",
+            self.opt_input_1_path,
+            self.input_1_is_selected,
+            label_width=25,
         )
         self._build_file_row(
             frame,
-            "Select input CSV:",
-            self.opt_input_path,
-            self._input_is_selected,
-            20,
-            ("*.csv",),
+            "Select another Kepware CSV Export:",
+            self.opt_input_2_path,
+            self.input_2_is_selected,
+            label_width=35,
         )
 
     def _build_file_row(
@@ -121,15 +119,16 @@ class MTLFrame(WavePackFrame):
         label_text: str,
         path_variable: tkb.StringVar,
         is_selected: tkb.BooleanVar,
-        width: int = 20,
-        file_types: tuple[str] | None = None,
+        label_width: int = 20,
+        button_width: int = 20,
+        file_types: tuple[str] = ("*.csv",),
     ):
         """
         Instantiates/Builds the file picking widgets for the UI.
         """
         row = tkb.Frame(frame, padding=PAD)
         row.pack(fill=X)
-        label = tkb.Label(row, text=label_text, padding=PAD, width=width)
+        label = tkb.Label(row, text=label_text, padding=PAD, width=label_width)
         label.pack(side=LEFT)
         entry = tkb.Entry(row, textvariable=path_variable)
         entry.pack(side=LEFT, fill=BOTH, expand=YES, padx=PAD_X)
@@ -138,7 +137,7 @@ class MTLFrame(WavePackFrame):
             text="Pick file",
             bootstyle=PRIMARY,
             padding=PAD,
-            width=width,
+            width=button_width,
             command=(
                 lambda: self._set_filepath(
                     path_variable,
@@ -176,51 +175,6 @@ class MTLFrame(WavePackFrame):
             string_variable.set("Cancelled")
             is_selected.set(False)
 
-    def _build_config_options(self) -> None:
-        """
-        Builds the processing configuration option widgets for the UI.
-        """
-        frame = tkb.Labelframe(
-            self.container,
-            text="Configure the WAVE processing options.",
-            padding=PAD,
-        )
-        frame.pack(side=TOP, fill=X)
-
-        row = ttk.Frame(frame, padding=PAD)
-        row.pack(fill=X, expand=YES)
-
-        label = tkb.Label(row, text="Filter:", padding=PAD)
-        label.pack(side=LEFT, padx=PAD_X)
-
-        entry = tkb.Entry(row, textvariable=self.opt_filter)
-        entry.pack(side=LEFT, padx=PAD_X)
-
-        cbox_label = tkb.Label(row, text="MTL/CMD Table:", padding=PAD)
-        cbox_label.pack(side=LEFT, padx=PAD_X)
-
-        self.mtl_table_cbox = tkb.Combobox(row, values=list(WORKSHEET_METADATA.keys()))
-        self.mtl_table_cbox.pack(side=LEFT, fill=X, expand=YES, padx=PAD_X)
-        self.mtl_table_cbox.current(0)
-        self.mtl_table_cbox.bind("<<ComboboxSelected>>", self._on_mtl_table_selected)
-
-        default_value = self.mtl_table_cbox.get()
-        self.opt_data_table.set(default_value)
-
-        version_label = tkb.Label(
-            row, text=f"Compatible MTL Version: {MTL_VERSION}", padding=PAD
-        )
-        version_label.pack(side=RIGHT, padx=PAD_X)
-
-    def _on_mtl_table_selected(self, event) -> None:
-        """
-        Gets the new table selection and sets the data_table option when its combobox
-        is changed.
-        """
-        _ = event
-        val = self.mtl_table_cbox.get()
-        self.opt_data_table.set(val)
-
     def _build_text_display(self) -> None:
         """
         Builds the text display widgets for the UI.
@@ -242,25 +196,9 @@ class MTLFrame(WavePackFrame):
         self.progress_bar = tkb.Progressbar(frame, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=PAD_X, pady=PAD_Y, fill=X)
 
-        self.radio_append = tkb.Radiobutton(
-            frame,
-            text="Append",
-            variable=self.opt_process,
-            value=MTLProcessorType.APPEND.value,
-        )
-        self.radio_append.pack(side=LEFT, padx=PAD_X, pady=PAD_Y, fill=Y)
-
-        self.radio_compare = tkb.Radiobutton(
-            frame,
-            text="Compare",
-            variable=self.opt_process,
-            value=MTLProcessorType.COMPARE.value,
-        )
-        self.radio_compare.pack(side=LEFT, padx=PAD_X, pady=PAD_Y, fill=Y)
-
         self.process_button = tkb.Button(
             frame,
-            text="Process",
+            text="Compare",
             bootstyle=SUCCESS,
             padding=PAD,
             width=20,
@@ -273,25 +211,30 @@ class MTLFrame(WavePackFrame):
         Builds the requests and ui objects to pass to the process thread when the
         process button is clicked.
         """
-        if not (self._mtl_is_selected.get() and self._input_is_selected.get()):
+        if not (self.input_1_is_selected.get() and self.input_2_is_selected.get()):
             self.report.error("Please select both files to start process.")
             return
 
-        req = MTLRequest(
-            MTLProcessorType(self.opt_process.get()),
-            self.opt_filter.get(),
-            self.opt_data_table.get(),
-            Path(self.opt_mtl_path.get()),
-            Path(self.opt_input_path.get()),
+        if self.opt_input_1_path.get() == self.opt_input_2_path.get():
+            self.report.error(
+                "Both file selections contain the same path. "
+                + "Please select different files."
+            )
+            return
+
+        request = KepwareRequest(
+            "Kepware Comparison",
+            Path(self.opt_input_1_path.get()),
+            Path(self.opt_input_2_path.get()),
         )
-        ui = MTLUi(
+
+        ui = KepwareUi(
             self.progress_bar,
             self.process_button,
-            self.opt_process,
             self.stext,
         )
 
-        self.proc_ctrl.start_process(req, ui)
+        self.proc_ctrl.start_process(request, ui)
 
     def on_teardown(self) -> None:
         """

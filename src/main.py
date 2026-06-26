@@ -2,26 +2,6 @@
 # All rights reserved
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
-"""
-The MTL/CMD format helper process. This program takes in file path information
-from the user and uses it to either format new Aveva PI tag and configuration
-context information into or compare and validate data between csv input data
-against design document 20471406.
-
-
-Functions
----------
-
-
-Classes
--------
-Main
-    Application entry point.
-
-Exceptions
-----------
-
-"""
 
 # stdlib
 import logging
@@ -53,16 +33,6 @@ class Main:
     """
     The entry point that initializes the ttkbootstrap window and instantiates the GUI
     class.
-
-    Attributes
-    ----------
-    None
-
-    Methods
-    -------
-    run()
-        Starts the tkinter main loop from the Gui class.
-
     """
 
     def __init__(self):

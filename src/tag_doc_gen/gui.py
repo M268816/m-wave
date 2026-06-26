@@ -29,14 +29,21 @@ from ttkbootstrap.constants import (
     INDETERMINATE,
     Y,
     SUCCESS,
+    CENTER,
 )
+from ttkbootstrap.scrolled import ScrolledText
 
 # local
-from src.app.utils import ProtocolFrame, PAD, PAD_X, PAD_Y
-from src.tag_formatter.controller import TagFormatterController
+from src.app.utils import FONT, WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
+from src.tag_doc_gen.controller import (
+    TagDocGenController,
+    TagDocGenRequest,
+    TagDocGenUi,
+    TagGeneratorType,
+)
 
 
-class TagFormatterFrame(ProtocolFrame):
+class TagDocGenFrame(WavePackFrame):
     def __init__(self, parent: tkb.Frame, window: AppWindow) -> None:
         super().__init__(
             parent,
@@ -47,22 +54,22 @@ class TagFormatterFrame(ProtocolFrame):
             resizable=(True, True),
         )
         self.window = window
-        self.proc_ctrl: TagFormatterController = TagFormatterController(window)
+        self.proc_ctrl: TagDocGenController = TagDocGenController(window)
 
         self.container = tkb.Frame(self, padding=PAD)
         self.container.pack(side=TOP, fill=BOTH, expand=True)
 
-        self.opt_plc_file_path = tkb.StringVar()
-        self.opt_tag_file_path = tkb.StringVar()
-
-        self._plc_list_selected = tkb.BooleanVar(value=False)
-        self._tag_list_selected = tkb.BooleanVar(value=False)
+        self.opt_input_file_path = tkb.StringVar()
+        self.input_is_selected = tkb.BooleanVar(value=False)
+        self.generator_option = tkb.StringVar(value=TagGeneratorType.NONE.value)
 
         self.tag_form_rows: int = 0
 
-        self._build_footer()  # Building the footer first ensures its bottom sticky
+        self._build_footer()
+        self._build_header()
         self._build_file_inputs()
         self._build_tag_form()
+        self._build_text_display()
 
     @property
     def report(self):
@@ -79,25 +86,16 @@ class TagFormatterFrame(ProtocolFrame):
         self.progress_bar = tkb.Progressbar(frame, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=PAD_X, pady=PAD_Y, fill=X)
 
-        # self.radio_append = tkb.Radiobutton(
-        #     frame,
-        #     text="Append",
-        #     variable=self.opt_process,
-        #     value=MTLProcessorType.APPEND.value,
-        # )
-        # self.radio_append.pack(side=LEFT, padx=PAD_X, pady=PAD_Y, fill=Y)
-        #
-        # self.radio_compare = tkb.Radiobutton(
-        #     frame,
-        #     text="Compare",
-        #     variable=self.opt_process,
-        #     value=MTLProcessorType.COMPARE.value,
-        # )
-        # self.radio_compare.pack(side=LEFT, padx=PAD_X, pady=PAD_Y, fill=Y)
+        generator_options = [gen_type.value for gen_type in TagGeneratorType]
+
+        self.gen_opt_cbox = tkb.Combobox(frame, values=generator_options, width=25)
+        self.gen_opt_cbox.pack(side=LEFT, padx=PAD_X)
+        self.gen_opt_cbox.current(0)
+        self.gen_opt_cbox.bind("<<ComboboxSelected>>", self._on_gen_opt_selected)
 
         self.process_button = tkb.Button(
             frame,
-            text="Process",
+            text="Generate",
             bootstyle=SUCCESS,
             padding=PAD,
             width=20,
@@ -106,30 +104,72 @@ class TagFormatterFrame(ProtocolFrame):
         self.process_button.pack(side=RIGHT, padx=PAD_X, pady=PAD_Y, fill=Y)
         pass
 
+    def _on_gen_opt_selected(self, event) -> None:
+        """
+        Gets the new table selection and sets the generator option when its combo box
+        is changed.
+        """
+        _ = event
+        val = self.gen_opt_cbox.get()
+        self.generator_option.set(val)
+
     def _on_process_clicked(self) -> None:
         """
         Builds the requests and ui objects to pass to the process thread when the
         process button is clicked.
         """
-        if not (self._plc_list_selected.get() and self._tag_list_selected.get()):
-            self.report.error("Please select both files to start process.")
+        if not self.input_is_selected:
+            self.report.error("Please select a file to start the process.")
             return
 
-        # req = MTLRequest(
-        #     MTLProcessorType(self.opt_process.get()),
-        #     self.opt_filter.get(),
-        #     self.opt_data_table.get(),
-        #     Path(self.opt_mtl_path.get()),
-        #     Path(self.opt_input_path.get()),
-        # )
-        # ui = MTLUi(
-        #     self.progress_bar,
-        #     self.process_button,
-        #     self.opt_process,
-        #     self.stext,
-        # )
+        if self.gen_opt_cbox.get() == TagGeneratorType.NONE.value:
+            self.report.error("Please select a document to generate.")
 
-        # self.proc_ctrl.start_process(req, ui)
+        req = TagDocGenRequest(
+            self.gen_opt_cbox.get(),
+            self.equipment_code_var,
+            self.kepware_channel_var,
+            self.kepware_device_var,
+            self.department_code_var,
+            self.tag_length_var,
+            self.node_id_var,
+            self.namespace_index_var,
+            TagGeneratorType(self.generator_option.get()),
+        )
+
+        ui = TagDocGenUi(
+            self.equipment_code_wid,
+            self.kepware_channel_wid,
+            self.kepware_device_wid,
+            self.department_code_wid,
+            self.tag_length_wid,
+            self.node_id_wid,
+            self.namespace_index_wid,
+            self.progress_bar,
+            self.gen_opt_cbox,
+            self.stext,
+            self.process_button,
+        )
+
+        self.proc_ctrl.start_process(req, ui)
+
+    def _build_header(self):
+        """
+        Builds the header row that displays how to information.
+        """
+        frame = tkb.Labelframe(self.container, text="How to")
+        frame.pack(side=TOP, fill=X, padx=PAD_X, pady=PAD_Y)
+
+        label = tkb.Label(
+            frame,
+            justify=CENTER,
+            font=FONT,
+            text="To generate tag documents, first you must gather a PLC or Kepware\n"
+            + "csv file. Then select the file type you have started with. Then select\n"
+            + "the document type you would like generated. Press the generate button.\n"
+            + "The generated files will be exported to the reports folder.",
+        )
+        label.pack(pady=PAD_Y)
 
     def _build_file_inputs(self) -> None:
         """
@@ -137,22 +177,18 @@ class TagFormatterFrame(ProtocolFrame):
         """
         frame = tkb.Labelframe(
             self.container,
-            text="Select your files.",
+            text="Select a file.",
             padding=PAD,
         )
         frame.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=NO)
 
         self._build_file_row(
             frame,
-            "Input PLC Tag List:",
-            self.opt_plc_file_path,
-            self._plc_list_selected,
-        )
-        self._build_file_row(
-            frame,
-            "Input Kepware Tag List:",
-            self.opt_tag_file_path,
-            self._tag_list_selected,
+            "Input Tag List:",
+            self.opt_input_file_path,
+            self.input_is_selected,
+            20,
+            ("*.csv",),
         )
 
     def _build_file_row(
@@ -218,10 +254,10 @@ class TagFormatterFrame(ProtocolFrame):
 
     def _build_tag_form(self) -> None:
         """
-        Holds the form creation fuctions
+        Builds the tag generator form.
         """
         self.tag_form = tkb.Labelframe(
-            self.container, text="Tag Formatter", padding=PAD
+            self.container, text="Tag Document Generator", padding=PAD
         )
         self.tag_form.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y)
         self.tag_form.columnconfigure(0, weight=0)
@@ -275,7 +311,7 @@ class TagFormatterFrame(ProtocolFrame):
         Build a form row with a label and entry widget, uses a tkb.StringVar for
         controlling and accessing the entry.
 
-        returns tuple[tkb.StringVar, tkb.Entry]
+        Returns tuple[tkb.StringVar, tkb.Entry]
         """
         var = tkb.StringVar(value=str(default_value))
 
@@ -292,3 +328,13 @@ class TagFormatterFrame(ProtocolFrame):
         wid.grid(row=self.tag_form_rows, column=1, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
         self.tag_form_rows += 1
         return var, wid
+
+    def _build_text_display(self) -> None:
+        """
+        Builds the text display widgets for the UI.
+        """
+        frame = tkb.Labelframe(self.container, text="Process Output.")
+        frame.pack(side=TOP, fill=BOTH, expand=YES)
+        self.stext = ScrolledText(frame, height=24, font=FONT_MONO)
+        self.stext.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=YES)
+        self.report.attach_text_display(self.stext)
