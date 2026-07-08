@@ -4,6 +4,7 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
+from tkinter import font
 import webbrowser
 
 # third party
@@ -33,6 +34,7 @@ from src.app.utils import (
     H1,
     FONT,
     WavePackFrame,
+    apply_scaled_geometry,
 )
 from src.kepware.gui import KepwareFrame
 from src.mtl.gui import MTLFrame
@@ -82,7 +84,8 @@ class AppWindow(tkb.Window):
         self.active_app = None
 
         self.title("λ Workbook Automation & Verification Engine | Launcher")
-        self.geometry("100x100")
+        apply_scaled_geometry(self, 100, 100)
+        # self.geometry("100x100")
         self.resizable(False, False)
         self.logo = tkb.PhotoImage(file=str(LOGO_PATH))
         self.iconphoto(False, self.logo)
@@ -133,7 +136,7 @@ class AppWindow(tkb.Window):
         self.launcher = LauncherFrame(self.container, self, grid_width=1)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
-        self.geometry(f"{self.launcher.width}x{self.launcher.height}")
+        apply_scaled_geometry(self, self.launcher.width, self.launcher.height)
         self.resizable(self.launcher.resizable[0], self.launcher.resizable[1])
 
     def lock_wavepack(self, name: str, frame_cls: WavePackFrame) -> None:
@@ -149,7 +152,7 @@ class AppWindow(tkb.Window):
         self.launcher.destroy()
 
         self.title(f"λ Workbook Automation & Verification Engine | {name}")
-        self.geometry(f"{app_frame.width}x{app_frame.height}")
+        apply_scaled_geometry(self, app_frame.width, app_frame.height)
         self.minsize(app_frame.width_min, app_frame.height_min)
         self.resizable(app_frame.resizable[0], app_frame.resizable[1])
 
@@ -354,10 +357,16 @@ class LauncherFrame(WavePackFrame):
             height_min=360,
             width=480,
             width_min=480,
-            resizable=(False, False),
+            # resizable=(False, False),
+            resizable=(True, True),
         )
         self.window = window
         self.grid_width = grid_width
+
+        self.window.after(500, self._build_ui)
+
+    def _build_ui(self) -> None:
+        self.window.update_idletasks()
 
         tkb.Label(self, text="Select a Session Type", font=H1).pack(
             padx=PAD_X, pady=PAD_Y
@@ -383,6 +392,10 @@ class LauncherFrame(WavePackFrame):
         self.scroll_frame = ScrolledFrame(self, padding=PAD)
         self.scroll_frame.pack(fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=True)
 
+        temp_fnt = font.Font(family="Verdana", size = 10)
+
+        max_btn_width = max(temp_fnt.measure(name) for name in self.window.wavepacks) + PAD_X
+
         for index, (name, info) in enumerate(self.window.wavepacks.items()):
             frame_cls = info[0]
             desc = info[1]
@@ -391,20 +404,25 @@ class LauncherFrame(WavePackFrame):
 
             f = tkb.Frame(self.scroll_frame)
             f.grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
+            f.columnconfigure(0, weight=0, minsize=max_btn_width)
+            f.columnconfigure(1, weight=1)
 
             tkb.Button(
                 f,
                 text=name,
-                width=32,
                 command=lambda n=name, fc=frame_cls: self._confirm_and_launch(n, fc),
-            ).grid(row=0, column=0, padx=PAD_X, pady=PAD_Y)
+            ).grid(row=0, column=0, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
 
-            tkb.Label(
+            lbl = tkb.Label(
                 f,
                 text=desc,
                 justify="left",
-                wraplength=180,
-            ).grid(row=0, column=1, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
+            )
+            lbl.grid(row=0, column=1, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
+
+            lbl.bind(
+                "<Configure>", lambda e, l=lbl: l.config(wraplength=e.width - PAD_X)
+            )
 
         for col in range(self.grid_width):
             self.scroll_frame.columnconfigure(col, weight=1)

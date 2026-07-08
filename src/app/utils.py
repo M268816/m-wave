@@ -37,6 +37,48 @@ DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
 DATETIME_FORMAT_MERCK = "%d-%b-%Y %H:%M:%S"
 
 
+def get_window_scale_factor(
+    window: tkb.Window,
+    base_height: int = 1080,
+) -> float:
+    """
+    Returns a scaled factor to the active screen height based on a 1080p baseline.
+    """
+    window.update_idletasks()
+    screen_height = window.winfo_screenheight()
+    scale_factor = screen_height / base_height
+    return scale_factor
+
+
+def _get_scaled_geometry(
+    window: tkb.Window,
+    width: int,
+    height: int,
+    base_height: int,
+) -> tuple[int, int]:
+    """
+    Returns a scaled width and height to the active screen based on a 1080p baseline.
+    """
+    scale_factor = get_window_scale_factor(window=window, base_height=base_height)
+    scaled_width = int(width * scale_factor)
+    scaled_height = int(height * scale_factor)
+    return scaled_width, scaled_height
+
+
+def apply_scaled_geometry(
+    window: tkb.Window,
+    width: int,
+    height: int,
+    base_height: int = 1080,
+    delay: int = 500,
+) -> None:
+    """
+    Apply a deferred scaled window geometry to for the active monitor.
+    """
+    scaled_w, scaled_h = _get_scaled_geometry(window, width, height, base_height)
+    window.after(delay, lambda: window.geometry(f"{scaled_w}x{scaled_h}"))
+
+
 class ProcessController:
     """
     Class helper for type assignment
