@@ -1,4 +1,6 @@
 # Custom
+.*/
+.*
 test_files/
 logs/
 src/test_reporting/

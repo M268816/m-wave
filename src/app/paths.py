@@ -112,6 +112,13 @@ LOGS_DIR = APP_DIRS["logs"]
 REPORTS_DIR = APP_DIRS["reports"]
 
 LOGO_PATH = ASSETS_DIR / "logo.png"
+
 MTL_CONFIG_PATH = ASSETS_DIR / "mtl_config.json"
-INSTRUCTIONS_PATH = ASSETS_DIR / "instructions.txt"
 USER_PREFS_PATH = get_user_prefs(APP_DIRS)
+
+MTL_INSTRUCTIONS_PATH = ASSETS_DIR / "mtl_instructions.txt"
+KEPWARE_COMPARISON_INSTRUCTIONS_PATH = (
+    ASSETS_DIR / "kepware_comparison_instructions.txt"
+)
+TAG_DOC_GEN_INSTRUCTIONS_PATH = ASSETS_DIR / "tag_doc_gen_instructions.txt"
+EXAMPLE_INSTRUCTIONS_PATH = ASSETS_DIR / "example_instructions.txt"

@@ -29,18 +29,27 @@ from ttkbootstrap.constants import (
     INDETERMINATE,
     Y,
     SUCCESS,
-    CENTER,
 )
 from ttkbootstrap.scrolled import ScrolledText
 
 # local
-from src.app.utils import FONT, WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
+from src.app.utils import (
+    WavePackFrame,
+    PAD,
+    PAD_X,
+    PAD_Y,
+    FONT_MONO,
+)
 from src.tag_doc_gen.controller import (
     TagDocGenController,
     TagDocGenRequest,
     TagDocGenUi,
     TagGeneratorType,
 )
+from src.app.paths import TAG_DOC_GEN_INSTRUCTIONS_PATH
+
+with open(TAG_DOC_GEN_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
+    INSTRUCTIONS = f.read()
 
 
 class TagDocGenFrame(WavePackFrame):
@@ -49,11 +58,12 @@ class TagDocGenFrame(WavePackFrame):
             parent,
             height=640,
             height_min=640,
-            width=640,
-            width_min=640,
+            width=850,
+            width_min=850,
             resizable=(True, True),
         )
         self.window = window
+        self.help_label = "Tag Document Generator"
         self.proc_ctrl: TagDocGenController = TagDocGenController(window)
 
         self.container = tkb.Frame(self, padding=PAD)
@@ -66,7 +76,6 @@ class TagDocGenFrame(WavePackFrame):
         self.tag_form_rows: int = 0
 
         self._build_footer()
-        self._build_header()
         self._build_file_inputs()
         self._build_tag_form()
         self._build_text_display()
@@ -74,6 +83,12 @@ class TagDocGenFrame(WavePackFrame):
     @property
     def report(self):
         return self.window.controller.report
+
+    def show_help(self) -> None:
+        self.report.info(
+            "Instructions sent to display.", log=False, verbose=False, popup=True
+        )
+        self.report.info(INSTRUCTIONS, log=False, verbose=False)
 
     def _build_footer(self) -> None:
         """
@@ -88,7 +103,7 @@ class TagDocGenFrame(WavePackFrame):
 
         generator_options = [gen_type.value for gen_type in TagGeneratorType]
 
-        self.gen_opt_cbox = tkb.Combobox(frame, values=generator_options, width=25)
+        self.gen_opt_cbox = tkb.Combobox(frame, values=generator_options, width=35)
         self.gen_opt_cbox.pack(side=LEFT, padx=PAD_X)
         self.gen_opt_cbox.current(0)
         self.gen_opt_cbox.bind("<<ComboboxSelected>>", self._on_gen_opt_selected)
@@ -127,6 +142,7 @@ class TagDocGenFrame(WavePackFrame):
 
         req = TagDocGenRequest(
             self.gen_opt_cbox.get(),
+            self.opt_input_file_path,
             self.equipment_code_var,
             self.kepware_channel_var,
             self.kepware_device_var,
@@ -153,33 +169,11 @@ class TagDocGenFrame(WavePackFrame):
 
         self.proc_ctrl.start_process(req, ui)
 
-    def _build_header(self):
-        """
-        Builds the header row that displays how to information.
-        """
-        frame = tkb.Labelframe(self.container, text="How to")
-        frame.pack(side=TOP, fill=X, padx=PAD_X, pady=PAD_Y)
-
-        label = tkb.Label(
-            frame,
-            justify=CENTER,
-            font=FONT,
-            text="To generate tag documents, first you must gather a PLC or Kepware\n"
-            + "csv file. Then select the file type you have started with. Then select\n"
-            + "the document type you would like generated. Press the generate button.\n"
-            + "The generated files will be exported to the reports folder.",
-        )
-        label.pack(pady=PAD_Y)
-
     def _build_file_inputs(self) -> None:
         """
         Builds the file selection widgets for the UI.
         """
-        frame = tkb.Labelframe(
-            self.container,
-            text="Select a file.",
-            padding=PAD,
-        )
+        frame = tkb.Labelframe(self.container, text="Select a file.", padding=PAD)
         frame.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=NO)
 
         self._build_file_row(
@@ -203,7 +197,7 @@ class TagDocGenFrame(WavePackFrame):
         """
         Instantiates/Builds the file picking widgets for the UI.
         """
-        row = tkb.Frame(frame, padding=PAD)
+        row = tkb.Frame(frame)
         row.pack(fill=X)
         label = tkb.Label(row, text=label_text, padding=PAD, width=width)
         label.pack(side=LEFT)
@@ -264,16 +258,16 @@ class TagDocGenFrame(WavePackFrame):
         self.tag_form.columnconfigure(1, weight=1)
 
         self.equipment_code_var, self.equipment_code_wid = self._entry_row(
-            "Equipment Code",
+            "Equipment Code", default_value="PL12"
         )
         self.kepware_channel_var, self.kepware_channel_wid = self._entry_row(
-            "Kepware Channel"
+            "Kepware Channel", default_value="ED044"
         )
         self.kepware_device_var, self.kepware_device_wid = self._entry_row(
-            "Kepware Device"
+            "Kepware Device", default_value="DRTSTDC"
         )
         self.department_code_var, self.department_code_wid = self._entry_row(
-            "Department Code Device"
+            "Department Code Device", default_value="EXP"
         )
         self.tag_length_var, self.tag_length_wid = self._int_row(
             "Pi Tag Prefix Length", default_value=15

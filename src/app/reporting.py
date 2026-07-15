@@ -133,6 +133,7 @@ class Reporting:
         if self.parent_window:
             self._modal_queue.put((func, msg, title))
             if not self._modal_busy:
+                self._modal_busy = True
                 self.parent_window.after(0, self._show_next_modal)
 
     def _add_line(self, msg: str, msg_type: str | None = None) -> None:

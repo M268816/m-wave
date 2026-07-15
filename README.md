@@ -170,8 +170,8 @@ All process output is routed through the `Reporting` class (`src/app/reporting.p
 
 | Method                        | Visual style                                           |
 | ----------------------------- | ------------------------------------------------------ |
-| `title(msg)`                  | Heavy box (`+=+`) -- major section start/end            |
-| `subtitle(msg)`               | Light box (`+-+`) -- sub-section header                 |
+| `title(msg)`                  | Heavy box (`+=+`) -- major section start/end           |
+| `subtitle(msg)`               | Light box (`+-+`) -- sub-section header                |
 | `simple_title(msg)`           | Dashed inline header (`-- text --`)                    |
 | `highlight_error(msg)`        | Single-line error banner (`X=== msg ===X`)             |
 | `highlight_titled_error(msg)` | Boxed error with title and message (`X==+ TITLE +==X`) |
@@ -250,6 +250,7 @@ This means logs, reports, and user preferences always appear **next to the execu
 ### "Configuration not found. Cannot run application."
 
 - Ensure `assets/mtl_config.json` is present and bundled for runtime.
+- Endure the json file is properly written with no errors within json syntax.
 - If running a built executable, make sure your PyInstaller spec includes `assets\`.
 
 ### Excel automation issues

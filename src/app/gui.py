@@ -22,7 +22,7 @@ from ttkbootstrap.widgets.scrolled import ScrolledFrame
 from ttkbootstrap.style import PRIMARY
 
 # local
-from src.app.paths import LOGO_PATH, INSTRUCTIONS_PATH, USER_PREFS_PATH
+from src.app.paths import LOGO_PATH, USER_PREFS_PATH
 from src.app.controller import (
     AppController,
 )
@@ -62,9 +62,6 @@ THEMES = (
     "cyborg",
     "vapor",
 )
-
-with open(INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
-    MTL_INSTRUCTIONS = f.read()
 
 
 class AppWindow(tkb.Window):
@@ -138,6 +135,7 @@ class AppWindow(tkb.Window):
         self.launcher.tkraise()
         apply_scaled_geometry(self, self.launcher.width, self.launcher.height)
         self.resizable(self.launcher.resizable[0], self.launcher.resizable[1])
+        self.update_help_menu(self.launcher)
 
     def lock_wavepack(self, name: str, frame_cls: WavePackFrame) -> None:
         """
@@ -155,6 +153,7 @@ class AppWindow(tkb.Window):
         apply_scaled_geometry(self, app_frame.width, app_frame.height)
         self.minsize(app_frame.width_min, app_frame.height_min)
         self.resizable(app_frame.resizable[0], app_frame.resizable[1])
+        self.update_help_menu(app_frame)
 
     def run(self) -> None:
         self.mainloop()
@@ -201,14 +200,24 @@ class AppWindow(tkb.Window):
         menubar.add_cascade(label="Themes", menu=theme_menu)
 
         # Help Menu
-        help_menu = tkb.Menu(menubar, tearoff=0)
-        help_menu.add_command(
-            label="MTL/CMD Instructions", command=self._show_mtl_instructions
-        )
-        help_menu.add_command(label="About", command=self._show_about_window)
-        menubar.add_cascade(label="Help", menu=help_menu)
+        self.help_menu = tkb.Menu(menubar, tearoff=0)
+        self.help_menu.add_command(label="About", command=self._show_about_window)
+        menubar.add_cascade(label="Help", menu=self.help_menu)
 
         self.config(menu=menubar)
+
+    def update_help_menu(self, frame: WavePackFrame | None = None) -> None:
+        """
+        Rebuild the help menu for the active frame.
+        """
+        self.help_menu.delete(0, "end")
+
+        if frame is not None and frame.has_help:
+            self.help_menu.add_command(
+                label=f"{frame.help_label} Help", command=frame.show_help
+            )
+            self.help_menu.add_separator()
+        self.help_menu.add_command(label="About", command=self._show_about_window)
 
     def _on_close_requested(self) -> None:
         """
@@ -250,18 +259,6 @@ class AppWindow(tkb.Window):
             USER_PREFS_PATH, self.controller.user_preferences, "theme", theme
         ):
             self.style.theme_use(theme.get())
-
-    def _show_mtl_instructions(self) -> None:
-        self.controller.report.info(
-            "Instructions sent.",
-            log=False,
-            verbose=False,
-        )
-        self.controller.report.info(MTL_INSTRUCTIONS, log=False, verbose=False)
-        git_url = self.controller.mtl_configs["mtl_instructions_git_url"]
-        vid_link = self.controller.mtl_configs["mtl_help_vid_url"]
-        webbrowser.open(vid_link, new=1)
-        webbrowser.open(git_url, new=2)
 
     def _show_about_window(self) -> None:
         about = tkb.Toplevel()
@@ -392,9 +389,11 @@ class LauncherFrame(WavePackFrame):
         self.scroll_frame = ScrolledFrame(self, padding=PAD)
         self.scroll_frame.pack(fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=True)
 
-        temp_fnt = font.Font(family="Verdana", size = 10)
+        temp_fnt = font.Font(family="Verdana", size=10)
 
-        max_btn_width = max(temp_fnt.measure(name) for name in self.window.wavepacks) + PAD_X
+        max_btn_width = (
+            max(temp_fnt.measure(name) for name in self.window.wavepacks) + PAD_X
+        )
 
         for index, (name, info) in enumerate(self.window.wavepacks.items()):
             frame_cls = info[0]

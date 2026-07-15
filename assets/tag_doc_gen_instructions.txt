@@ -1,0 +1,14 @@
+1. Collect a Kepware Tag Export CSV file.
+2. Use the file selection dialog at the top of the display and select the Kepware Export file.
+3. Enter the Key values in the form.
+    3.1. The equipment code is the designation given to the equipment being implemented.
+    3.2. The kepware channel is the channel name of the device the tags were exported from.
+    3.3. The kepware device is the device name name of the channel the tags were exported from.
+    3.4. The department code is the designation given to the machines within a particular department.
+    3.5. The tag prefix length should not be changed unless requested.
+    3.6. The NodeId prefix should not be changed unless requested.
+    3.7. The namespace index should not be changed unless requested.
+4. Use the dropdown at the bottom of the screen to select the document(s) that you would like to generate.
+5. Click the generate button and wait for the confirmation popup.
+6. The generated documents will be found in the reports folder where the WAVE is launched from.
+

@@ -36,6 +36,10 @@ from ttkbootstrap.widgets.scrolled import ScrolledText
 # local
 from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
 from src.kepware.controller import KepwareController, KepwareRequest, KepwareUi
+from src.app.paths import KEPWARE_COMPARISON_INSTRUCTIONS_PATH
+
+with open(KEPWARE_COMPARISON_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
+    INSTRUCTIONS = f.read()
 
 
 class KepwareFrame(WavePackFrame):
@@ -60,6 +64,7 @@ class KepwareFrame(WavePackFrame):
             resizable=(True, True),
         )
         self.window = window
+        self.help_label = "Kepware Comparison"
 
         self.proc_ctrl: KepwareController = KepwareController(window)
         self.stext: ScrolledText
@@ -86,6 +91,12 @@ class KepwareFrame(WavePackFrame):
     @property
     def report(self):
         return self.window.controller.report
+
+    def show_help(self):
+        self.report.info(
+            "Instructions sent to the display", log=False, verbose=False, popup=True
+        )
+        self.report.info(INSTRUCTIONS, log=False, verbose=False)
 
     def _build_file_select(self) -> None:
         """

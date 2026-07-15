@@ -38,7 +38,11 @@ from ttkbootstrap.scrolled import ScrolledText
 # local
 from src.app.reporting import Reporting
 from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
+from src.app.paths import EXAMPLE_INSTRUCTIONS_PATH
 from src.example.controller import ExampleController, ExampleRequest, ExampleUi
+
+with open(EXAMPLE_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
+    INSTRUCTIONS = f.read()
 
 
 class ExampleFrame(WavePackFrame):
@@ -56,6 +60,7 @@ class ExampleFrame(WavePackFrame):
             resizable=(True, True),
         )
         self.window = window
+        self.help_label = "Example"
         self.proc_ctrl: ExampleController = ExampleController(window)
 
         self.opt_input_path = tkb.StringVar()
@@ -74,6 +79,12 @@ class ExampleFrame(WavePackFrame):
     @property
     def report(self) -> Reporting:
         return self.window.controller.report
+
+    def show_help(self) -> None:
+        self.report.info(
+            "Instructions will be displayed.", log=False, verbose=False, popup=True
+        )
+        self.report.info(INSTRUCTIONS, log=False, verbose=False, popup=True)
 
     def _build_simple_display(self) -> None:
         self.label_var = tkb.StringVar(value="Hello, World.")
@@ -207,7 +218,7 @@ class ExampleFrame(WavePackFrame):
 
         self.process_button = tkb.Button(
             frame,
-            text="Compare",
+            text="Example",
             bootstyle=SUCCESS,
             padding=PAD,
             width=20,

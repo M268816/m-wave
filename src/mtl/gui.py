@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 from pathlib import Path
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
+import webbrowser
 
 # third party
 import ttkbootstrap as tkb
@@ -30,8 +31,12 @@ from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
 from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
+from src.app.paths import MTL_INSTRUCTIONS_PATH
 from src.mtl.metadata import MTL_VERSION, WORKSHEET_METADATA
 from src.mtl.controller import MTLController, MTLProcessorType, MTLRequest, MTLUi
+
+with open(MTL_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
+    INSTRUCTIONS = f.read()
 
 
 class MTLFrame(WavePackFrame):
@@ -56,6 +61,7 @@ class MTLFrame(WavePackFrame):
             resizable=(True, True),
         )
         self.window = window
+        self.help_label = "MTL/CMD"
 
         self.proc_ctrl: MTLController = MTLController(window)
         self.stext: ScrolledText
@@ -87,6 +93,17 @@ class MTLFrame(WavePackFrame):
     @property
     def report(self):
         return self.window.controller.report
+
+    def show_help(self):
+        self.report.info(
+            "Instuctional Video will now open.\n Text instructions sent to display.",
+            log=False,
+            verbose=False,
+            popup=True,
+        )
+        self.report.info(INSTRUCTIONS, log=False, verbose=False)
+        vid_link = self.window.controller.mtl_configs["mtl_help_vid_url"]
+        webbrowser.open(vid_link, new=1)
 
     def _build_file_select(self) -> None:
         """

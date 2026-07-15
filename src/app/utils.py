@@ -6,6 +6,7 @@
 # stdio
 import getpass
 from threading import Thread
+import tkinter as tk
 from tkinter import font
 
 # third party
@@ -28,9 +29,9 @@ FONT_MONO_SMALLER = (_MONO, 7, font.NORMAL)
 FONT_MONO_BIG = (_MONO, 12, font.NORMAL)
 FONT_MONO_BIGGER = (_MONO, 14, font.NORMAL)
 
-PAD_X = 8
-PAD_Y = 8
-PAD = 8
+PAD_X = 4
+PAD_Y = 4
+PAD = 4
 
 USER = getpass.getuser()
 DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
@@ -79,6 +80,37 @@ def apply_scaled_geometry(
     window.after(delay, lambda: window.geometry(f"{scaled_w}x{scaled_h}"))
 
 
+def create_geometry_display(
+    window: tkb.Window,
+    parent_frame: tkb.Frame,
+    width: int,
+    height: int,
+    base_height=1080,
+):
+    """
+    Creates a widget that will display the current window dimensions for debugging.
+    """
+    frame = tkb.Frame(parent_frame, padding=PAD)
+    frame.pack(side="top", fill="x", expand=True, padx=PAD_X, pady=PAD_Y)
+
+    s_width, s_height = _get_scaled_geometry(window, width, height, base_height)
+
+    target_label = tkb.Label(
+        frame, font=H2, text=f"Target {width}x{height} | Scaled: {s_width}x{s_height}"
+    )
+    target_label.pack(side="left")
+
+    live_var = tkb.StringVar(value="Live: ...")
+    live_label = tkb.Label(frame, font=H2, textvariable=live_var)
+    live_label.pack(side="left")
+
+    def _update_live(event: tk.Event) -> None:
+        if event.widget is window:
+            live_var.set(f"Live: {event.width}x{event.height}")
+
+    window.bind("<Configure>", _update_live, add="+")
+
+
 class ProcessController:
     """
     Class helper for type assignment
@@ -109,6 +141,22 @@ class WavePackFrame(tkb.Frame):
         self.width = width
         self.width_min = width_min
         self.resizable = resizable
+        self.help_label: str = "Instructions"  # default, override per frame
+
+    @property
+    def has_help(self) -> bool:
+        """
+        Returns True if this frame has overridden show_help.
+        AppWindow uses this to decide whether to show the help menu item at all.
+        """
+        return type(self).show_help is not WavePackFrame.show_help
+
+    def show_help(self) -> None:
+        """
+        Override in subclasses to display frame-specific help instructions.
+        Default is a no-op if not overridden, the help menu item is hidden.
+        """
+        pass
 
     def on_teardown(self) -> None:
         """

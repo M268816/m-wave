@@ -29,8 +29,10 @@ from src.tag_doc_gen.process import Process
 class TagGeneratorType(str, Enum):
     NONE = "None"
     ALL = "All Documents"
-    KEPWARE_TAG_TO_ATTRIBUTE = "Kepware Tags to Pi Attributes"
+    KEPWARE_TAG_TO_ATTRIBUTE = "Kepware Tags to PI Attributes"
     KEPWARE_TO_FILTER = "Kepware Tags to Filter File"
+    KEPWARE_TO_PI_TAGS = "Kepware Tags to PI Tags (20701076)"
+    INSTRUMENT_TAGS = "Kepware Tags to Instrument Tags"
 
 
 @dataclass
@@ -40,6 +42,7 @@ class TagDocGenRequest:
     """
 
     report_name: str
+    input_path: tkb.StringVar
     equipment_code: tkb.StringVar
     kepware_channel: tkb.StringVar
     kepware_device: tkb.StringVar
@@ -96,10 +99,19 @@ class TagDocGenController(ProcessController):
             process = Process(self.report, req)
 
             if req.processor_type == TagGeneratorType.ALL.value:
-                self.report.info("Started the process from the controller!")
-                process.run()
+                self.report.info("Process Accepted")
+                process.process_all()
+            elif req.processor_type == TagGeneratorType.KEPWARE_TAG_TO_ATTRIBUTE.value:
+                self.report.info("Process Accepted")
+                process.process_attributes()
+            elif req.processor_type == TagGeneratorType.KEPWARE_TO_FILTER.value:
+                self.report.info("Process Accepted")
+                process.process_filter_file()
+            elif req.processor_type == TagGeneratorType.INSTRUMENT_TAGS.value:
+                self.report.info("Process Accepted")
+                process.process_instrument_tags()
             else:
-                self.report.info("For now, choose all documents.", popup=True)
+                self.report.info("Process not dectected. Stopping.", popup=True)
                 return
 
         except Exception as e:
@@ -155,7 +167,10 @@ class TagDocGenController(ProcessController):
             return
 
         ui.process_button.config(state=DISABLED)
-        self._controller.reset_report(ui.scrolled_text, req.report_name)
+        self._controller.reset_report(
+            ui.scrolled_text,
+            f"{req.kepware_channel.get()}_{req.kepware_device.get()}_{req.report_name}",
+        )
 
         ui.progress_bar.start()
 
