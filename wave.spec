@@ -30,9 +30,13 @@ a = Analysis(
     # Format: (absolute_source_path, destination_folder_inside_bundle)
     # paths.py reads these via get_temp_path() / sys._MEIPASS at runtime.
     datas=[
-        (os.path.join(ASSETS_DIR, "config.json"),       "assets"),
+        (os.path.join(ASSETS_DIR, "user_preferences.json"),       "assets"),
+        (os.path.join(ASSETS_DIR, "mtl_config.json"),       "assets"),
         (os.path.join(ASSETS_DIR, "logo.png"),           "assets"),
-        (os.path.join(ASSETS_DIR, "instructions.txt"),   "assets"),
+        (os.path.join(ASSETS_DIR, "example_instructions.txt"),   "assets"),
+        (os.path.join(ASSETS_DIR, "kepware_comparison_instructions.txt"),   "assets"),
+        (os.path.join(ASSETS_DIR, "mtl_instructions.txt"),   "assets"),
+        (os.path.join(ASSETS_DIR, "tag_doc_gen_instructions.txt"),   "assets"),
     ],
 
     # Modules PyInstaller cannot detect automatically (dynamic imports, etc.)

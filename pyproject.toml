@@ -1,7 +1,7 @@
 [project]
 name = "wave"
-version = "0.1.0-pre_alpha.4"
-description = "A helper process to format Master Tag List and Context Master Data for LS_DH_USJA_DDS 20471406"
+version = "0.1.0-pre_alpha.5"
+description = "An application that help Jaffrey PI developers with configurations."
 readme = "README.md"
 requires-python = ">=3.11.3"
 license = "MIT"

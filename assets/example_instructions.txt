@@ -1,7 +1,4 @@
-1. Push the button.
-
-2. Win a prize.
-
-3. Live and be Happy.
-
-4. ??????
+1. Make an app.
+2. Attempt to validate.
+3. ???
+4. Profit

@@ -40,13 +40,15 @@ from src.app.utils import (
     PAD_Y,
     FONT_MONO,
 )
-from src.tag_doc_gen.controller import (
-    TagDocGenController,
+from src.app.paths import TAG_DOC_GEN_INSTRUCTIONS_PATH
+from src.tag_doc_gen.controller import TagDocGenController
+from src.tag_doc_gen.utils import (
+    TagGenFileType,
     TagDocGenRequest,
     TagDocGenUi,
     TagGeneratorType,
+    TAG_GEN_FILE_OPTIONS,
 )
-from src.app.paths import TAG_DOC_GEN_INSTRUCTIONS_PATH
 
 with open(TAG_DOC_GEN_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
     INSTRUCTIONS = f.read()
@@ -71,12 +73,18 @@ class TagDocGenFrame(WavePackFrame):
 
         self.opt_input_file_path = tkb.StringVar()
         self.input_is_selected = tkb.BooleanVar(value=False)
+        self.input_type = tkb.StringVar(value="None")
         self.generator_option = tkb.StringVar(value=TagGeneratorType.NONE.value)
 
         self.tag_form_rows: int = 0
 
+        self.report.debug("Checking for Debug functionaltiy.")
+        self.report.debug("This should show on init of the tag gen doc wavepack.")
+
+
         self._build_footer()
         self._build_file_inputs()
+        self._build_file_type_selections()
         self._build_tag_form()
         self._build_text_display()
 
@@ -101,9 +109,13 @@ class TagDocGenFrame(WavePackFrame):
         self.progress_bar = tkb.Progressbar(frame, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=PAD_X, pady=PAD_Y, fill=X)
 
-        generator_options = [gen_type.value for gen_type in TagGeneratorType]
-
-        self.gen_opt_cbox = tkb.Combobox(frame, values=generator_options, width=35)
+        self.gen_opt_cbox = tkb.Combobox(
+            frame,
+            values=[
+                TagGeneratorType.NONE.value,
+            ],
+            width=35,
+        )
         self.gen_opt_cbox.pack(side=LEFT, padx=PAD_X)
         self.gen_opt_cbox.current(0)
         self.gen_opt_cbox.bind("<<ComboboxSelected>>", self._on_gen_opt_selected)
@@ -151,6 +163,7 @@ class TagDocGenFrame(WavePackFrame):
             self.node_id_var,
             self.namespace_index_var,
             TagGeneratorType(self.generator_option.get()),
+            TagGenFileType(self.file_type_cbox.get()),
         )
 
         ui = TagDocGenUi(
@@ -168,6 +181,44 @@ class TagDocGenFrame(WavePackFrame):
         )
 
         self.proc_ctrl.start_process(req, ui)
+
+    def _build_file_type_selections(self) -> None:
+        """
+        Builds the file type selection widgets for the UI.
+        """
+        frame = tkb.Labelframe(
+            self.container, text="Select input file type.", padding=PAD
+        )
+        frame.pack(side=TOP, fill=X, padx=PAD_X, pady=PAD_Y, expand=NO)
+
+        label = tkb.Label(
+            frame,
+            text="Select the type of document you are starting with.",
+            padding=PAD,
+        )
+        label.pack(side=LEFT, fill=X)
+
+        file_types = [i.value for i in TagGenFileType]
+
+        self.file_type_cbox = tkb.Combobox(frame, values=file_types, width=35)
+        self.file_type_cbox.pack(side=RIGHT)
+        self.file_type_cbox.current(0)
+        self.file_type_cbox.bind("<<ComboboxSelected>>", self._on_file_type_selected)
+
+    def _on_file_type_selected(self, event) -> None:
+        """
+        Sets the appropriate file processing selections for the starting file.
+        """
+        _ = event
+        type_selected = self.file_type_cbox.get()
+
+        file_type = TagGenFileType(type_selected)
+
+        options = [t.value for t in TAG_GEN_FILE_OPTIONS[file_type]]
+
+        self.gen_opt_cbox.configure(values=options)
+        self.gen_opt_cbox.set(TagGeneratorType.NONE.value)
+        self.generator_option.set(self.gen_opt_cbox.get())
 
     def _build_file_inputs(self) -> None:
         """
@@ -299,7 +350,11 @@ class TagDocGenFrame(WavePackFrame):
         return var, wid
 
     def _int_row(
-        self, label_text: str, default_value: int = 0
+        self,
+        label_text: str,
+        default_value: int = 0,
+        min_val: int = 0,
+        max_val: int = 100,
     ) -> tuple[tkb.StringVar, tkb.Spinbox]:
         """
         Build a form row with a label and entry widget, uses a tkb.StringVar for
@@ -315,8 +370,8 @@ class TagDocGenFrame(WavePackFrame):
         wid = tkb.Spinbox(
             self.tag_form,
             textvariable=var,
-            from_=0,
-            to=100,
+            from_=min_val,
+            to=max_val,
             increment=1,
         )
         wid.grid(row=self.tag_form_rows, column=1, padx=PAD_X, pady=PAD_Y, sticky=NSEW)

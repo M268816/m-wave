@@ -12,64 +12,20 @@ if TYPE_CHECKING:
 
 # stdio
 import time
-from dataclasses import dataclass
-from enum import Enum
 from threading import Thread
 
 # third-party
-import ttkbootstrap as tkb
 from ttkbootstrap.constants import DISABLED, NORMAL
-from ttkbootstrap.scrolled import ScrolledText
 
 # local
 from src.app.utils import ProcessController
 from src.tag_doc_gen.process import Process
 
-
-class TagGeneratorType(str, Enum):
-    NONE = "None"
-    ALL = "All Documents"
-    KEPWARE_TAG_TO_ATTRIBUTE = "Kepware Tags to PI Attributes"
-    KEPWARE_TO_FILTER = "Kepware Tags to Filter File"
-    KEPWARE_TO_PI_TAGS = "Kepware Tags to PI Tags (20701076)"
-    INSTRUMENT_TAGS = "Kepware Tags to Instrument Tags"
-
-
-@dataclass
-class TagDocGenRequest:
-    """
-    Data class that captures a processes data for manipulation.
-    """
-
-    report_name: str
-    input_path: tkb.StringVar
-    equipment_code: tkb.StringVar
-    kepware_channel: tkb.StringVar
-    kepware_device: tkb.StringVar
-    department_code: tkb.StringVar
-    tag_prefix_length: tkb.StringVar
-    node_id_prefix: tkb.StringVar
-    namespace_index: tkb.StringVar
-    processor_type: TagGeneratorType
-
-
-@dataclass
-class TagDocGenUi:
-    """
-    Data class that captures a processes UI widgets for manipulation.
-    """
-
-    equipment_code: tkb.Entry
-    kepware_channel: tkb.Entry
-    kepware_device: tkb.Entry
-    department_code: tkb.Entry
-    tag_prefix_length: tkb.Spinbox
-    node_id_prefix: tkb.Entry
-    namespace_index: tkb.Spinbox
-    progress_bar: tkb.Progressbar
-    gen_opt_cbox: tkb.Combobox
-    scrolled_text: ScrolledText
-    process_button: tkb.Button
+from src.tag_doc_gen.utils import (
+    TagDocGenRequest,
+    TagDocGenUi,
+    TagGeneratorType,
+)
 
 
 class TagDocGenController(ProcessController):
@@ -98,21 +54,23 @@ class TagDocGenController(ProcessController):
         try:
             process = Process(self.report, req)
 
-            if req.processor_type == TagGeneratorType.ALL.value:
-                self.report.info("Process Accepted")
-                process.process_all()
-            elif req.processor_type == TagGeneratorType.KEPWARE_TAG_TO_ATTRIBUTE.value:
-                self.report.info("Process Accepted")
-                process.process_attributes()
-            elif req.processor_type == TagGeneratorType.KEPWARE_TO_FILTER.value:
-                self.report.info("Process Accepted")
-                process.process_filter_file()
-            elif req.processor_type == TagGeneratorType.INSTRUMENT_TAGS.value:
-                self.report.info("Process Accepted")
-                process.process_instrument_tags()
-            else:
-                self.report.info("Process not dectected. Stopping.", popup=True)
-                return
+            process.run(req.processor_type, req.file_type)
+
+            # if req.processor_type == TagGeneratorType.ALL.value:
+            #     self.report.info("Process Accepted")
+            #     process.process_all()
+            # elif req.processor_type == TagGeneratorType.KEPWARE_TAG_TO_ATTRIBUTE.value:
+            #     self.report.info("Process Accepted")
+            #     process.process_attributes()
+            # elif req.processor_type == TagGeneratorType.KEPWARE_TO_FILTER.value:
+            #     self.report.info("Process Accepted")
+            #     process.process_filter_file()
+            # elif req.processor_type == TagGeneratorType.INSTRUMENT_TAGS.value:
+            #     self.report.info("Process Accepted")
+            #     process.process_instrument_tags()
+            # else:
+            #     self.report.info("Process not dectected. Stopping.", popup=True)
+            #     return
 
         except Exception as e:
             self._controller.report.exception(

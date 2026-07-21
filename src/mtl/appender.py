@@ -147,7 +147,7 @@ class DataAppender:
             self.report.info("Table values updated.")
 
             workbook.save()
-            self.report.info(f"MTL Saved to a new file at: {output_file_path}")
+            self.report.info(f"MTL Saved to a new file at: ../{output_file_path.name}")
 
         except Exception as e:
             self.report.error(

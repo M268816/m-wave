@@ -10,7 +10,6 @@ from datetime import datetime
 # third party
 
 # local
-from src.app.gui import AppWindow
 from src.app.utils import DATETIME_FORMAT
 from src.app.paths import LOGS_DIR
 
@@ -27,6 +26,9 @@ logging.basicConfig(
     encoding="utf-8",
     level=logging.DEBUG,
 )
+
+# Load last so logging does not break ?
+from src.app.gui import AppWindow
 
 
 class Main:
