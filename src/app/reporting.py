@@ -148,10 +148,16 @@ class Reporting:
 
         line = f"{msg}"
 
+        # old method using padding, new method tries tabular setup
+        # if self.use_msg_types:
+        #     line = f"{padding}{msg_type}> " + line
+        # if self.use_timestamps:
+        #     line = f"{timestamp}: " + line
+
         if self.use_msg_types:
-            line = f"{padding}{msg_type}> " + line
+            line = f"{msg_type}\t> " + line
         if self.use_timestamps:
-            line = f"{timestamp}: " + line
+            line = f"{timestamp}:" + line
 
         self.report_lines.append(line)
 
@@ -471,7 +477,7 @@ class Reporting:
         if not self.file_path.name:
             raise RuntimeError("create_report() must be called before save_report().")
         try:
-            notice = f"{self.name} report saved to:\n{self.file_path}\n"
+            notice = f"{self.name} report saved to: ..//{self.file_path.name}"
             if popup:
                 self._queue_modal(modal.show_info, notice, "Saving...")
             self._add_line(notice, "INFO")

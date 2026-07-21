@@ -53,25 +53,7 @@ class TagDocGenController(ProcessController):
         _started = time.perf_counter()
         try:
             process = Process(self.report, req)
-
             process.run(req.processor_type, req.file_type)
-
-            # if req.processor_type == TagGeneratorType.ALL.value:
-            #     self.report.info("Process Accepted")
-            #     process.process_all()
-            # elif req.processor_type == TagGeneratorType.KEPWARE_TAG_TO_ATTRIBUTE.value:
-            #     self.report.info("Process Accepted")
-            #     process.process_attributes()
-            # elif req.processor_type == TagGeneratorType.KEPWARE_TO_FILTER.value:
-            #     self.report.info("Process Accepted")
-            #     process.process_filter_file()
-            # elif req.processor_type == TagGeneratorType.INSTRUMENT_TAGS.value:
-            #     self.report.info("Process Accepted")
-            #     process.process_instrument_tags()
-            # else:
-            #     self.report.info("Process not dectected. Stopping.", popup=True)
-            #     return
-
         except Exception as e:
             self._controller.report.exception(
                 f"Subroutine process error:\n{e}",

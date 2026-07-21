@@ -228,10 +228,11 @@ class Process:
         """
         Creates the filter file CSV from the Kepware export tag file.
         """
-        self.report.simple_title("Creating Filter File")
+        self.report.simple_title("Creating a Filter File")
+
         new_data = []
-        self.report.info("All kepware records now processing...")
         for item in kepware_export:
+            self.report.info(f'Processing:\t{item["Tag Name"]}')
             new_row = {}
             for header in FILTER_FILE_HEADERS:
                 if header == "NodeId":
@@ -241,7 +242,7 @@ class Process:
                 else:
                     new_row[header] = None
             new_data.append(new_row)
-        self.report.info("All kepware records processed into the filer file.")
+        self.report.info("All records processed into the filer file.")
 
         self.filter_file_df = self.append_dict_to_df(self.filter_file_df, new_data)
 
@@ -250,7 +251,7 @@ class Process:
             file_name,
             index=False,
         )
-        self.report.info(f"Filter File Saved to: ../{file_name.name}")
+        self.report.info(f"Filter File Saved to: ..//{file_name.name}")
 
     def create_pi_attributes(self, kepware_export: list[dict]):
         """
@@ -259,9 +260,9 @@ class Process:
         self.report.simple_title("Creating PI Attributes")
         new_data = []
         tag_prefix = self.set_tag_prefix()
-        self.report.info("All kepware records now processing...")
         for item in kepware_export:
             new_row = {}
+            self.report.info(f'Processing:\t{item["Tag Name"]}')
             for header in TAG_TO_ATTRIBUTE_HEADERS:
                 match header:
                     case "Prefix":
@@ -275,7 +276,7 @@ class Process:
                     case _:
                         new_row[header] = None
             new_data.append(new_row)
-        self.report.info("All kepware records now processed to PI Attributes.")
+        self.report.info("All records processed to PI Attributes.")
 
         self.attribute_df = self.append_dict_to_df(self.attribute_df, new_data)
 
@@ -286,7 +287,7 @@ class Process:
             file_name,
             index=False,
         )
-        self.report.info(f"PI Attributes Saved to: ../{file_name.name}")
+        self.report.info(f"PI Attributes Saved to: ..//{file_name.name}")
 
     def create_instrument_tags(self, kepware_export: list[dict]):
         """
@@ -294,8 +295,8 @@ class Process:
         """
         self.report.simple_title("Creating Instrument Tags")
         new_data = []
-        self.report.info("All kepware records now processing...")
         for item in kepware_export:
+            self.report.info(f'Processing:\t{item["Tag Name"]}')
             new_row = {}
             node_id = self.create_node_id(item["Tag Name"])
             new_row["Instrument Tag"] = self.create_instrument_tag(node_id)
@@ -313,7 +314,7 @@ class Process:
             file_name,
             index=False,
         )
-        self.report.info(f"Instrument Tags Saved to: ../{file_name.name}")
+        self.report.info(f"Instrument Tags Saved to: ..//{file_name.name}")
 
     def append_dict_to_df(self, df: pd.DataFrame, new_data: list[dict]) -> pd.DataFrame:
         df = pd.concat(
@@ -326,8 +327,10 @@ class Process:
         Creates a data structure that holds tag data formatted for PI connectors from
         document (20701076) supplied from Kepware csv data.
         """
+        self.report.simple_title("Creating PI Tags (20701076)")
         pi_data = []
         for item in kepware_data:
+            self.report.info(f'Processing:\t{item["Tag Name"]}')
             new_row = dict(KEPWARE_TO_PI_DEFAULTS)
             for header in KEPWARE_TO_PI_AUTO_INPUTS:
                 match header:
@@ -341,6 +344,9 @@ class Process:
                         try:
                             new_row[header] = item[header]
                         except KeyError:
+                            self.report.error(
+                                f"KeyError:\t{item[header]} does not exiest."
+                            )
                             new_row[header] = None
 
             original_row = new_row.copy()
@@ -359,7 +365,7 @@ class Process:
             index=False,
         )
         self.report.info("Kepware Tags Transferred to PI Tags")
-        self.report.info(f"New file saved to: ../{file_name.name}")
+        self.report.info(f"New file saved to: ..//{file_name.name}")
 
     def create_kepware_tags(self, pi_data: list[dict]) -> None | pd.DataFrame:
         """
@@ -368,6 +374,7 @@ class Process:
         """
         kepware_data = []
         for item in pi_data:
+            self.report.info(f'Processing:\t{item["Name"]}')
             new_row = {}
             for header in KEPWARE_EXPORT_HEADERS:
                 match header:
@@ -405,7 +412,7 @@ class Process:
             index=False,
         )
         self.report.info("PI Tags Transferred to Kepware Tags")
-        self.report.info(f"New file saved to: ../{file_name.name}")
+        self.report.info(f"New file saved to: ..//{file_name.name}")
 
         return df
 
@@ -482,8 +489,8 @@ class Process:
             file_name,
             index=False,
         )
-        self.report.info("Original Dataset Captured and Saved to folder.")
-        self.report.info(f"File saved to: ../{file_name.name}")
+        self.report.info("Original dataset captured.")
+        self.report.info(f"File saved as: ..//{file_name.name}")
 
     # ---------- #
     # Processors #
@@ -522,6 +529,7 @@ class Process:
             process = generators[file_type][gen_type]
             process()
 
+        self.report_process_complete()
         self.report.save_report()
 
     def process_pi_all(self):
@@ -602,3 +610,10 @@ class Process:
             self.create_pi_tags(kepware_export)
         except Exception as e:
             self.report.exception(f"Could not make files:\n{e}")
+
+    def report_process_complete(self):
+        """
+        Report process has ended.
+        """
+        self.report.subtitle("Process has completed")
+        self.report.info("Review log files for errors.")

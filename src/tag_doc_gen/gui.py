@@ -78,10 +78,6 @@ class TagDocGenFrame(WavePackFrame):
 
         self.tag_form_rows: int = 0
 
-        self.report.debug("Checking for Debug functionaltiy.")
-        self.report.debug("This should show on init of the tag gen doc wavepack.")
-
-
         self._build_footer()
         self._build_file_inputs()
         self._build_file_type_selections()
