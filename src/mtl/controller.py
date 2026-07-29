@@ -38,6 +38,7 @@ class MTLProcessorType(int, Enum):
     NONE = 0
     COMPARE = 1
     APPEND = 2
+    DOWNLOAD = 3
 
 
 @dataclass(frozen=True)
@@ -53,8 +54,8 @@ class MTLRequest:
     input_file_path: Path
 
     @property
-    def report_name(self) -> str:
-        return self.filter or "No_Filter"
+    def report_name(self) -> str | None:
+        return self.filter or None
 
 
 @dataclass
@@ -67,6 +68,8 @@ class MTLUi:
     process_button: tkb.Button
     opt_process: tkb.IntVar
     stext: ScrolledText
+    version_var: tkb.StringVar
+    mtl_path: tkb.StringVar
 
 
 class MTLController(ProcessController):
@@ -87,7 +90,11 @@ class MTLController(ProcessController):
     def __init__(self, window: AppWindow):
         super().__init__()
         self.window = window
-        self._controller: AppController = window.controller
+        self.controller: AppController = window.controller
+
+    @property
+    def report(self):
+        return self.controller.report
 
     def _start_thread(
         self,
@@ -100,7 +107,7 @@ class MTLController(ProcessController):
         _started = time.perf_counter()
         try:
             process = Process(
-                self._controller.report,
+                self.report,
                 req.filter,
                 req.data_table,
                 str(req.mtl_file_path),
@@ -108,35 +115,40 @@ class MTLController(ProcessController):
             )
 
             if req.process_type == MTLProcessorType.APPEND:
-                self._controller.report.info("Appending data...")
-                process.append_input()
+                self.report.info("Appending data...")
+                process.run_append()
+            elif req.process_type == MTLProcessorType.COMPARE:
+                self.report.info("Comparing data...")
+                process.run_comparison()
+            elif req.process_type == MTLProcessorType.DOWNLOAD:
+                self.report.info("Download test..")
+                process.get_mtl_from_web(ui.version_var, ui.mtl_path)
             else:
-                self._controller.report.info("Comparing data...")
-                process.compare_input()
+                self.report.critical(
+                    "Process request failed. MTLProcessorType does not exist",
+                    popup=True,
+                )
 
         except Exception as e:
-            self._controller.report.exception(
+            self.report.exception(
                 f"Subroutine process error:\n{e}",
                 popup=True,
             )
         finally:
             _ended = time.perf_counter()
+
+            def _finish_ui():
+                ui.progress_bar.stop()
+                ui.opt_process.set(MTLProcessorType.NONE.value)
+                ui.process_button.config(state=NORMAL)
+
             self.window.after(
-                0,
-                lambda: self._controller.report.info(
-                    "Subroutine ended.",
-                    popup=True,
-                ),
+                0, lambda: self.report.info("Subroutine ended.", popup=True)
             )
-            self.window.after(0, lambda: ui.progress_bar.stop())
-            self.window.after(
-                1, lambda: ui.opt_process.set(MTLProcessorType.NONE.value)
-            )
-            self.window.after(2, lambda: ui.process_button.config(state=NORMAL))
+            self.window.after_idle(_finish_ui)
+
             completion_time = _ended - _started
-            self._controller.report.simple_title(
-                f"Processing took: {completion_time:.4f}s"
-            )
+            self.report.simple_title(f"Processing took: {completion_time:.4f}s")
 
     def start_process(
         self,
@@ -149,7 +161,7 @@ class MTLController(ProcessController):
         if req.process_type == MTLProcessorType.NONE:
             self.window.after(
                 0,
-                lambda: self._controller.report.error(
+                lambda: self.report.error(
                     "Please select either the Compare or Append radio button.",
                     popup=True,
                 ),
@@ -159,7 +171,7 @@ class MTLController(ProcessController):
         if self.process_thread and self.process_thread.is_alive():
             self.window.after(
                 0,
-                lambda: self._controller.report.warning(
+                lambda: self.report.warning(
                     "Process already running!",
                     popup=True,
                 ),
@@ -167,7 +179,12 @@ class MTLController(ProcessController):
             return
 
         ui.process_button.config(state=DISABLED)
-        self._controller.reset_report(ui.stext, req.report_name)
+        report_name = (
+            f"{req.data_table}_{req.report_name}"
+            if req.report_name is not None
+            else req.data_table
+        )
+        self.controller.reset_report(ui.stext, report_name)
 
         ui.progress_bar.start()
 

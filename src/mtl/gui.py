@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from src.mtl.extraction import DataExtractor
+
 if TYPE_CHECKING:
     from src.app.gui import AppWindow
 
@@ -15,10 +17,12 @@ import ttkbootstrap as tkb
 from ttkbootstrap.constants import (
     BOTH,
     BOTTOM,
+    DISABLED,
     INDETERMINATE,
     LEFT,
     N,
     NO,
+    READONLY,
     RIGHT,
     S,
     TOP,
@@ -31,8 +35,8 @@ from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
 from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
-from src.app.paths import MTL_INSTRUCTIONS_PATH
-from src.mtl.metadata import MTL_VERSION, WORKSHEET_METADATA
+from src.mtl.paths import MTL_INSTRUCTIONS_PATH
+from src.mtl.metadata import Metadata
 from src.mtl.controller import MTLController, MTLProcessorType, MTLRequest, MTLUi
 
 with open(MTL_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
@@ -62,17 +66,18 @@ class MTLFrame(WavePackFrame):
         )
         self.window = window
         self.help_label = "MTL/CMD"
+        self.metadata = Metadata(self.report)
 
         self.proc_ctrl: MTLController = MTLController(window)
         self.stext: ScrolledText
 
         # TK Variables options
         self.opt_data_table = tkb.StringVar()
-        self.opt_mtl_path = tkb.StringVar(value="Select a file.")
+        self.opt_mtl_path = tkb.StringVar(value="Select a file or import from ManGo.")
         self.opt_input_path = tkb.StringVar(value="Select a file.")
         self.opt_filter = tkb.StringVar()
         self.opt_process = tkb.IntVar(value=MTLProcessorType.NONE.value)
-        self.mtl_version = tkb.StringVar(value=MTL_VERSION)
+        self.mtl_version = tkb.StringVar(value="Import needed.")
         self._mtl_is_selected = tkb.BooleanVar(value=False)
         self._input_is_selected = tkb.BooleanVar(value=False)
 
@@ -85,6 +90,8 @@ class MTLFrame(WavePackFrame):
         self._build_process_row()
         self._build_text_display()
 
+        self.window.after(0, self._check_for_mtl_document)
+
         self.report.info(
             "Welcome to the WAVE. Start the process by choosing your files.", log=False
         )
@@ -94,9 +101,36 @@ class MTLFrame(WavePackFrame):
     def report(self):
         return self.window.controller.report
 
+    def _check_for_mtl_document(self) -> None:
+        self.report.info("Checking files for a MTL document.")
+        mtl_doc_path = self.metadata.get_mtl_document_path()
+        if mtl_doc_path.exists():
+            self.report.info("Found an MTL document in your files.")
+            self.opt_mtl_path.set(str(mtl_doc_path))
+            extractor = DataExtractor(self.report, self.metadata)
+            last_rev = extractor.get_last_revision(mtl_doc_path)
+            # TODO: Check to make sure setting works in the pyinstaller exe
+            self.metadata.set_mtl_version(str(last_rev))
+            self.mtl_version.set(str(last_rev))
+            self.report.warning(
+                f"Local MTL document is revision: {last_rev}. "
+                + "If this revision is incorrect. Please use the Import button "
+                + "and the app will automatically download the "
+                + "latest revision.",
+                popup=True,
+            )
+            self._mtl_is_selected.set(True)
+        else:
+            self.report.warning(
+                "Local version of the MTL not found. "
+                + "Use the Import button to automatically "
+                + "download a current effective version of the MTL.",
+                popup=True,
+            )
+
     def show_help(self):
         self.report.info(
-            "Instuctional Video will now open.\n Text instructions sent to display.",
+            "Instructional Video will now open.\nText instructions sent to display.",
             log=False,
             verbose=False,
             popup=True,
@@ -105,6 +139,7 @@ class MTLFrame(WavePackFrame):
         vid_link = self.window.controller.mtl_configs["mtl_help_vid_url"]
         webbrowser.open(vid_link, new=1)
 
+    # TEST:
     def _build_file_select(self) -> None:
         """
         Builds the file selection widgets for the UI.
@@ -116,19 +151,47 @@ class MTLFrame(WavePackFrame):
         )
         frame.pack(side=TOP, anchor=N, fill=X, expand=NO)
 
-        self._build_file_row(
-            frame,
-            "Select MTL/CMD:",
-            self.opt_mtl_path,
-            self._mtl_is_selected,
-            20,
+        row = tkb.Frame(frame, padding=PAD)
+        row.pack(fill=X)
+        import_button = tkb.Button(
+            row,
+            text="Import",
+            bootstyle=PRIMARY,
+            padding=PAD,
+            width=15 - int(PAD / 1.5),
+            command=self._on_import_clicked,
         )
+        import_button.pack(side=RIGHT)
+        pick_button = tkb.Button(
+            row,
+            text="Pick File",
+            bootstyle=PRIMARY,
+            padding=PAD,
+            width=15 - int(PAD / 1.5),
+            command=lambda: self._set_filepath(
+                self.opt_mtl_path,
+                self._mtl_is_selected,
+                (".xlsx",),
+            ),
+        )
+        pick_button.pack(side=RIGHT, padx=(0, PAD_X * 2.3))
+
+        label = tkb.Label(
+            row,
+            text="Select your MTL Excel Document:",
+            padding=PAD,
+            width=30,
+        )
+        label.pack(side=LEFT)
+        entry = tkb.Entry(row, textvariable=self.opt_mtl_path, state=READONLY)
+        entry.pack(side=LEFT, fill=BOTH, expand=YES, padx=PAD_X)
+
         self._build_file_row(
             frame,
-            "Select input CSV:",
+            "Select your Pi Builder export CSV:",
             self.opt_input_path,
             self._input_is_selected,
-            20,
+            30,
             ("*.csv",),
         )
 
@@ -148,7 +211,7 @@ class MTLFrame(WavePackFrame):
         row.pack(fill=X)
         label = tkb.Label(row, text=label_text, padding=PAD, width=width)
         label.pack(side=LEFT)
-        entry = tkb.Entry(row, textvariable=path_variable)
+        entry = tkb.Entry(row, textvariable=path_variable, state=READONLY)
         entry.pack(side=LEFT, fill=BOTH, expand=YES, padx=PAD_X)
         button = tkb.Button(
             row,
@@ -216,7 +279,8 @@ class MTLFrame(WavePackFrame):
         cbox_label = tkb.Label(row, text="MTL/CMD Table:", padding=PAD)
         cbox_label.pack(side=LEFT, padx=PAD_X)
 
-        self.mtl_table_cbox = tkb.Combobox(row, values=list(WORKSHEET_METADATA.keys()))
+        keys = list(self.metadata.worksheet_metadata.keys())
+        self.mtl_table_cbox = tkb.Combobox(row, values=keys)
         self.mtl_table_cbox.pack(side=LEFT, fill=X, expand=YES, padx=PAD_X)
         self.mtl_table_cbox.current(0)
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self._on_mtl_table_selected)
@@ -224,10 +288,18 @@ class MTLFrame(WavePackFrame):
         default_value = self.mtl_table_cbox.get()
         self.opt_data_table.set(default_value)
 
-        version_label = tkb.Label(
-            row, text=f"Compatible MTL Version: {MTL_VERSION}", padding=PAD
+        self.version_entry = tkb.Entry(
+            row,
+            textvariable=self.mtl_version,
         )
-        version_label.pack(side=RIGHT, padx=PAD_X)
+        self.version_entry.pack(side=RIGHT, padx=PAD_X)
+
+        version_key_label = tkb.Label(
+            row,
+            text="MTL Revision:",
+            padding=PAD,
+        )
+        version_key_label.pack(side=RIGHT, padx=PAD_X)
 
     def _on_mtl_table_selected(self, event) -> None:
         """
@@ -285,6 +357,31 @@ class MTLFrame(WavePackFrame):
         )
         self.process_button.pack(side=RIGHT, padx=PAD_X, pady=PAD_Y, fill=Y)
 
+    def _on_import_clicked(self) -> None:
+        """
+        Attempts to import the MTL on button clicked. Builds a request and passes ui
+        objects to the process thread.
+        """
+
+        req = MTLRequest(
+            MTLProcessorType(MTLProcessorType.DOWNLOAD.value),
+            self.opt_filter.get(),
+            self.opt_data_table.get(),
+            Path(self.opt_mtl_path.get()),
+            Path(self.opt_input_path.get()),
+        )
+        ui = MTLUi(
+            self.progress_bar,
+            self.process_button,
+            self.opt_process,
+            self.stext,
+            self.mtl_version,
+            self.opt_mtl_path,
+        )
+
+        self.proc_ctrl.start_process(req, ui)
+        self._mtl_is_selected.set(True)
+
     def _on_process_clicked(self) -> None:
         """
         Builds the requests and ui objects to pass to the process thread when the
@@ -301,11 +398,14 @@ class MTLFrame(WavePackFrame):
             Path(self.opt_mtl_path.get()),
             Path(self.opt_input_path.get()),
         )
+
         ui = MTLUi(
             self.progress_bar,
             self.process_button,
             self.opt_process,
             self.stext,
+            self.mtl_version,
+            self.opt_mtl_path,
         )
 
         self.proc_ctrl.start_process(req, ui)

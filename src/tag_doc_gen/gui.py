@@ -40,7 +40,7 @@ from src.app.utils import (
     PAD_Y,
     FONT_MONO,
 )
-from src.app.paths import TAG_DOC_GEN_INSTRUCTIONS_PATH
+from src.tag_doc_gen.paths import TAG_DOC_GEN_INSTRUCTIONS_PATH
 from src.tag_doc_gen.controller import TagDocGenController
 from src.tag_doc_gen.utils import (
     TagGenFileType,

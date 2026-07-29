@@ -5,120 +5,104 @@
 
 # stdlib
 import sys
-import json
 import warnings
 from pathlib import Path
 
 
-def get_base_path() -> Path:
-    """
-    Get the directory where the .exe is located
-    """
-    if getattr(sys, "frozen", False):
-        # Running as compiled executable
-        return Path(sys.executable).parent
-    else:
-        # Running as script - project root is two levels up from src/
-        # paths lives two levels up in src/app/
-        return Path(__file__).parent.parent.parent
+class AppPaths:
+    def __init__(self) -> None:
+        self.base_path = self.get_base_path()
+        self.temp_path = self.get_temp_path()
+
+        self.known_bundled_resources = [
+            "assets",
+        ]
+
+        self.assets_dir = self.get_bundled_resource_path("assets")
+
+        self.logs_dir = self.create_base_folder("logs")
+        self.user_prefs_dir = self.create_base_folder("user_prefs")
+        self.reports_dir = self.create_base_folder("reports")
+
+    def _ensure_directory(self, path: Path):
+        """
+        Will create the path if the path does not exist.
+        """
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def get_base_path(self) -> Path:
+        """
+        Returns the directory where the exe is located.
+        """
+        if getattr(sys, "frozen", False):
+            # If app is running as a compiled executable
+            return Path(sys.executable).parent
+        else:
+            # App is running as a script or in development
+            # NOTE: project root is three levels up from source as: wave/src/app
+            return Path(__file__).parent.parent.parent
+
+    def get_temp_path(self) -> Path:
+        """
+        Returns PyInstaller's temp extraction folder for onefile exe
+        or the regular base path if run as script or in dev.
+        """
+        if getattr(sys, "frozen", False):
+            return Path(sys._MEIPASS)  # type: ignore
+        else:
+            return self.get_base_path()
+
+    def get_bundled_resource_path(self, resource_name: str) -> Path:
+        """
+        Gets the path of a bundled resource folder (assets, configs, etc.)
+        """
+        if resource_name not in self.known_bundled_resources:
+            warnings.warn(
+                "Resource folder name not known. Attempting GET anyway.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        return self.temp_path / resource_name
+
+    def create_base_folder(self, folder_name: str) -> Path:
+        """
+        Creates a new folder at the base directory next to the exe.
+        """
+        new_path = self.base_path / folder_name
+        new_folder = self._ensure_directory(new_path)
+        return new_folder
+
+    def create_sub_folder(self, parent_folder: Path, folder_name: str) -> Path:
+        """
+        Creates a new sub-folder from an existing directory.
+        """
+        new_path = parent_folder / folder_name
+        new_folder = self._ensure_directory(new_path)
+        return new_folder
 
 
-def get_temp_path() -> Path:
-    """
-    Get PyInstaller's temp extraction folder
-    """
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS)  # type: ignore
-    else:
-        return get_base_path()
+# Create the Paths object here, the rest of the app should use this.
+PATHS = AppPaths()
 
 
-def get_resource_path(relative_path: str) -> Path:
-    """
-    Get path to bundled resource (assets, config, etc.)
-    """
-    temp = get_temp_path()
-    return temp / relative_path
-
-
-def get_data_path(relative_path: str) -> Path:
-    """
-    Get path for user data (logs, reports) next to .exe
-    """
-    base = get_base_path()
-    return base / relative_path
-
-
-def ensure_directory(path: Path) -> Path:
-    """
-    Create directory if it doesn't exist
-    """
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def get_app_directories() -> dict[str, Path]:
-    """
-    Get all application directories
-    """
-    base = get_base_path()
-    temp = get_temp_path()
-
-    return {
-        "assets": get_resource_path("assets"),
-        "base": base,
-        "logs": ensure_directory(get_data_path("logs")),
-        "user_prefs": ensure_directory(get_data_path("user_prefs")),
-        "reports": ensure_directory(get_data_path("reports")),
-        "temp": temp,
-    }
-
-
-def get_user_prefs(_dirs: dict[str, Path]) -> Path:
-    """
-    Returns the user preferences path. If the user preferences do not exist,
-    it creates them form the default assets.
-    """
-    user_prefs_path = _dirs["user_prefs"] / "user_preferences.json"
-    if user_prefs_path.exists():
-        return user_prefs_path
-
-    default_path = _dirs["assets"] / "user_preferences.json"
-
-    if default_path.exists():
-        with open(default_path, "r", encoding="utf-8") as f:
-            default_prefs = json.load(f)
-
-        with open(user_prefs_path, "w", encoding="utf-8") as f:
-            json.dump(default_prefs, f, indent=2)
-    else:
-        warnings.warn(
-            "Could not create a user preferences path! Using defaults, but cannot save user settings.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        return default_path
-
-    return user_prefs_path
-
-
-# Convenience constants
-APP_DIRS = get_app_directories()
-BASE_DIR = APP_DIRS["base"]
-TEMP_DIR = APP_DIRS["temp"]
-
-ASSETS_DIR = APP_DIRS["assets"]
-LOGS_DIR = APP_DIRS["logs"]
-REPORTS_DIR = APP_DIRS["reports"]
-
-LOGO_PATH = ASSETS_DIR / "logo.png"
-
-MTL_CONFIG_PATH = ASSETS_DIR / "mtl_config.json"
-USER_PREFS_PATH = get_user_prefs(APP_DIRS)
-
-MTL_INSTRUCTIONS_PATH = ASSETS_DIR / "mtl_instructions.txt"
-KEPWARE_COMPARISON_INSTRUCTIONS_PATH = (
-    ASSETS_DIR / "kepware_comparison_instructions.txt"
-)
-TAG_DOC_GEN_INSTRUCTIONS_PATH = ASSETS_DIR / "tag_doc_gen_instructions.txt"
-EXAMPLE_INSTRUCTIONS_PATH = ASSETS_DIR / "example_instructions.txt"
+# # LEGACY FOR COMPAT
+# # BASE_DIR = PATHS.base_path
+# TEMP_DIR = PATHS.temp_path
+#
+# ASSETS_DIR = PATHS.assets_dir
+# LOGS_DIR = PATHS.logs_dir
+# REPORTS_DIR = PATHS.reports_dir
+#
+# LOGO_PATH = PATHS.assets_dir / "logo.png"
+#
+# MTL_INSTRUCTIONS_PATH = PATHS.assets_dir / "mtl_instructions.txt"
+# TAG_DOC_GEN_INSTRUCTIONS_PATH = PATHS.assets_dir / "tag_doc_gen_instructions.txt"
+# EXAMPLE_INSTRUCTIONS_PATH = PATHS.assets_dir / "example_instructions.txt"
+# KEPWARE_COMPARISON_INSTRUCTIONS_PATH = (
+#     PATHS.assets_dir / "kepware_comparison_instructions.txt"
+# )
+#
+# # Move to MTL UTILS
+# MTL_CONFIG_PATH = PATHS.assets_dir / "mtl_config.json"
+# # USER_PREFS_PATH = get_user_prefs(APP_DIRS)

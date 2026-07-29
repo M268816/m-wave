@@ -13,7 +13,7 @@ import xlwings as xl
 import pywintypes
 
 # local
-from src.mtl.metadata import MtlMetadata
+from src.mtl.metadata import Metadata
 from src.app.reporting import Reporting
 
 
@@ -21,7 +21,7 @@ class DataAppender:
     def __init__(
         self,
         report: Reporting,
-        metadata: MtlMetadata,
+        metadata: Metadata,
     ) -> None:
         self.report = report
         self.metadata = metadata
@@ -34,7 +34,8 @@ class DataAppender:
         """
         Update and insert a input_dataframe into the mtl_dataframe, matching on `keys`
         (list of column names). input_dataframe values overwrite mtl_dataframe for
-        matching keys; new keys are appended. Returns empty data frame if it fails.
+        matching keys; new keys are appended. All columns conform to the MTL and input
+        columns are silently dropped. Returns empty data frame if it fails.
         """
         output = pd.DataFrame()
         try:
@@ -56,22 +57,30 @@ class DataAppender:
             keyed_mtl = keyed_mtl[~keyed_mtl.index.isin(keyed_input.index)]
             output = pd.concat([keyed_mtl, keyed_input]).reset_index()[original_columns]
 
+            dropped = set(input_dataframe.columns) - set(original_columns)
+            if dropped:
+                self.report.warning(
+                    "The following input columns were dropped during upsert:"
+                )
+                for i in dropped:
+                    self.report.warning(f"\t{i}")
+
             return output  # type: ignore
 
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return output
+            return output  # type: ignore
 
         except ValueError as e:
             error_msg = f"A value error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return output
+            return output  # type: ignore
 
         except Exception as e:
             error_msg = f"An unexpected error occurred during upserting.\n{e}"
             self.report.exception(error_msg)
-            return output
+            return output  # type: ignore
 
     def export_to_csv(self, appended_dataframe: pd.DataFrame) -> None:
         """
@@ -98,7 +107,8 @@ class DataAppender:
         mtl. Retries saving the new copy for OLE Busy errors (likely OneDrive problems).
         """
         if not output_file_path:
-            output_file_path = self.report.report_folder / "20471406_appended.xlsx"
+            doc_num = self.metadata.get_mtl_doc_num()
+            output_file_path = self.report.report_folder / f"{doc_num}_appended.xlsx"
 
         table_id = self.metadata.get_table_id()
         worksheet_name = self.metadata.get_worksheet_name()

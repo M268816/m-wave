@@ -23,9 +23,9 @@ import ttkbootstrap as tkb
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
-from src.app.paths import MTL_CONFIG_PATH, REPORTS_DIR, USER_PREFS_PATH
+from src.app.paths import PATHS
 from src.app.reporting import Reporting
-from src.app.utils import ProcessController
+from src.app.utils import ProcessController, USER_PREFS_PATH
 
 
 class AppController:
@@ -36,7 +36,10 @@ class AppController:
     def __init__(self, window: tkb.Window) -> None:
         self.window: tkb.Window = window
         self.user_preferences: dict = self._load_configs(USER_PREFS_PATH)
-        self.mtl_configs: dict = self._load_configs(MTL_CONFIG_PATH)
+        # TODO: This should be moved to the MTL WavePack I think.
+        mtl_config_path = PATHS.assets_dir / "mtl_config.json"
+        self.mtl_configs: dict = self._load_configs(mtl_config_path)
+        self.report_dir = PATHS.reports_dir
         self.report: Reporting = self._set_report(window)
 
         # Set when process frame is created
@@ -70,7 +73,7 @@ class AppController:
         """
         return Reporting(
             window,
-            REPORTS_DIR,
+            self.report_dir,
             verbose_printing=False,
             use_timestamps=self.user_preferences.get("use_timestamps", False),  # type: ignore
             use_msg_types=self.user_preferences.get("use_msg_types", False),  # type: ignore

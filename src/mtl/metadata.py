@@ -5,11 +5,13 @@
 
 # stdlib
 import json
+from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 
 # local
-from src.app.paths import MTL_CONFIG_PATH
+from src.app.reporting import Reporting
+from src.mtl.paths import MTL_CONFIG_PATH, MTL_DOC_DIR
 
 
 class TableType(int, Enum):
@@ -36,87 +38,165 @@ class TableInfo:
     can_compare: bool = False
 
 
-def load_mtl_configs() -> dict:
-    try:
-        with open(MTL_CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        raise SystemExit(f"Configuration not found. Cannot run application.\n{e}")
+class Metadata:
+    def __init__(self, report: Reporting, ws_name: str | None = None) -> None:
+        self.report = report
+        self.worksheet_name = ws_name
+        self.mtl_configs = self.get_mtl_configs()
+        self.worksheet_metadata = self.get_worksheet_metadata()
+        self.table_type: TableType = self.get_table_type()
+        self.table_formatting = self.get_table_formatting()
+        self.dataframe_formatting = self.get_dataframe_formatting()
+        self.mtl_document_path = self.get_mtl_document_path()
 
+    def set_worksheet_name(self, name: str):
+        self.worksheet_name = name
 
-_config = load_mtl_configs()
+    def set_table_type(self):
+        self.table_type = self.worksheet_metadata[self.worksheet_name].type
 
+    def worksheet_name_is_set(self) -> bool:
+        if self.worksheet_name:
+            return True
 
-WORKSHEET_METADATA = {
-    sheet_name: TableInfo(
-        table_id=entry["table_id"],
-        type=TableType[entry["type"]],
-        can_compare=entry["can_compare"],
-    )
-    for sheet_name, entry in _config["worksheet_metadata"].items()
-}
+        self.report.critical("Worksheet name was never set!")
+        return False
 
-TABLE_FORMATTING = {
-    TableType[key]: {
-        "Index Keys": entry["index_keys"],
-        "Filter on Keys": entry["filter_on_keys"],
-        "Filter Keys": entry["filter_keys"],
-        "Object Type Order": entry["object_type_order"],
-        "Sort Order": entry["sort_order"],
-        "Sort Ascending": entry["sort_ascending"],
-    }
-    for key, entry in _config["table_formatting"].items()
-}
+    def get_mtl_configs(self) -> dict:
+        try:
+            with open(MTL_CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            raise SystemExit(f"Configuration not found. Cannot run application.\n{e}")
 
-DATAFRAME_FORMATTING = _config["dataframe_formatting"]
-
-MTL_VERSION = _config["mtl_version"]
-
-
-class MtlMetadata:
-    """
-    Each class that needs metadata for a mtl worksheet constructs this one instance
-    and uses it throughout:
-
-    Usage:
-    meta = MtlMetadata(worksheet_name)
-    keys = meta.get_merge_keys()
-    sort = meta.get_sort_order()
-    """
-
-    def __init__(self, worksheet_name: str) -> None:
-        self.worksheet_name = worksheet_name
-        self._table_type = WORKSHEET_METADATA[self.worksheet_name].type
-
-    def get_worksheet_name(self) -> str:
-        return self.worksheet_name
-
-    def can_compare_worksheet(self) -> bool:
-        return WORKSHEET_METADATA[self.worksheet_name].can_compare
-
-    def get_table_type(self) -> TableType:
-        return self._table_type
-
-    def get_table_id(self) -> str:
-        return WORKSHEET_METADATA[self.worksheet_name].table_id
+    def get_worksheet_metadata(self) -> dict:
+        return {
+            sheet_name: TableInfo(
+                table_id=entry["table_id"],
+                type=TableType[entry["type"]],
+                can_compare=entry["can_compare"],
+            )
+            for sheet_name, entry in self.mtl_configs["worksheet_metadata"].items()
+        }
 
     def get_table_formatting(self) -> dict:
-        return TABLE_FORMATTING[self._table_type]
+        return {
+            TableType[key]: {
+                "Index Keys": entry["index_keys"],
+                "Filter on Keys": entry["filter_on_keys"],
+                "Filter Keys": entry["filter_keys"],
+                "Sort Order": entry["sort_order"],
+                "Sort Ascending": entry["sort_ascending"],
+                "Group Key": entry.get("group_key"),
+                "Group Parent Key": entry.get("group_parent_key"),
+                "Group Member Key": entry.get("group_member_key"),
+                "Group Key Order": entry.get("group_key_order"),
+            }
+            for key, entry in self.mtl_configs["table_formatting"].items()
+        }
+
+    def get_table_type(self) -> TableType:
+        if self.worksheet_name_is_set():
+            return self.worksheet_metadata[self.worksheet_name].type
+        self.report.critical("Table type could not be set.")
+        return TableType.UNKNOWN
+
+    def table_type_is_set(self) -> bool:
+        if self.table_type is not None and self.table_type != TableType.UNKNOWN:
+            return True
+
+        self.report.critical(
+            "Table type was not set before trying to return table data.", popup=True
+        )
+        return False
+
+    def get_mtl_version(self) -> str:
+        return self.mtl_configs["mtl_version"]
+
+    def set_mtl_version(self, new_version: str) -> None:
+        try:
+            config = self.get_mtl_configs()
+            config["mtl_version"] = new_version
+            with open(MTL_CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4)
+            self.mtl_configs["mtl_version"] = new_version
+        except Exception as e:
+            self.report.critical("MTL configuration could not be written.", popup=True)
+            self.report.exception(f"{e}")
+
+    def get_mtl_doc_num(self) -> str:
+        return self.mtl_configs["mtl_doc_num"]
+
+    def get_mtl_document_path(self) -> Path:
+        return Path(MTL_DOC_DIR / self.get_mtl_doc_num()).with_suffix(".xlsx")
+
+    def get_mtl_dl_url(self) -> str:
+        return self.mtl_configs["mtl_dl_url"]
+
+    def get_dataframe_formatting(self) -> dict:
+        return self.mtl_configs["dataframe_formatting"]
+
+    def get_worksheet_name(self) -> str:
+        if self.worksheet_name_is_set():
+            return self.worksheet_name if self.worksheet_name else "None"
+        return "None"
+
+    def can_compare_worksheet(self) -> bool:
+        if self.worksheet_name_is_set():
+            return self.worksheet_metadata[self.worksheet_name].can_compare
+        return False
+
+    def get_table_id(self) -> str:
+        if self.worksheet_name_is_set():
+            return self.worksheet_metadata[self.worksheet_name].table_id
+        return "None"
+
+    def get_formatting_rules(self) -> dict:
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]
+        return {}
 
     def get_table_index_keys(self) -> list[str]:
-        return TABLE_FORMATTING[self._table_type]["Index Keys"]
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Index Keys"]
+        return []
 
     def should_filter_on_keys(self) -> bool:
-        return TABLE_FORMATTING[self._table_type]["Filter on Keys"]
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Filter on Keys"]
+        return False
 
     def get_table_filter_keys(self) -> list[str]:
-        return TABLE_FORMATTING[self._table_type]["Filter Keys"]
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Filter Keys"]
+        return []
 
     def get_table_sort_order(self) -> list[str]:
-        return TABLE_FORMATTING[self._table_type]["Sort Order"]
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Sort Order"]
+        return []
 
     def get_table_sort_direction(self) -> list[bool]:
-        return TABLE_FORMATTING[self._table_type]["Sort Ascending"]
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Sort Ascending"]
+        return []
 
-    def get_table_type_order(self) -> dict | None:
-        return TABLE_FORMATTING[self._table_type]["Object Type Order"]
+    def get_group_key_order(self) -> dict | None:
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Group Key Order"]
+        return None
+
+    def get_group_key(self) -> str | None:
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Group Key"]
+        return None
+
+    def get_group_parent_key(self) -> str | None:
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Group Parent Key"]
+        return None
+
+    def get_group_member_key(self) -> str | None:
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Group Member Key"]
+        return None

@@ -11,11 +11,12 @@ from datetime import datetime
 
 # local
 from src.app.utils import DATETIME_FORMAT
-from src.app.paths import LOGS_DIR
+from src.app.paths import PATHS
 
 # Logging initialization
 FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
 LOG_DATETIME = datetime.now().strftime(DATETIME_FORMAT)
+LOGS_DIR = PATHS.logs_dir
 LOG_FILENAME = LOGS_DIR / f"{LOG_DATETIME}_general_error.log"
 
 logger = logging.getLogger(__name__)

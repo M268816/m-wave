@@ -36,7 +36,7 @@ from ttkbootstrap.widgets.scrolled import ScrolledText
 # local
 from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
 from src.kepware.controller import KepwareController, KepwareRequest, KepwareUi
-from src.app.paths import KEPWARE_COMPARISON_INSTRUCTIONS_PATH
+from src.kepware.paths import KEPWARE_COMPARISON_INSTRUCTIONS_PATH
 
 with open(KEPWARE_COMPARISON_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
     INSTRUCTIONS = f.read()

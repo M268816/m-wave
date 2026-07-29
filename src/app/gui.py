@@ -5,7 +5,6 @@
 
 # stdlib
 from tkinter import font
-import webbrowser
 
 # third party
 from PIL import Image, ImageTk
@@ -22,7 +21,9 @@ from ttkbootstrap.widgets.scrolled import ScrolledFrame
 from ttkbootstrap.style import PRIMARY
 
 # local
-from src.app.paths import LOGO_PATH, USER_PREFS_PATH
+from src.app.paths import PATHS
+from src.app.utils import USER_PREFS_PATH
+
 from src.app.controller import (
     AppController,
 )
@@ -84,7 +85,10 @@ class AppWindow(tkb.Window):
         apply_scaled_geometry(self, 100, 100)
         # self.geometry("100x100")
         self.resizable(False, False)
-        self.logo = tkb.PhotoImage(file=str(LOGO_PATH))
+
+        self.logo_path = PATHS.assets_dir / "logo.png"
+        self.logo = tkb.PhotoImage(file=self.logo_path)
+
         self.iconphoto(False, self.logo)
         self.protocol("WM_DELETE_WINDOW", self._on_close_requested)
 
@@ -271,7 +275,7 @@ class AppWindow(tkb.Window):
         container = tkb.Frame(about, padding=PAD)
         container.pack(expand=True, fill=BOTH)
 
-        img = Image.open(str(LOGO_PATH))
+        img = Image.open(self.logo_path)
         img = img.resize((128, 128), Image.LANCZOS)  # type: ignore
         self._about_img = ImageTk.PhotoImage(img)
 
@@ -420,7 +424,8 @@ class LauncherFrame(WavePackFrame):
             lbl.grid(row=0, column=1, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
 
             lbl.bind(
-                "<Configure>", lambda e, l=lbl: l.config(wraplength=e.width - PAD_X)
+                "<Configure>",
+                lambda e, label=lbl: label.config(wraplength=e.width - PAD_X),
             )
 
         for col in range(self.grid_width):

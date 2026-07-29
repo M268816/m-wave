@@ -5,16 +5,20 @@
 
 # stdio
 import getpass
+import json
 from threading import Thread
 import tkinter as tk
 from tkinter import font
+from pathlib import Path
+import warnings
 
 # third party
 import ttkbootstrap as tkb
 
 # local
+from src.app.paths import PATHS
 
-# CONSTANTS
+# SIMPLE CONSTANTS
 H1 = ("Verdana", 20, font.BOLD)
 H2 = ("Verdana", 16, font.NORMAL)
 H3 = ("Verdana", 14, font.NORMAL)
@@ -38,6 +42,39 @@ DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
 DATETIME_FORMAT_MERCK = "%d-%b-%Y %H:%M:%S"
 
 
+# COMPUTED CONSTANTS
+def get_user_prefs() -> Path:
+    """
+    Returns the user preferences path. If the user preferences do not exist,
+    it creates them form the default assets.
+    """
+    user_prefs_path = PATHS.user_prefs_dir / "user_preferences.json"
+    if user_prefs_path.exists():
+        return user_prefs_path
+
+    default_path = PATHS.assets_dir / "user_preferences.json"
+
+    if default_path.exists():
+        with open(default_path, "r", encoding="utf-8") as f:
+            default_prefs = json.load(f)
+
+        with open(user_prefs_path, "w", encoding="utf-8") as f:
+            json.dump(default_prefs, f, indent=2)
+    else:
+        warnings.warn(
+            "Could not create a user preferences path! Using defaults, but cannot save user settings.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return default_path
+
+    return user_prefs_path
+
+
+USER_PREFS_PATH = get_user_prefs()
+
+
+# UTILS
 def get_window_scale_factor(
     window: tkb.Window,
     base_height: int = 1080,

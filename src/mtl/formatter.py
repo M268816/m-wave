@@ -1,4 +1,4 @@
-# Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiljates.
 # All rights reserved
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
@@ -10,8 +10,9 @@ import re
 import pandas as pd
 
 # local
-from src.mtl.metadata import MtlMetadata, TableType, DATAFRAME_FORMATTING, MTL_VERSION
 from src.app.reporting import Reporting
+from src.mtl.metadata import Metadata, TableType
+from src.mtl.utils import report_shape_differences
 
 _VALUE_NORMALIZATION_MAP: dict = {
     "TRUE": True,
@@ -22,6 +23,7 @@ _VALUE_NORMALIZATION_MAP: dict = {
     "false": False,
     "": None,
     " ": None,
+    "N/A": None,
     "None": None,
     "NULL": None,
     "null": None,
@@ -35,7 +37,7 @@ class DataFormatter:
     Helper class that handles all MTL and INPUT CSV formatting.
     """
 
-    def __init__(self, report: Reporting, metadata: MtlMetadata) -> None:
+    def __init__(self, report: Reporting, metadata: Metadata) -> None:
         self.report = report
         self.metadata = metadata
 
@@ -71,8 +73,9 @@ class DataFormatter:
         to add classic columns to the table if not already present.
         """
         _df = df.copy()
-        table_type = self.metadata.get_table_type()
-        classic_columns = set(DATAFRAME_FORMATTING["classic_gxp_columns"])
+        table_type = self.metadata.table_type
+        formatting = self.metadata.dataframe_formatting["classic_gxp_columns"]
+        classic_columns = set(formatting)
 
         if table_type == TableType.GXP:
             if classic_columns.issubset(set(_df.columns)):
@@ -110,7 +113,8 @@ class DataFormatter:
         self, mtl_df: pd.DataFrame, input_df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Helper function that filters data to the column keys.
+        Helper function that filters data to the MTL column keys.
+        Drops PI Builder input columns to match the MTL.
         Returns a tuple of data frames. Comparable, and non comparable rows.
         Returns a empty data frames if it fails.
         """
@@ -195,7 +199,7 @@ class DataFormatter:
                 self.report.error("Cannot filter empty data frames. Process failed.")
                 return output
 
-            table_type = self.metadata.get_table_type()
+            table_type = self.metadata.table_type
 
             self.report.info(f"Filtering table: {table_type.name}")
 
@@ -233,8 +237,7 @@ class DataFormatter:
             self.report.info("Filter applied!")
             return output
         except Exception as e:
-            e = str(e)
-            self.report.exception(e)
+            self.report.exception(str(e))
             return output
 
     def sort(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -243,32 +246,49 @@ class DataFormatter:
         Returns an empty data frame if it fails.
         """
         output = pd.DataFrame()
+        _df = df.copy()
         try:
-            # Setting the object type ordering filter
-            config = self.metadata.get_table_formatting()
-            type_order = config["Object Type Order"]
-            if type_order is not None:
+            sort_order = self.metadata.get_table_sort_order()
+            sort_ascending = self.metadata.get_table_sort_direction()
+            group_key = self.metadata.get_group_key()
+            group_parent_key = self.metadata.get_group_parent_key()
+            group_member_key = self.metadata.get_group_member_key()
+            group_key_order = self.metadata.get_group_key_order()
+
+            if group_key_order is not None:
                 self.report.info("Special ordering required.")
-                # Apply the custom ordering column
-                df["type_order"] = df["ObjectType"].map(type_order)  # type: ignore
-                self.report.info("Created temporary sorting column 'type_order'.")
+
+                # Creates a temp numeric ordering column
+                _df["group_key_order"] = _df[group_key].map(group_key_order)  # type: ignore
+                self.report.info("Created temporary sorting column 'group_key_order'.")
+
+                # Ties each member row back to a parent set
+                _df["group_key"] = _df.apply(
+                    lambda row: (
+                        row[group_parent_key]
+                        if row[group_key] == next(iter(group_key_order.keys()))
+                        else row[group_member_key]
+                    ),
+                    axis=1,
+                )
+                self.report.info("Created temporary sorting column 'group_key'.")
 
             # Sort the data frame
             self.report.info("Sorting...")
-            df = df.sort_values(
-                by=config["Sort Order"],
-                ascending=config["Sort Ascending"],
+            _df = _df.sort_values(
+                by=sort_order,
+                ascending=sort_ascending,
                 ignore_index=True,
                 kind="stable",
             )
 
-            # If we used the custom ordering column, drop it here
-            if type_order is not None:
+            # If we used the custom ordering columns, drop them here
+            if group_key_order is not None:
                 self.report.info("Dropping the sorting column.")
-                df = df.drop(columns=["type_order"])
+                _df = _df.drop(columns=["group_key_order", "group_key"])
 
             # Reset the index
-            output = df.reset_index(drop=True)
+            output = _df.reset_index(drop=True)
             self.report.info("Index reset!")
             self.report.info("Sorting completed.")
             return output
@@ -309,7 +329,8 @@ class DataFormatter:
             df = self._drop_na_rows(df, index_keys)
 
             # Changing these columns to int, helps some data comparison errors.
-            for column in DATAFRAME_FORMATTING["numeric_columns"]:
+            numeric_columns = self.metadata.dataframe_formatting["numeric_columns"]
+            for column in numeric_columns:
                 if column in df.columns:
                     # Convert strings to numbers
                     converted_vals = pd.to_numeric(df[column], errors="coerce")
@@ -318,16 +339,17 @@ class DataFormatter:
                         lambda x: (
                             str(int(x))
                             if pd.notna(x) and x == int(x)
-                            else (str(x) if pd.notna(x) else "0")
+                            else (str(x) if pd.notna(x) else "")
                         )
                     )
 
             # Replace to standardize bools and blanks to python types
-            df = df.replace(_VALUE_NORMALIZATION_MAP)
-
-            df = df.astype("string")
+            normal_cols = [col for col in df.columns if col not in index_keys]
+            df[normal_cols] = df[normal_cols].replace(_VALUE_NORMALIZATION_MAP)
 
             output = self._normalize_whitespace(df)
+
+            df = df.astype("string")
 
             return output
 
@@ -358,24 +380,6 @@ class DataFormatter:
         self.report.info(f"    Columns: {input_dataframe.shape[1]}")
         return True
 
-    # NOTE: Duplicate of DataComparator._report_shape_differences — keep in sync.
-    def _report_shape_differences(self, mtl_dim, input_dim, dimension) -> None:
-        """
-        Reports row or column count differences between two data frames.
-        """
-        dimension_plural = f"{dimension}s"
-
-        if mtl_dim == input_dim:
-            self.report.info(f"✓ {dimension} counts match!")
-        else:
-            diff = abs(mtl_dim - input_dim)
-            larger, smaller = (
-                ("MTL", "Input") if mtl_dim > input_dim else ("Input", "MTL")
-            )
-            self.report.warning(
-                f"{larger} has {diff} more {dimension_plural} than {smaller}"
-            )
-
     def conform_columns(
         self,
         mtl_df: pd.DataFrame | None,
@@ -398,7 +402,7 @@ class DataFormatter:
         try:
             if use_version:
                 if "Version" not in _input.columns:
-                    _input["Version"] = MTL_VERSION
+                    _input["Version"] = float(self.metadata.get_mtl_version()) + float(1)
             else:
                 _input = _input.drop(columns=["Version"], errors="ignore")
                 _mtl = _mtl.drop(columns=["Version"], errors="ignore")
@@ -411,7 +415,7 @@ class DataFormatter:
 
             if mtl_cols != input_cols or (_mtl.dtypes != _input.dtypes).any():
                 self.report.highlight_error("Columns do not align!")
-                self._report_shape_differences(mtl_cols, input_cols, "COLUMN")
+                report_shape_differences(self.report, mtl_df, input_df)
                 self.report.warning(
                     "Columns or types may not be aligned and will now be tested and changed."
                 )
@@ -463,6 +467,8 @@ class DataFormatter:
             self.report.exception(f"\n{e}\n")
             return output
         except Exception as e:
-            self.report.highlight_titled_error("Data alignment failed!")
+            self.report.highlight_titled_error(
+                "Data alignment failed! An unexpected error occurred."
+            )
             self.report.exception(f"\n{e}\n")
             return output

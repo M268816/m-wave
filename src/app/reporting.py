@@ -468,7 +468,7 @@ class Reporting:
         """
         A half-width light divider. Used between minor sections.
         """
-        self.error("─" * (self.width // 2))
+        self.error("~" * (self.width // 2))
 
     def save_report(self, popup: bool = False) -> None:
         """

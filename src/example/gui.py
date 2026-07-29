@@ -38,8 +38,8 @@ from ttkbootstrap.scrolled import ScrolledText
 # local
 from src.app.reporting import Reporting
 from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
-from src.app.paths import EXAMPLE_INSTRUCTIONS_PATH
 from src.example.controller import ExampleController, ExampleRequest, ExampleUi
+from src.example.paths import EXAMPLE_INSTRUCTIONS_PATH
 
 with open(EXAMPLE_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
     INSTRUCTIONS = f.read()
