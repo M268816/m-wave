@@ -3,24 +3,6 @@
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
-"""
-This module handles the logic orchestration. Coordinates sequential phases
-for comparison and append workflows.
-
-Classes
--------
-Process
-    Master controller of reporting, processing, and configuration parsing.
-
-Gui
-    Master controller of the GUI and object variables.
-
-Exceptions
-----------
-    raise RuntimeError()
-        raises a run time error if run from the module.
-"""
-
 # stdlib
 import logging
 
@@ -30,6 +12,7 @@ import pandas as pd
 
 # local
 from src.app.reporting import Reporting
+
 from src.mtl.appender import DataAppender
 from src.mtl.extraction import DataExtractor
 from src.mtl.formatter import DataFormatter
@@ -58,26 +41,6 @@ class Process:
     to the user with exported log and csv files. The append function shall attempt to
     apply these upserts to the MTL directly. The user will be  responsible for updating
     the change log manually.
-
-    Attributes
-    ----------
-    report: Reporting
-        a pass through for the main reporting class
-    filter_string: str
-        a pass through for the user input filter string
-    selected_data_table:str
-        a pass through for the user  selected data table
-    mtl_file_path: str
-        a pass through for the user selected mtl file path
-    input_file_path: str
-        a pass through for the user selected input file path
-
-    Methods
-    -------
-    compare_input()
-        the main comparison process
-    append_input()
-        the main append process
 
     """
 
@@ -120,6 +83,7 @@ class Process:
                 revision = self.data_extractor.get_last_revision(mtl_path)
                 self.report.simple_title(f"Revision of the MTL: {revision}")
                 version_stringvar.set(f"{revision}")
+                self.metadata.set_mtl_version(str(revision))
             else:
                 self.report.highlight_error("MTL PATH WAS NONE")
             return True
@@ -381,7 +345,9 @@ class Process:
             self.report.simple_title("General Data Frame Comparison Sanity Check")
             (
                 mtl_rows,
-                input_rows, _, _,
+                input_rows,
+                _,
+                _,
             ) = report_shape_differences(self.report, mtl_df, input_df)
             if mtl_rows == 0 or input_rows == 0:
                 self.report.warning(

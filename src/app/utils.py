@@ -6,7 +6,6 @@
 # stdio
 import getpass
 import json
-from threading import Thread
 import tkinter as tk
 from tkinter import font
 from pathlib import Path
@@ -43,7 +42,7 @@ DATETIME_FORMAT_MERCK = "%d-%b-%Y %H:%M:%S"
 
 
 # COMPUTED CONSTANTS
-def get_user_prefs() -> Path:
+def get_user_prefs_path() -> Path:
     """
     Returns the user preferences path. If the user preferences do not exist,
     it creates them form the default assets.
@@ -71,7 +70,7 @@ def get_user_prefs() -> Path:
     return user_prefs_path
 
 
-USER_PREFS_PATH = get_user_prefs()
+USER_PREFS_PATH = get_user_prefs_path()
 
 
 # UTILS
@@ -148,55 +147,60 @@ def create_geometry_display(
     window.bind("<Configure>", _update_live, add="+")
 
 
-class ProcessController:
+def load_configs(config_path: Path) -> dict:
     """
-    Class helper for type assignment
+    Load a configuration for user options of a WavePack. Usually used in the
+    root/AppWindow. Returns a dict of settings.
     """
+    with open(config_path, "r", encoding="utf-8") as f:
+        try:
+            cfg = json.load(f)
+            return cfg
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(
+                f"Failed to parse file at: {config_path}: {e.msg}",
+                e.doc,
+                e.pos,
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"An unexptected error occurred while trying to load the configuration file.\n{e}"
+            )
 
-    def __init__(self) -> None:
-        self.process_thread: Thread | None = None
 
-
-class WavePackFrame(tkb.Frame):
+def set_config_value(
+    config_path: Path,
+    config_variable: dict,
+    key: str,
+    value: tkb.StringVar | tkb.BooleanVar,
+) -> bool:
     """
-    Class helper for type assignment
+    Write a single user configuration through a dict key.
+    Returns True if the value was written. Raises runtime error if it fails.
+    Warning: will mutate the given config_variable with new data.
     """
-
-    def __init__(
-        self,
-        parent: tkb.Frame,
-        height: int,
-        height_min: int,
-        width: int,
-        width_min: int,
-        resizable: tuple[bool, bool],
-    ) -> None:
-        super().__init__(parent)
-        self.proc_ctrl: ProcessController
-        self.height = height
-        self.height_min = height_min
-        self.width = width
-        self.width_min = width_min
-        self.resizable = resizable
-        self.help_label: str = "Instructions"  # default, override per frame
-
-    @property
-    def has_help(self) -> bool:
-        """
-        Returns True if this frame has overridden show_help.
-        AppWindow uses this to decide whether to show the help menu item at all.
-        """
-        return type(self).show_help is not WavePackFrame.show_help
-
-    def show_help(self) -> None:
-        """
-        Override in subclasses to display frame-specific help instructions.
-        Default is a no-op if not overridden, the help menu item is hidden.
-        """
-        pass
-
-    def on_teardown(self) -> None:
-        """
-        Called by AppWindow before the application closes.
-        """
-        return None
+    # Move this logic to the caller
+    # if proc_ctrl and proc_ctrl.process_thread and proc_ctrl.process_thread.is_alive():
+    #     # If there is a process controller, it has a thread, and the thread is alive
+    #     # Set the widget to the previous value, denying the change
+    #     value.set(config_variable.get(key, False))
+    #
+    #     window.after(
+    #         0,
+    #         lambda: self.report.warning(
+    #             "Cannot change configurations while a process is running.",
+    #             popup=True,
+    #         ),
+    #     )
+    #     return False
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        cfg[key] = value.get()
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+        config_variable.clear()
+        config_variable.update(cfg)
+        return True
+    except Exception as e:
+        raise RuntimeError(f"Could not set the configuration.\n{e}")

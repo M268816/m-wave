@@ -1,6 +1,6 @@
 [project]
 name = "wave"
-version = "0.1.0-pre_alpha.5"
+version = "0.1.0-prerelease.6"
 description = "An application that help Jaffrey PI developers with configurations."
 readme = "README.md"
 requires-python = ">=3.11.3"
@@ -21,7 +21,6 @@ dependencies = [
   "et_xmlfile>=2.0.0",
   "numpy>=2.4.0",
   "openpyxl>=3.1.5",
-  "xlwings>=3.1",
   "pandas>=2.3.3",
   "pillow>=12.0.0",
   "python-dateutil>=2.9.0.post0",
@@ -30,6 +29,7 @@ dependencies = [
   "six>=1.17.0",
   "ttkbootstrap>=1.20.0",
   "tzdata>=2025.3",
+  "xlwings>=3.1",
 ]
 
 [project.urls]

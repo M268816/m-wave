@@ -6,3 +6,4 @@ xlwings
 pytest
 pytest-cov
 pyinstaller
+datacompy

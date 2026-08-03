@@ -29,7 +29,7 @@ logging.basicConfig(
 )
 
 # Load last so logging does not break ?
-from src.app.gui import AppWindow
+from src.app.gui import App
 
 
 class Main:
@@ -39,7 +39,7 @@ class Main:
     """
 
     def __init__(self):
-        self.app: AppWindow = AppWindow()
+        self.app: App = App()
 
     def run(self):
         self.app.run()

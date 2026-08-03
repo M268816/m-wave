@@ -3,13 +3,6 @@
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
-# Futures for type annotations
-from __future__ import annotations
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.app.gui import AppWindow
-
 # stdio
 import time
 from dataclasses import dataclass
@@ -23,10 +16,10 @@ from ttkbootstrap.constants import NORMAL, DISABLED
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
-from src.app.controller import (
-    AppController,
-)
-from src.app.utils import ProcessController
+from src.app.context import AppContext
+from src.app.paths import PATHS
+from src.app.utils import load_configs
+from src.app.wavepack_controller import WavePackController
 from src.mtl.process import Process
 
 
@@ -72,29 +65,21 @@ class MTLUi:
     mtl_path: tkb.StringVar
 
 
-class MTLController(ProcessController):
+class MTLController(WavePackController):
     """
     Master controller of the reporting, processing and configuration parsing.
-
-    Attributes
-    ----------
-    window: tkb.Window
-        a root window used to display the application
-
-    Methods
-    -------
-    start_process(ProcessRequest, ProcessUI)
-        Starts the data processing functions.
     """
 
-    def __init__(self, window: AppWindow):
-        super().__init__()
-        self.window = window
-        self.controller: AppController = window.controller
+    def __init__(self, app: tkb.Window, context: AppContext):
+        super().__init__(app, context)
+        self.app = app
+        self.context: AppContext = context
+        self.configs = load_configs(PATHS.assets_dir / "mtl_config.json")
 
-    @property
-    def report(self):
-        return self.controller.report
+        self.report = self.set_report(
+            PATHS.reports_dir,
+            self.context.user_preferences,
+        )
 
     def _start_thread(
         self,
@@ -105,50 +90,53 @@ class MTLController(ProcessController):
         Opens a new thread and starts the subroutine.
         """
         _started = time.perf_counter()
-        try:
-            process = Process(
-                self.report,
-                req.filter,
-                req.data_table,
-                str(req.mtl_file_path),
-                str(req.input_file_path),
-            )
-
-            if req.process_type == MTLProcessorType.APPEND:
-                self.report.info("Appending data...")
-                process.run_append()
-            elif req.process_type == MTLProcessorType.COMPARE:
-                self.report.info("Comparing data...")
-                process.run_comparison()
-            elif req.process_type == MTLProcessorType.DOWNLOAD:
-                self.report.info("Download test..")
-                process.get_mtl_from_web(ui.version_var, ui.mtl_path)
-            else:
-                self.report.critical(
-                    "Process request failed. MTLProcessorType does not exist",
-                    popup=True,
+        if self.report is not None:
+            try:
+                process = Process(
+                    self.report,
+                    req.filter,
+                    req.data_table,
+                    str(req.mtl_file_path),
+                    str(req.input_file_path),
                 )
 
-        except Exception as e:
-            self.report.exception(
-                f"Subroutine process error:\n{e}",
-                popup=True,
-            )
-        finally:
-            _ended = time.perf_counter()
+                if req.process_type == MTLProcessorType.APPEND:
+                    self.report.info("Appending data...")
+                    process.run_append()
+                elif req.process_type == MTLProcessorType.COMPARE:
+                    self.report.info("Comparing data...")
+                    process.run_comparison()
+                elif req.process_type == MTLProcessorType.DOWNLOAD:
+                    self.report.info("Download test..")
+                    process.get_mtl_from_web(ui.version_var, ui.mtl_path)
+                else:
+                    self.report.critical(
+                        "Process request failed. MTLProcessorType does not exist",
+                        popup=True,
+                    )
 
-            def _finish_ui():
-                ui.progress_bar.stop()
-                ui.opt_process.set(MTLProcessorType.NONE.value)
-                ui.process_button.config(state=NORMAL)
+            except Exception as e:
+                self.report.exception(
+                    f"Subroutine process error:\n{e}",
+                    popup=True,
+                )
+            finally:
+                _ended = time.perf_counter()
 
-            self.window.after(
-                0, lambda: self.report.info("Subroutine ended.", popup=True)
-            )
-            self.window.after_idle(_finish_ui)
+                def _finish_ui():
+                    ui.progress_bar.stop()
+                    ui.opt_process.set(MTLProcessorType.NONE.value)
+                    ui.process_button.config(state=NORMAL)
 
-            completion_time = _ended - _started
-            self.report.simple_title(f"Processing took: {completion_time:.4f}s")
+                self.app.after(
+                    0, lambda r=self.report: r.info("Subroutine ended.", popup=True)
+                )
+                self.app.after_idle(_finish_ui)
+
+                completion_time = _ended - _started
+                self.report.simple_title(f"Processing took: {completion_time:.4f}s")
+        else:
+            raise RuntimeError("Report never set. Cannot init processing thread.")
 
     def start_process(
         self,
@@ -158,10 +146,23 @@ class MTLController(ProcessController):
         """
         Starts the data processing functions.
         """
+        if self.report is not None:
+            self.reset_report(ui.stext)
+            report_name = (
+                f"{req.data_table}_{req.report_name}"
+                if req.report_name is not None
+                else req.data_table
+            )
+            self.report.create_report(report_name)
+        else:
+            raise RuntimeError(
+                "Report was never set, cannot start the processing functions."
+            )
+
         if req.process_type == MTLProcessorType.NONE:
-            self.window.after(
+            self.app.after(
                 0,
-                lambda: self.report.error(
+                lambda r=self.report: r.error(
                     "Please select either the Compare or Append radio button.",
                     popup=True,
                 ),
@@ -169,9 +170,9 @@ class MTLController(ProcessController):
             return
 
         if self.process_thread and self.process_thread.is_alive():
-            self.window.after(
+            self.app.after(
                 0,
-                lambda: self.report.warning(
+                lambda r=self.report: r.warning(
                     "Process already running!",
                     popup=True,
                 ),
@@ -179,12 +180,6 @@ class MTLController(ProcessController):
             return
 
         ui.process_button.config(state=DISABLED)
-        report_name = (
-            f"{req.data_table}_{req.report_name}"
-            if req.report_name is not None
-            else req.data_table
-        )
-        self.controller.reset_report(ui.stext, report_name)
 
         ui.progress_bar.start()
 
@@ -192,4 +187,5 @@ class MTLController(ProcessController):
             target=lambda: self._start_thread(req, ui),
             daemon=True,
         )
+
         self.process_thread.start()

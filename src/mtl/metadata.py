@@ -40,7 +40,7 @@ class TableInfo:
 
 class Metadata:
     def __init__(self, report: Reporting, ws_name: str | None = None) -> None:
-        self.report = report
+        self.report: Reporting = report
         self.worksheet_name = ws_name
         self.mtl_configs = self.get_mtl_configs()
         self.worksheet_metadata = self.get_worksheet_metadata()
@@ -91,6 +91,8 @@ class Metadata:
                 "Group Parent Key": entry.get("group_parent_key"),
                 "Group Member Key": entry.get("group_member_key"),
                 "Group Key Order": entry.get("group_key_order"),
+                "Use Path Sorting": entry.get("use_path_sorting"),
+                "Path Sorting Keys": entry.get("path_sorting_keys"),
             }
             for key, entry in self.mtl_configs["table_formatting"].items()
         }
@@ -200,3 +202,14 @@ class Metadata:
         if self.table_type_is_set():
             return self.table_formatting[self.table_type]["Group Member Key"]
         return None
+
+    def use_path_sorting(self) -> bool:
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Use Path Sorting"]
+        return False
+
+    def get_path_sorting_keys(self) -> list[str]:
+        if self.table_type_is_set():
+            return self.table_formatting[self.table_type]["Path Sorting Keys"]
+        return []
+

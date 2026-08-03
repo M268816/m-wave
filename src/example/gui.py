@@ -3,11 +3,13 @@
 #
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
+# WavePackFrames will always need a circular import to App
+# Use this type_chekcing blocker for these classes.
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.app.gui import AppWindow
+    from src.app.gui import App
 
 # stdlib
 from pathlib import Path
@@ -36,8 +38,9 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.scrolled import ScrolledText
 
 # local
-from src.app.reporting import Reporting
-from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
+from src.app.utils import PAD, PAD_X, PAD_Y, FONT_MONO
+from src.app.wavepack_frame import WavePackFrame
+
 from src.example.controller import ExampleController, ExampleRequest, ExampleUi
 from src.example.paths import EXAMPLE_INSTRUCTIONS_PATH
 
@@ -46,11 +49,7 @@ with open(EXAMPLE_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
 
 
 class ExampleFrame(WavePackFrame):
-    def __init__(
-        self,
-        parent: tkb.Frame,
-        window: AppWindow,
-    ) -> None:
+    def __init__(self, parent: tkb.Frame, app: App) -> None:
         super().__init__(
             parent,
             height=480,
@@ -59,32 +58,58 @@ class ExampleFrame(WavePackFrame):
             width_min=700,
             resizable=(True, True),
         )
-        self.window = window
+        self.app = app
+        self.context = self.app.context
+        self.controller: ExampleController = ExampleController(
+            self.app, self.app.context
+        )
         self.help_label = "Example"
-        self.proc_ctrl: ExampleController = ExampleController(window)
 
+        self.opt_example = tkb.BooleanVar(value=False)
         self.opt_input_path = tkb.StringVar()
         self.input_is_selected = tkb.BooleanVar()
 
         self.container = tkb.Frame(self, padding=PAD)
         self.container.pack(side=TOP, fill=BOTH, expand=True)
 
-        self._build_footer()
         # Building the footer first ensures it sticks to the bottom of the container
-
+        self._build_footer()
         self._build_simple_display()
         self._build_file_select()
         self._build_text_display()
 
     @property
-    def report(self) -> Reporting:
-        return self.window.controller.report
+    def report(self):
+        if self.controller.report:
+            return self.controller.report
+        else:
+            raise RuntimeError("Report not set. Cannot use WaveFrame report property")
 
     def show_help(self) -> None:
+        # Do no call show help, this is called from the App object when the help menu
+        # is rebuilt with WavePack specific help menus.
         self.report.info(
             "Instructions will be displayed.", log=False, verbose=False, popup=True
         )
         self.report.info(INSTRUCTIONS, log=False, verbose=False, popup=True)
+
+    def build_menus(self, menubar: tkb.Menu) -> None:
+        # Do not call build menus, this is called from the App object to rebuild the
+        # menubar with new options per active WavePack.
+        #
+        # Currently on_option_change only updates the current user_preferences
+        # configuration file, so to add configurations per wave pack the user_prefs.json
+        # file must be updated with the new wave pack options.
+        example_menu = tkb.Menu(menubar, tearoff=0)
+        for label, var, key in (
+            ("I'm a checkbox option.", self.opt_example, "example_option"),
+        ):
+            example_menu.add_checkbutton(
+                label=label,
+                variable=var,
+                command=lambda k=key, v=var: self.app._on_option_change(k, v),
+            )
+        menubar.add_cascade(label="Example Options", menu=example_menu)
 
     def _build_simple_display(self) -> None:
         self.label_var = tkb.StringVar(value="Hello, World.")
@@ -246,4 +271,4 @@ class ExampleFrame(WavePackFrame):
             self.stext,
         )
 
-        self.proc_ctrl.start_process(request, ui)
+        self.controller.start_process(request, ui)

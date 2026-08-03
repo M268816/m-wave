@@ -4,7 +4,6 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
-from tkinter import font
 
 # third party
 from PIL import Image, ImageTk
@@ -17,30 +16,29 @@ from ttkbootstrap.constants import (
     X,
 )
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.widgets.scrolled import ScrolledFrame
 from ttkbootstrap.style import PRIMARY
 
 # local
+from src.app.wavepack_frame import WavePackFrame
+from src.app.launcher import LauncherFrame
 from src.app.paths import PATHS
-from src.app.utils import USER_PREFS_PATH
+from src.app.utils import USER_PREFS_PATH, set_config_value
 
-from src.app.controller import (
-    AppController,
-)
+from src.app.context import AppContext
 from src.app.utils import (
     FONT_SMALL,
     PAD,
     PAD_X,
     PAD_Y,
-    H1,
-    FONT,
-    WavePackFrame,
     apply_scaled_geometry,
 )
-from src.kepware.gui import KepwareFrame
+
+# from src.kepware.gui import KepwareFrame
 from src.mtl.gui import MTLFrame
+
 from src.example.gui import ExampleFrame
-from src.tag_doc_gen.gui import TagDocGenFrame
+
+# from src.tag_doc_gen.gui import TagDocGenFrame
 
 # CONSTANTS
 THEMES = (
@@ -65,7 +63,7 @@ THEMES = (
 )
 
 
-class AppWindow(tkb.Window):
+class App(tkb.Window):
     """
     Root TK window. Owns the shared style object, WavePack registry, menu bar,
     and the single frame switcher container.
@@ -73,24 +71,21 @@ class AppWindow(tkb.Window):
 
     def __init__(self) -> None:
         super().__init__()
+        self.title("λ Workbook Automation & Verification Engine | Launcher")
+        apply_scaled_geometry(self, 100, 100)
+        self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self._on_close_requested)
 
-        self.controller: AppController = AppController(self)
+        self.context: AppContext = AppContext()
 
         # Usage, { Key: (WavePack, Description) }
         self.wavepacks: dict[str, tuple[WavePackFrame, str]] = {}
 
-        self.active_app = None
-
-        self.title("λ Workbook Automation & Verification Engine | Launcher")
-        apply_scaled_geometry(self, 100, 100)
-        # self.geometry("100x100")
-        self.resizable(False, False)
+        self.active_app: WavePackFrame | None = None
 
         self.logo_path = PATHS.assets_dir / "logo.png"
         self.logo = tkb.PhotoImage(file=self.logo_path)
-
         self.iconphoto(False, self.logo)
-        self.protocol("WM_DELETE_WINDOW", self._on_close_requested)
 
         self.container = tkb.Frame(self)
         self.container.pack(side=TOP, fill=BOTH, expand=True)
@@ -99,7 +94,7 @@ class AppWindow(tkb.Window):
 
         self._build_menu()
 
-        saved_theme = self.controller.user_preferences.get("theme", "litera")
+        saved_theme = self.context.user_preferences.get("theme", "litera")
         self.style.theme_use(saved_theme)
 
         self.init_wavepacks()
@@ -109,23 +104,23 @@ class AppWindow(tkb.Window):
         self.add_wavepack(
             "Master Tag List Processor",
             MTLFrame,  # type: ignore
-            "Compare or append new PI AF records to the MTL/CMD.",
+            "Compare or append new PI records to the MTL/CMD.",
         )
         self.add_wavepack(
             "Example Package",
             ExampleFrame,  # type: ignore
             "This is just an example of an additional WavePack!",
         )
-        self.add_wavepack(
-            "Kepware Environment Comparison",
-            KepwareFrame,  # type: ignore
-            "Compare environment (VAL, DEV) CSV tag exports.",
-        )
-        self.add_wavepack(
-            "Tag Document Genereator",
-            TagDocGenFrame,  # type: ignore
-            "Generate Kepware/PI tag documents.",
-        )
+        # self.add_wavepack(
+        #     "Kepware Environment Comparison",
+        #     KepwareFrame,  # type: ignore
+        #     "Compare environment (VAL, DEV) CSV tag exports.",
+        # )
+        # self.add_wavepack(
+        #     "Tag Document Genereator",
+        #     TagDocGenFrame,  # type: ignore
+        #     "Generate Kepware/PI tag documents.",
+        # )
 
     def add_wavepack(self, key: str, frame_cls: WavePackFrame, desc: str) -> None:
         """
@@ -137,19 +132,19 @@ class AppWindow(tkb.Window):
         self.launcher = LauncherFrame(self.container, self, grid_width=1)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
+        self.active_app = self.launcher
         apply_scaled_geometry(self, self.launcher.width, self.launcher.height)
         self.resizable(self.launcher.resizable[0], self.launcher.resizable[1])
-        self.update_help_menu(self.launcher)
+        self._rebuild_menu_for(self.launcher)
 
     def lock_wavepack(self, name: str, frame_cls: WavePackFrame) -> None:
         """
         Build the chosen WavePack, destroy the launcher screen, and update the
         window title to reflect the locked session.
         """
-        app_frame = frame_cls(parent=self.container, window=self)  # type: ignore
+        app_frame = frame_cls(parent=self.container, app=self)  # type: ignore
         app_frame.grid(row=0, column=0, sticky=NSEW)
         app_frame.tkraise()
-        self.controller.set_process_controller(app_frame.proc_ctrl)
         self.active_app = app_frame
         self.launcher.destroy()
 
@@ -157,60 +152,60 @@ class AppWindow(tkb.Window):
         apply_scaled_geometry(self, app_frame.width, app_frame.height)
         self.minsize(app_frame.width_min, app_frame.height_min)
         self.resizable(app_frame.resizable[0], app_frame.resizable[1])
-        self.update_help_menu(app_frame)
+        self._rebuild_menu_for(self.active_app)  # type: ignore
 
     def run(self) -> None:
         self.mainloop()
 
     def _build_menu(self) -> None:
         """
-        Construct the application level menu bar.
+        Construct the main application level menu bar. Call only once.
         """
-        menubar = tkb.Menu(self)
+        self.menubar = tkb.Menu(self)
 
         # File Menu
-        file_menu = tkb.Menu(menubar, tearoff=0)
+        file_menu = tkb.Menu(self.menubar, tearoff=0)
         file_menu.add_command(label="Exit", command=self.destroy)
-        menubar.add_cascade(label="File", menu=file_menu)
-
-        # Report Options
-        report_menu = tkb.Menu(menubar, tearoff=0)
-        for menu_label, key in (
-            ("Report Timestamps", "use_timestamps"),
-            ("Report Message Types", "use_msg_types"),
-        ):
-            cfg_var = tkb.BooleanVar(
-                value=self.controller.user_preferences.get(key, False)
-            )
-            report_menu.add_checkbutton(
-                label=menu_label,
-                variable=cfg_var,
-                command=lambda k=key, v=cfg_var: self._on_option_change(k, v),
-            )
-        menubar.add_cascade(label="Report Options", menu=report_menu)
+        self.menubar.add_cascade(label="File", menu=file_menu)
 
         # Themes
         theme_var = tkb.StringVar(
-            value=self.controller.user_preferences.get("theme", "litera")
+            value=self.context.user_preferences.get("theme", "litera")
         )
-        theme_menu = tkb.Menu(menubar, tearoff=0)
+        self.theme_menu = tkb.Menu(self.menubar, tearoff=0)
         for theme in THEMES:
-            theme_menu.add_radiobutton(
+            self.theme_menu.add_radiobutton(
                 label=theme.capitalize(),
                 value=theme,
                 variable=theme_var,
                 command=lambda t=theme_var: self._on_theme_change(t),
             )
-        menubar.add_cascade(label="Themes", menu=theme_menu)
+        self.menubar.add_cascade(label="Themes", menu=self.theme_menu)
 
         # Help Menu
-        self.help_menu = tkb.Menu(menubar, tearoff=0)
+        self.help_menu = tkb.Menu(self.menubar, tearoff=0)
         self.help_menu.add_command(label="About", command=self._show_about_window)
-        menubar.add_cascade(label="Help", menu=self.help_menu)
+        self.menubar.add_cascade(label="Help", menu=self.help_menu)
 
-        self.config(menu=menubar)
+        self.config(menu=self.menubar)
 
-    def update_help_menu(self, frame: WavePackFrame | None = None) -> None:
+    def _rebuild_menu_for(self, frame: WavePackFrame) -> None:
+        """
+        Teardown all non-fixes menus and ask the new frame to rebuild its own.
+        Call on lock_wavepack() and could be called again if configs get reset.
+        """
+        # Remove everything exept the main menu items
+        while self.menubar.index("end") > 0:  # type: ignore
+            self.menubar.delete(1)
+
+        if frame.has_new_menus:
+            frame.build_menus(self.menubar)
+
+        self.menubar.add_cascade(label="Themes", menu=self.theme_menu)
+        self.menubar.add_cascade(label="Help", menu=self.help_menu)
+        self._update_help_menu(frame)
+
+    def _update_help_menu(self, frame: WavePackFrame | None = None) -> None:
         """
         Rebuild the help menu for the active frame.
         """
@@ -251,16 +246,16 @@ class AppWindow(tkb.Window):
         """
         If an option changes, try to set the config value.
         """
-        self.controller.set_config_value(
-            USER_PREFS_PATH, self.controller.user_preferences, config_key, var
+        set_config_value(
+            USER_PREFS_PATH, self.context.user_preferences, config_key, var
         )
 
     def _on_theme_change(self, theme: tkb.StringVar) -> None:
         """
         If the theme changes, try to set the config value, if true (success), change the theme.
         """
-        if self.controller.set_config_value(
-            USER_PREFS_PATH, self.controller.user_preferences, "theme", theme
+        if set_config_value(
+            USER_PREFS_PATH, self.context.user_preferences, "theme", theme
         ):
             self.style.theme_use(theme.get())
 
@@ -289,7 +284,7 @@ class AppWindow(tkb.Window):
         ver = tkb.Label(
             container,
             font=FONT_SMALL,
-            text="Workbook Automation & Verification Engine\nVersion: 0.1.0.prealpha.5",
+            text="Workbook Automation & Verification Engine\nVersion: 0.1.0.prerelease.6",
             padding=PAD,
         )
         ver.pack(fill=X)
@@ -335,113 +330,3 @@ class AppWindow(tkb.Window):
         container.bind("<Configure>", _on_resize)
 
         about.resizable(False, False)
-
-
-class LauncherFrame(WavePackFrame):
-    """
-    WavePack selection screen shown at startup.
-
-    Parameters
-    ----------
-    parent: tkb.Frame
-        The main container owned by AppWindow
-    window: AppWindow
-        A back reference to the root window.
-    """
-
-    def __init__(
-        self, parent: tkb.Frame, window: AppWindow, grid_width: int = 3
-    ) -> None:
-        super().__init__(
-            parent,
-            height=360,
-            height_min=360,
-            width=480,
-            width_min=480,
-            # resizable=(False, False),
-            resizable=(True, True),
-        )
-        self.window = window
-        self.grid_width = grid_width
-
-        self.window.after(500, self._build_ui)
-
-    def _build_ui(self) -> None:
-        self.window.update_idletasks()
-
-        tkb.Label(self, text="Select a Session Type", font=H1).pack(
-            padx=PAD_X, pady=PAD_Y
-        )
-        tkb.Label(
-            self,
-            text=(
-                "You will be locked into your session type\n"
-                "(also called a Wave Process Package or WavePack)\n"
-                "for the duration of your session.\n"
-                "Restart the application to change sessions.\n"
-                "Currently, only the MTL WavePack is available.\n"
-            ),
-            font=FONT,
-            foreground="gray",
-            justify=CENTER,
-        ).pack(pady=PAD_Y)
-
-        tkb.Separator(self, orient="horizontal", bootstyle=PRIMARY).pack(
-            fill=X, padx=PAD_X
-        )
-
-        self.scroll_frame = ScrolledFrame(self, padding=PAD)
-        self.scroll_frame.pack(fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=True)
-
-        temp_fnt = font.Font(family="Verdana", size=10)
-
-        max_btn_width = (
-            max(temp_fnt.measure(name) for name in self.window.wavepacks) + PAD_X
-        )
-
-        for index, (name, info) in enumerate(self.window.wavepacks.items()):
-            frame_cls = info[0]
-            desc = info[1]
-            row = index // self.grid_width
-            col = index % self.grid_width
-
-            f = tkb.Frame(self.scroll_frame)
-            f.grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
-            f.columnconfigure(0, weight=0, minsize=max_btn_width)
-            f.columnconfigure(1, weight=1)
-
-            tkb.Button(
-                f,
-                text=name,
-                command=lambda n=name, fc=frame_cls: self._confirm_and_launch(n, fc),
-            ).grid(row=0, column=0, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
-
-            lbl = tkb.Label(
-                f,
-                text=desc,
-                justify="left",
-            )
-            lbl.grid(row=0, column=1, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
-
-            lbl.bind(
-                "<Configure>",
-                lambda e, label=lbl: label.config(wraplength=e.width - PAD_X),
-            )
-
-        for col in range(self.grid_width):
-            self.scroll_frame.columnconfigure(col, weight=1)
-
-    def _confirm_and_launch(self, name: str, frame_cls: WavePackFrame) -> None:
-        """
-        Ask the user to confirm the WavePack before locking in.
-        """
-        confirmed = Messagebox.yesno(
-            title="Confirm Session",
-            message=(
-                f"You are about to start a session with WavePack:\n    {name}\n"
-                "You cannot change sessions without restarting.\n\n"
-                "Continue?"
-            ),
-        )
-        if confirmed == "Yes":
-            self.window.lock_wavepack(name, frame_cls)

@@ -5,6 +5,7 @@
 
 # stdlib
 import logging
+import textwrap
 from queue import Queue
 from datetime import datetime
 from dataclasses import dataclass
@@ -139,27 +140,32 @@ class Reporting:
     def _add_line(self, msg: str, msg_type: str | None = None) -> None:
         """
         Private function that adds a single string line to the report buffer.
+        Lines over max_len chars are wrapped and appended individually.
         """
+        max_len = self.width
+
         if msg_type is None:
             msg_type = "UNKNOWN"
 
         timestamp = datetime.now().strftime(DATETIME_FORMAT)
-        padding = f"{' ' * max(0, 9 - len(msg_type))}"
 
-        line = f"{msg}"
+        prefix = ""
 
-        # old method using padding, new method tries tabular setup
-        # if self.use_msg_types:
-        #     line = f"{padding}{msg_type}> " + line
-        # if self.use_timestamps:
-        #     line = f"{timestamp}: " + line
-
-        if self.use_msg_types:
-            line = f"{msg_type}\t> " + line
         if self.use_timestamps:
-            line = f"{timestamp}:" + line
+            prefix = f"{timestamp}:"
+        if self.use_msg_types:
+            prefix += f"{msg_type}\t> "
 
-        self.report_lines.append(line)
+        prefix_len = len(prefix)
+        indent = " " * prefix_len
+
+        wrapped_lines = textwrap.wrap(msg, width=max_len) if msg else [""]
+
+        for i, chunk in enumerate(wrapped_lines):
+            if i == 0:
+                self.report_lines.append(f"{prefix}{chunk}")
+            else:
+                self.report_lines.append(f"{indent}{chunk}")
 
     def create_report(
         self,

@@ -1,10 +1,13 @@
+# Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
+# All rights reserved
+#
+# Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from src.mtl.extraction import DataExtractor
-
 if TYPE_CHECKING:
-    from src.app.gui import AppWindow
+    from src.app.gui import App
 
 # stdlib
 from pathlib import Path
@@ -17,7 +20,6 @@ import ttkbootstrap as tkb
 from ttkbootstrap.constants import (
     BOTH,
     BOTTOM,
-    DISABLED,
     INDETERMINATE,
     LEFT,
     N,
@@ -34,10 +36,18 @@ from ttkbootstrap.style import PRIMARY, SUCCESS
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
-from src.app.utils import WavePackFrame, PAD, PAD_X, PAD_Y, FONT_MONO
-from src.mtl.paths import MTL_INSTRUCTIONS_PATH
-from src.mtl.metadata import Metadata
+from src.app.utils import (
+    PAD,
+    PAD_X,
+    PAD_Y,
+    FONT_MONO,
+)
+from src.app.wavepack_frame import WavePackFrame
+
 from src.mtl.controller import MTLController, MTLProcessorType, MTLRequest, MTLUi
+from src.mtl.extraction import DataExtractor
+from src.mtl.metadata import Metadata
+from src.mtl.paths import MTL_INSTRUCTIONS_PATH
 
 with open(MTL_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
     INSTRUCTIONS = f.read()
@@ -45,17 +55,10 @@ with open(MTL_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
 
 class MTLFrame(WavePackFrame):
     """
-    Master controller of the MTL/CMD WavePack GUI and its object variables.
-
-    Parameters
-    ----------
-    parent: tkb.Frame
-        The main container owned by AppWindow
-    window: tkb.Window
-        A back reference to the root window
+    MTL/CMD WavePack GUI and object variables.
     """
 
-    def __init__(self, parent: tkb.Frame, window: AppWindow) -> None:
+    def __init__(self, parent: tkb.Frame, app: App) -> None:
         super().__init__(
             parent,
             height=525,
@@ -64,14 +67,23 @@ class MTLFrame(WavePackFrame):
             width_min=850,
             resizable=(True, True),
         )
-        self.window = window
+        self.app = app
+        self.context = self.app.context
+        self.controller: MTLController = MTLController(self.app, self.context)
         self.help_label = "MTL/CMD"
-        self.metadata = Metadata(self.report)
 
-        self.proc_ctrl: MTLController = MTLController(window)
-        self.stext: ScrolledText
+        if self.report is not None:
+            self.metadata = Metadata(self.report)
+        else:
+            raise RuntimeError("Cannot set metadata without an initialized Report.")
 
         # TK Variables options
+        self.opt_use_timestamps = tkb.BooleanVar(
+            value=self.context.user_preferences.get("use_timestamps")
+        )
+        self.opt_use_msg_types = tkb.BooleanVar(
+            value=self.context.user_preferences.get("use_msg_types")
+        )
         self.opt_data_table = tkb.StringVar()
         self.opt_mtl_path = tkb.StringVar(value="Select a file or import from ManGo.")
         self.opt_input_path = tkb.StringVar(value="Select a file.")
@@ -90,7 +102,7 @@ class MTLFrame(WavePackFrame):
         self._build_process_row()
         self._build_text_display()
 
-        self.window.after(0, self._check_for_mtl_document)
+        self.app.after(0, self._check_for_mtl_document)
 
         self.report.info(
             "Welcome to the WAVE. Start the process by choosing your files.", log=False
@@ -99,7 +111,26 @@ class MTLFrame(WavePackFrame):
 
     @property
     def report(self):
-        return self.window.controller.report
+        if self.controller.report:
+            return self.controller.report
+        else:
+            raise RuntimeError("Report not set. Cannot use WaveFrame report property")
+
+    def get_scrolled_text(self) -> ScrolledText:
+        return self.stext
+
+    def build_menus(self, menubar: tkb.Menu) -> None:
+        report_menu = tkb.Menu(menubar, tearoff=0)
+        for label, var, key in (
+            ("Report Timestamps", self.opt_use_timestamps, "use_timestamps"),
+            ("Report Message Types", self.opt_use_msg_types, "use_msg_types"),
+        ):
+            report_menu.add_checkbutton(
+                label=label,
+                variable=var,
+                command=lambda k=key, v=var: self.app._on_option_change(k, v),
+            )
+        menubar.add_cascade(label="Report Options", menu=report_menu)
 
     def _check_for_mtl_document(self) -> None:
         self.report.info("Checking files for a MTL document.")
@@ -109,7 +140,6 @@ class MTLFrame(WavePackFrame):
             self.opt_mtl_path.set(str(mtl_doc_path))
             extractor = DataExtractor(self.report, self.metadata)
             last_rev = extractor.get_last_revision(mtl_doc_path)
-            # TODO: Check to make sure setting works in the pyinstaller exe
             self.metadata.set_mtl_version(str(last_rev))
             self.mtl_version.set(str(last_rev))
             self.report.warning(
@@ -136,10 +166,9 @@ class MTLFrame(WavePackFrame):
             popup=True,
         )
         self.report.info(INSTRUCTIONS, log=False, verbose=False)
-        vid_link = self.window.controller.mtl_configs["mtl_help_vid_url"]
+        vid_link = self.controller.configs["mtl_help_vid_url"]
         webbrowser.open(vid_link, new=1)
 
-    # TEST:
     def _build_file_select(self) -> None:
         """
         Builds the file selection widgets for the UI.
@@ -250,6 +279,9 @@ class MTLFrame(WavePackFrame):
         file_path = askopenfilename(title="Select a file.", filetypes=types)
 
         if file_path:
+            print(file_path)
+            file_path = file_path.replace("/", "\\")
+            print(file_path)
             string_variable.set(file_path)
             is_selected.set(True)
         else:
@@ -379,7 +411,7 @@ class MTLFrame(WavePackFrame):
             self.opt_mtl_path,
         )
 
-        self.proc_ctrl.start_process(req, ui)
+        self.controller.start_process(req, ui)
         self._mtl_is_selected.set(True)
 
     def _on_process_clicked(self) -> None:
@@ -408,10 +440,4 @@ class MTLFrame(WavePackFrame):
             self.opt_mtl_path,
         )
 
-        self.proc_ctrl.start_process(req, ui)
-
-    def on_teardown(self) -> None:
-        """
-        Called by AppWindow before the application closes.
-        """
-        pass
+        self.controller.start_process(req, ui)

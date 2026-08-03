@@ -56,6 +56,8 @@ class DataFormatter:
                 ).columns.tolist()
             for col in columns:  # type: ignore
                 if col in df_copy.columns:
+                    if df_copy[col].dropna().map(type).eq(bool).any():
+                        continue
                     # Replace all white space with a single space
                     df_copy[col] = df_copy[col].str.replace(r"\s+", " ", regex=True)
                     # Strip leading/trailing white space
@@ -258,20 +260,34 @@ class DataFormatter:
             if group_key_order is not None:
                 self.report.info("Special ordering required.")
 
+                uses_path_sort = self.metadata.use_path_sorting()
+                path_sorting_keys = self.metadata.get_path_sorting_keys()
+
                 # Creates a temp numeric ordering column
                 _df["group_key_order"] = _df[group_key].map(group_key_order)  # type: ignore
                 self.report.info("Created temporary sorting column 'group_key_order'.")
 
-                # Ties each member row back to a parent set
-                _df["group_key"] = _df.apply(
-                    lambda row: (
-                        row[group_parent_key]
-                        if row[group_key] == next(iter(group_key_order.keys()))
-                        else row[group_member_key]
-                    ),
-                    axis=1,
-                )
-                self.report.info("Created temporary sorting column 'group_key'.")
+                if uses_path_sort and path_sorting_keys:
+                    # Build a full path string for sorting: \Parent\Name
+                    self.report.info("Path based sorting detected.")
+                    _df["group_key"] = _df[path_sorting_keys].apply(
+                        lambda row: "\\".join(
+                                str(val) for val in row
+                                if pd.notna(val) and str(val).strip() !=""
+                            ),
+                            axis=1,
+                    )
+                else:
+                    # Ties each member row back to a parent set
+                    _df["group_key"] = _df.apply(
+                        lambda row: (
+                            row[group_parent_key]
+                            if row[group_key] == next(iter(group_key_order.keys()))
+                            else row[group_member_key]
+                        ),
+                        axis=1,
+                    )
+                    self.report.info("Created temporary sorting column 'group_key'.")
 
             # Sort the data frame
             self.report.info("Sorting...")

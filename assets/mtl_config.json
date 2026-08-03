@@ -79,6 +79,16 @@
             "table_id": "Table11",
             "type": "ELEMENT",
             "can_compare": true
+        },
+        "CMD-Elements LSDH - VAL": {
+            "table_id": "Table1117",
+            "type": "ELEMENT",
+            "can_compare": true
+        },
+        "CMD-Elements LSDH - PROD": {
+            "table_id": "Table1118",
+            "type": "ELEMENT",
+            "can_compare": true
         }
     },
     "table_formatting": {
@@ -114,6 +124,7 @@
             "group_member_key": null,
             "group_key_order": null,
             "sort_order": [
+                "ObjectType",
                 "Name"
             ],
             "sort_ascending": [
@@ -165,8 +176,15 @@
             "group_member_key": "Parent",
             "group_key_order": {
                 "Element": 0,
-                "Attribute": 1
+                "Attribute": 1,
+                "Analysis": 2,
+                "NotificationRule": 3
             },
+            "use_path_sorting": true,
+            "path_sorting_keys": [
+                "Parent",
+                "Name"
+            ],
             "sort_order": [
                 "group_key",
                 "group_key_order",
