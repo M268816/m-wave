@@ -1,7 +1,8 @@
+
 [project]
-name = "wave"
-version = "0.1.0-prerelease.6"
-description = "An application that help Jaffrey PI developers with configurations."
+name = "m-wave"
+version = "0.1.0dev6"
+description = "An application that helps Jaffrey PI developers with configurations."
 readme = "README.md"
 requires-python = ">=3.11.3"
 license = "MIT"
@@ -15,32 +16,60 @@ maintainers = [
 keywords = ["CMD", "DDS", "Jaffrey", "MTL", "USJA"]
 classifiers = [
   "Development Status :: 3 - Alpha",
-  "Programming Language :: Python"
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: Microsoft :: Windows",
+  "Intended Audience :: Developers",
 ]
+
 dependencies = [
   "et_xmlfile>=2.0.0",
-  "numpy>=2.4.0",
+  "numpy>=2.0.0",
   "openpyxl>=3.1.5",
-  "pandas>=2.3.3",
-  "pillow>=12.0.0",
+  "pandas>=2.2.0",
+  "pillow>=10.0.0",
   "python-dateutil>=2.9.0.post0",
-  "pytz>=2025.0",
-  "setuptools>=65.5.0",
+  "pytz>=2024.1",
   "six>=1.17.0",
-  "ttkbootstrap>=1.20.0",
-  "tzdata>=2025.3",
-  "xlwings>=3.1",
+  "ttkbootstrap>=1.10.0",
+  "tzdata>=2024.1",
+  "xlwings>=0.31.0",
+  "datacompy>=0.13.0",
+  "pywin32>=306; platform_system == 'Windows'",
 ]
+
+[project.scripts]
+m-wave = "m_wave.__main__:main"
 
 [project.urls]
 "Bug Tracker" = "http://157.93.24.68/M268816/WAVE/issues"
 Changelog = "http://157.93.24.68/M268816/WAVE/blob/main/CHANGELOG.md"
-# Documentation = "https://readthedocs.org"
-# Homepage = "https://example.com"
 Repository = "https://157.92.24.68/M268816/WAVE"
 
 [project.optional-dependencies]
+dev = [
+  "bandit>=1.7.0",
+  "pytest>=8.0.0",
+  "pytest-cov>=5.0.0",
+  "pyinstaller>=6.0.0",
+  "pip-audit>=2.7.0",
+]
 
 [build-system]
-requires = ["setuptools >= 65.0.5"]
+requires = ["setuptools>=68.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+m_wave = [
+  "assets/**/*",
+]

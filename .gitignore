@@ -2,12 +2,7 @@
 .*/
 .*
 test_files/
-logs/
-src/test_reporting/
-reports/
-config/
-user_prefs/
-MTL/
+generated/
 
 # security checks
 sec-*.*

@@ -1,42 +1,43 @@
 # -*- mode: python ; coding: utf-8 -*-
-# wave.spec — PyInstaller spec file for WAVE one-file executable
+# m-wave.spec — PyInstaller spec file for WAVE one-file executable
 #
 # Build command:
 #   pyinstaller wave.spec
 #
-# Output: dist/wave.exe  (one-file, no console window)
+# Output: dist/m-wave.exe  (one-file, no console window)
 # The exe will create logs/ and reports/ folders next to itself at runtime.
 
 import os
 from PyInstaller.building.build_main import Analysis, PYZ, EXE
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-# Assumes the spec file lives at the project root (wave/)
-ROOT       = os.path.abspath(".")
-ASSETS_DIR = os.path.join(ROOT, "assets")
+# Assumes the spec file lives at the project root
+#   m-wave/
+ROOT        = os.path.abspath(".")
+SRC_DIR     = os.path.join(ROOT, "src")
+PACKAGE_DIR = os.path.join(SRC_DIR, "m_wave")
+ASSETS_DIR  = os.path.join(PACKAGE_DIR, "assets")
+ICON_PATH   = os.path.join(ASSETS_DIR, "images", "logo.ico")
 
 # ── Analysis ───────────────────────────────────────────────────────────────────
 a = Analysis(
-    # Entry point — main.py lives inside src/
-    [os.path.join(ROOT, "src", "main.py")],
+    # Entry point
+    # package engry point lives at src/m_wave/__main__.py
+    [os.path.join(PACKAGE_DIR,"__main__.py")],
 
     # Tell PyInstaller where to look for imports
-    pathex=[ROOT],
+    pathex=[SRC_DIR],
 
     # Binary dependencies (.dll / .so).  Add entries here if needed.
     binaries=[],
 
     # Static files to bundle into the exe's internal _MEIPASS temp folder.
-    # Format: (absolute_source_path, destination_folder_inside_bundle)
+    # This bundles: src/m_wave.assets into sys._MEIPASS/assets
+    # paths.py should resolve as: path(sys._MEIPASS) / "assets"
+
     # paths.py reads these via get_temp_path() / sys._MEIPASS at runtime.
     datas=[
-        (os.path.join(ASSETS_DIR, "user_preferences.json"),       "assets"),
-        (os.path.join(ASSETS_DIR, "mtl_config.json"),       "assets"),
-        (os.path.join(ASSETS_DIR, "logo.png"),           "assets"),
-        (os.path.join(ASSETS_DIR, "example_instructions.txt"),   "assets"),
-        (os.path.join(ASSETS_DIR, "kepware_comparison_instructions.txt"),   "assets"),
-        (os.path.join(ASSETS_DIR, "mtl_instructions.txt"),   "assets"),
-        (os.path.join(ASSETS_DIR, "tag_doc_gen_instructions.txt"),   "assets"),
+        (ASSETS_DIR, "assets")
     ],
 
     # Modules PyInstaller cannot detect automatically (dynamic imports, etc.)
@@ -47,13 +48,15 @@ a = Analysis(
         "tkinter.messagebox",
         "tkinter.filedialog",
         "tkinter.scrolledtext",
+
         # ── ttkbootstrap ───────────────────────────────────────────────────────
         "ttkbootstrap",
         "ttkbootstrap.dialogs",
         "ttkbootstrap.constants",
         "ttkbootstrap.style",
         "ttkbootstrap.themes",
-        # ── pandas internals (commonly missed by the hook) ─────────────────────
+
+        # ── pandas internals ───────────────────────────────────────────────────
         "pandas",
         "pandas._libs.tslibs.base",
         "pandas._libs.tslibs.nattype",
@@ -68,7 +71,8 @@ a = Analysis(
         "pandas._libs.window.indexers",
         "pandas.core.arrays.string_",
         "pandas.io.formats.style",
-        # ── openpyxl (PyInstaller hook misses several sub-modules) ─────────────
+
+        # ── openpyxl  ──────────────────────────────────────────────────────────
         "openpyxl",
         "openpyxl.styles",
         "openpyxl.styles.differential",
@@ -80,30 +84,35 @@ a = Analysis(
         "openpyxl.writer.excel",
         "openpyxl.chart",
         "openpyxl.chart.label",
+
         # ── xlwings ────────────────────────────────────────────────────────────
         "xlwings",
+
         # ── numpy ──────────────────────────────────────────────────────────────
         "numpy",
         "numpy.core._methods",
         "numpy.lib.format",
-        # ── your src package ───────────────────────────────────────────────────
-        "src",
-        "src.mtl.appender",
-        "src.mtl.comparisons",
-        "src.mtl.controller",
-        "src.mtl.extraction",
-        "src.mtl.formatter",
-        "src.mtl.gui",
-        "src.mtl.metadata",
-        "src.mtl.paths",
-        "src.mtl.process",
-        "src.mtl.utils",
-        "src.controllers",
-        "src.app.controller",
-        "src.app.gui",
-        "src.app.paths",
-        "src.app.reporting",
-        "src.app.utils",
+
+        # ── the wave package ───────────────────────────────────────────────────
+        "m_wave",
+        "m_wave.core",
+        "m_wave.core.controller",
+        "m_wave.core.gui",
+        "m_wave.core.paths",
+        "m_wave.core.reporting",
+        "m_wave.core.utils",
+        "m_wave.wave_packs",
+        "m_wave.wave_packs.mtl",
+        "m_wave.wave_packs.mtl.appender",
+        "m_wave.wave_packs.mtl.comparisons",
+        "m_wave.wave_packs.mtl.controller",
+        "m_wave.wave_packs.mtl.extraction",
+        "m_wave.wave_packs.mtl.formatter",
+        "m_wave.wave_packs.mtl.gui",
+        "m_wave.wave_packs.mtl.metadata",
+        "m_wave.wave_packs.mtl.paths",
+        "m_wave.wave_packs.mtl.process",
+        "m_wave.wave_packs.mtl.utils",
     ],
 
     hookspath=[],
@@ -138,15 +147,14 @@ exe = EXE(
     a.datas,
     [],
 
-    name="wave",
+    name="m-wave",
 
     # ── Appearance ─────────────────────────────────────────────────────────────
-    icon=os.path.join(ASSETS_DIR, "logo.png"),
-    # NOTE: PyInstaller requires a .ico file for the exe icon on Windows.
     # If logo.png is your only asset, convert it first:
     #   pip install pillow
     #   python -c "from PIL import Image; Image.open('assets/logo.png').save('assets/logo.ico')"
-    # Then change the line above to: icon=os.path.join(ASSETS_DIR, "logo.ico")
+
+    icon=ICON_PATH,
 
     debug=False,
     bootloader_ignore_signals=False,
