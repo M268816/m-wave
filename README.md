@@ -6,7 +6,7 @@
 <p align="center"><strong>Workbook Automation &amp; Verification Engine</strong></p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0--prerelease.6-blue" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0--dev.6-blue" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-lightgrey" />
   <a href="http://157.93.24.68/M268816/WAVE/issues">
