@@ -19,8 +19,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Operating System :: Microsoft :: Windows",
   "Intended Audience :: Developers",
 ]
@@ -34,7 +32,7 @@ dependencies = [
   "python-dateutil>=2.9.0.post0",
   "pytz>=2024.1",
   "six>=1.17.0",
-  "ttkbootstrap>=1.10.0",
+  "ttkbootstrap>=2.1.0",
   "tzdata>=2024.1",
   "xlwings>=0.31.0",
   "datacompy>=0.13.0",

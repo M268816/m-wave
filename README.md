@@ -1,47 +1,40 @@
 <p align="center">
-  <img src="assets/logo.png" alt="WAVE logo" width="140" />
+  <img src="src/m_wave/assets/images/logo.png" alt="M-WAVE logo" width="140" />
 </p>
 
-<h1 align="center">WAVE</h1>
+<h1 align="center">M-WAVE</h1>
 <p align="center"><strong>Workbook Automation &amp; Verification Engine</strong></p>
 
 <p align="center">
-  <a href="https://github.com/M268816/wave/releases">
-    <img alt="Release" src="https://img.shields.io/github/v/release/M268816/wave?sort=semver" />
-  </a>
-  <a href="https://github.com/M268816/wave/actions">
-    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/M268816/wave/build.yml?branch=main" />
-  </a>
-  <a href="https://github.com/M268816/wave/issues">
-    <img alt="Issues" src="https://img.shields.io/github/issues/M268816/wave" />
-  </a>
-  <a href="https://github.com/M268816/wave/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/M268816/wave" />
-  </a>
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0--prerelease.6-blue" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue" />
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-lightgrey" />
+  <a href="http://157.93.24.68/M268816/WAVE/issues">
+    <img alt="Issues" src="https://img.shields.io/badge/issues-Gitea-green" />
+  </a>
 </p>
 
 ---
 
 ## Overview
 
-WAVE is a lightweight desktop application that validates and updates **Master Data Context Excel Workbooks** using **CSV inputs**.
+M-WAVE is a lightweight desktop application that validates and updates **Master Data Context Excel Workbooks** using **CSV inputs**.
 
 It supports two main workflows:
 
-- **Comparison**: compare **CSV** data against a **Master Context Excel Table** and report the differences.
-- **Append (Upsert)**: insert new records and update existing records within a **Master Data Context Table**, then output an updated workbook copy.
+- **Compare** — compare CSV data against a Master Context Excel Table and report the differences.
+- **Append (Upsert)** — insert new records and update existing records within a Master Data Context Table, then output an updated workbook copy.
 
-WAVE is intended to **increase data transfer accuracy** and **reduce validation time**.
+M-WAVE is intended to **increase data transfer accuracy** and **reduce validation time**.
 
 ---
 
-## What WAVE works with
+## What M-WAVE Works With
 
 ### Inputs
 
-- **MTL/CMD workbook**: `.xlsx` / `.xlsm` containing named Excel tables
-- **PI Builder export**: `.csv`
+- **MTL/CMD workbook** — `.xlsx` / `.xlsm` containing named Excel tables
+- **PI Builder export** — `.csv`
 
 _Planned_
 
@@ -49,258 +42,279 @@ _Planned_
 
 ### Outputs
 
-WAVE writes artifacts next to the executable (or project root when running from source):
+M-WAVE writes artifacts next to the executable (or project root when running from source):
 
-- `reports/` — per-run report folders containing:
+- `generated/reports/` — per-run report folders named `TIMESTAMP_(table_filter_processtype)/` containing:
   - `*.log` run report
-  - CSV snapshots/exports (examples below)
-- appended workbook copy (append workflow)
-- `logs/` — general application error logs
+  - CSV snapshots/exports (see below)
+  - Appended workbook copy (append workflow only)
+- `generated/logs/` — general application error logs
+- `user_prefs/` — persisted user preferences
 
-Common per-run CSV artifacts include:
+Common per-run CSV artifacts:
 
-- `mtl_dataframe_before.csv` (append workflow)
-- `input_dataframe.csv` (append workflow)
-- `mtl_dataframe_after.csv` (append workflow)
-- `rows_only_within_MTL.csv` / `rows_only_within_input.csv` (compare workflow when keys differ)
-- `*_comparison.csv` (compare workflow when row contents differ)
-- `comparable_rows.csv` / `non_comparable_rows.csv` (compare workflow, key-filtering step)
+| Workflow  | File                                                                        |
+| --------- | --------------------------------------------------------------------------- |
+| Append    | `mtl_dataframe_before.csv`, `input_dataframe.csv`, `mtl_dataframe_after.csv` |
+| Compare   | `rows_only_within_MTL.csv`, `rows_only_within_input.csv`, `*_comparison.csv`, `comparable_rows.csv`, `non_comparable_rows.csv` |
 
 ---
 
-## Important notes / assumptions
+## Important Notes / Assumptions
 
-- **Close any Master Data Context workbook before running WAVE.** (WAVE automates Excel via `xlwings`.)
-- WAVE is tested against a specific **MTL/CMD version** defined in `assets/mtl_config.json` (see `"mtl_version"`).
-- For append workflows, **do not pre-populate a `Version` column** in the input CSV; WAVE will manage this behavior during column conformance.
-- **Do not change configurations or report options while a process is running.** WAVE will reject the change and restore the previous value.
-- **Do not close WAVE while a process is running.** A confirmation dialog will warn you — any in-progress work will be lost.
+- **Close any MTL/CMD workbook before running M-WAVE.** M-WAVE automates Excel via `xlwings`.
+- M-WAVE is tested against a specific MTL/CMD version defined in `src/m_wave/assets/configurations/mtl_config.json` (see `"mtl_version"`).
+- For append workflows, **do not pre-populate a `Version` column** in the input CSV — M-WAVE manages this during column conformance.
+- **Do not change configurations or report options while a process is running.** M-WAVE will reject the change and restore the previous value.
+- **Do not close M-WAVE while a process is running.** A confirmation dialog will warn you — any in-progress work will be lost.
 
 ---
 
 ## WavePacks
 
-WavePacks are the designation given to the sub-modules that make up the GUI, logic controllers, and other processing modules for a discrete set of instructions. Each WavePack is a self-contained `WavePackFrame` subclass registered with the application at startup.
-
-## How it works (high level, MTL-CMD example)
-
-1. Launch WAVE — the **WavePack Launcher** is shown.
-2. Select a WavePack (e.g. **MTL-CMD**). You will be locked into your WavePack for the session; restart to change.
-3. Select files:
-   - MTL/CMD workbook
-   - PI Builder export CSV
-4. Choose a target **MTL/CMD table** (worksheet/table mapping comes from `assets/mtl_config.json`)
-5. Optionally enter a **Filter** string (applied to configured filter columns; some tables use key-based filtering)
-6. Run:
-   - **Compare** to validate a comparison between the selected files.
-   - **Append** to upsert and generate an updated workbook copy.
-7. Review the generated run report and CSVs in `reports/<timestamp>_<name>/`
-
----
-
-## WavePack Launcher
-
-WAVE opens with a **WavePack Launcher** screen. Each registered WavePack is listed as a button. Clicking one shows a confirmation dialog before locking you into the selection for the session.
+WavePacks are the modular units that make up M-WAVE. Each WavePack is a self-contained `WavePackFrame` subclass that bundles its own GUI (`gui.py`), controller (`controller.py`), and processing logic. WavePacks are registered with the application at startup in `App.init_wavepacks()`.
 
 Currently registered WavePacks:
 
-| WavePack    | Description                                                      |
-| ----------- | ---------------------------------------------------------------- |
-| **MTL-CMD** | Full compare and append workflow against MTL/CMD Excel workbooks |
-| **Example** | Placeholder frame for development and testing                    |
+| WavePack                      | Description                                                      |
+| ----------------------------- | ---------------------------------------------------------------- |
+| **Master Tag List Processor** | Full compare and append workflow against MTL/CMD Excel workbooks |
+| **Example Package**           | Placeholder frame for development and testing                    |
 
-To add a new WavePack, register its `WavePackFrame` subclass in `AppWindow.init_wavepacks()` using `self.add_wavepack("Name", FrameClass)`.
+To add a new WavePack, register its `WavePackFrame` subclass in `App.init_wavepacks()` inside `src/m_wave/core/gui.py`:
+
+```python
+self.add_wavepack("My WavePack Name", MyWavePackFrame, "Short description.")
+```
 
 ---
 
-## Configuration
+## How It Works (MTL Example)
 
-WAVE uses two separate configuration files:
-
-### MTL Configuration (`assets/mtl_config.json`)
-
-Defines MTL/CMD-specific settings:
-
-- The compatible `mtl_version`
-- Worksheet -> `table_id` -> table `type` mappings
-- Whether a worksheet/table can be processed (`can_compare`)
-- Table formatting rules per type:
-  - `index_keys` (composite keys used for uniqueness / matching)
-  - Filtering rules (string filtering vs key-based filtering)
-  - Optional object type ordering
-  - Sort order and direction
-- Dataframe formatting rules:
-  - Known numeric columns
-  - "classic GxP" columns that can be auto-added when missing
-
-If you add new MTL/CMD worksheets or rename tables, update `assets/mtl_config.json` accordingly.
-
-### User Preferences (`user_prefs/user_preferences.json`)
-
-Stores user-editable settings including the active UI theme and report display options (`use_timestamps`, `use_msg_types`). On first run, WAVE bootstraps a copy from `assets/user_preferences.json` into the local `user_prefs/` folder. Subsequent runs use this copy. Changes made through the in-app **Report Options** and **Themes** menus are written back to this file automatically.
-
-If the user preferences file becomes corrupt or is deleted, WAVE regenerates it from the bundled default.
+1. Launch M-WAVE — the **WavePack Launcher** is shown.
+2. Select a WavePack (e.g. **Master Tag List Processor**). You are locked into your WavePack for the session; restart to change.
+3. Select files:
+   - MTL/CMD workbook (`.xlsx` / `.xlsm`)
+   - PI Builder export (`.csv`) — or use **Import** to download the latest MTL from the web
+4. Choose a target **MTL/CMD table** from the dropdown (mappings come from `mtl_config.json`)
+5. Optionally enter a **Filter** string (applied to configured filter columns; some tables use key-based filtering)
+6. Select a process type:
+   - **Compare** — validate differences between selected files
+   - **Append** — upsert and generate an updated workbook copy
+7. Review the generated run report and CSVs in:
+   ```
+   generated/reports/TIMESTAMP_(table_filter_processtype)/
+   ```
 
 ---
 
 ## Menu Bar
 
-| Menu               | Item                 | Description                                                                           |
-| ------------------ | -------------------- | ------------------------------------------------------------------------------------- |
-| **File**           | Exit                 | Close the application (prompts if a session is active)                                |
-| **Report Options** | Report Timestamps    | Toggle timestamps in the process output display                                       |
-| **Report Options** | Report Message Types | Toggle message-type prefixes (INFO, ERROR, etc.) in the display                       |
-| **Themes**         | _(theme list)_       | Switch the UI theme at runtime; selection is persisted                                |
-| **Help**           | MTL/CMD Instructions | Push bundled instructions to the output display and open reference links in a browser |
-| **Help**           | About                | Display application version, copyright, and author information                        |
+| Menu               | Item                    | Description                                                                             |
+| ------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
+| **File**           | Exit                    | Close the application (prompts confirmation if a session is active)                     |
+| **Report Options** | Report Timestamps       | Toggle timestamps in the process output display                                         |
+| **Report Options** | Report Message Types    | Toggle message-type prefixes (INFO, ERROR, etc.) in the display                         |
+| **Themes**         | _(theme list)_          | Switch the UI theme at runtime; selection is persisted to `user_preferences.json`       |
+| **Help**           | MTL/CMD Instructions    | Push bundled instructions to the output display and open reference links in a browser   |
+| **Help**           | About                   | Display application version, copyright, and author information                          |
 
 > Configuration changes are blocked while a process is running.
 
 ---
 
-## Reporting
+## Configuration
 
-All process output is routed through the `Reporting` class (`src/app/reporting.py`). It writes to three destinations simultaneously:
+### MTL Configuration (`src/m_wave/assets/configurations/mtl_config.json`)
 
-1. **Process output display** — live streaming into the `ScrolledText` widget via the Tk event loop.
-2. **Run log file** — a `.log` file written to `reports/<timestamp>_(<name>)/` on `save_report()`.
-3. **Application error log** — a general `logs/<timestamp>_general_error.log` capturing Python-level log records.
+Defines MTL/CMD-specific settings:
 
-### Output formatting helpers
+- Compatible `mtl_version`
+- Worksheet → `table_id` → table `type` mappings
+- Whether a table supports compare/append (`can_compare`)
+- Per-table formatting rules:
+  - `index_keys` — composite keys used for uniqueness / row matching
+  - Filtering rules (string filtering vs key-based filtering)
+  - Optional object-type ordering
+  - Sort order and direction
+- Dataframe formatting rules:
+  - Known numeric columns
+  - "Classic GxP" columns that can be auto-added when missing
 
-| Method                        | Visual style                                           |
-| ----------------------------- | ------------------------------------------------------ |
-| `title(msg)`                  | Heavy box (`+=+`) -- major section start/end           |
-| `subtitle(msg)`               | Light box (`+-+`) -- sub-section header                |
-| `simple_title(msg)`           | Dashed inline header (`-- text --`)                    |
-| `highlight_error(msg)`        | Single-line error banner (`X=== msg ===X`)             |
-| `highlight_titled_error(msg)` | Boxed error with title and message (`X==+ TITLE +==X`) |
-| `divider()`                   | Full-width `=` line                                    |
-| `separator()`                 | Full-width `-` line                                    |
-| `section()`                   | Half-width `-` line                                    |
+If you add new MTL/CMD worksheets or rename tables, update this file accordingly.
 
-### Modal dialogs
+### User Preferences (`user_prefs/user_preferences.json`)
 
-Popup dialogs (errors, warnings, info) raised from background threads are routed through a **modal queue** and dispatched safely on the main thread, one at a time, FIFO. This prevents overlapping dialogs and Tk thread-safety issues.
+Stores user-editable settings including the active UI theme and report display options (`use_timestamps`, `use_msg_types`). On first run, M-WAVE bootstraps a copy from the bundled default at `src/m_wave/assets/configurations/user_preferences.json`. Changes made via the **Report Options** and **Themes** menus are written back automatically.
+
+If this file becomes corrupt or is deleted, M-WAVE regenerates it from the bundled default.
 
 ---
 
-## Running from source (development)
+## Reporting
+
+All process output is routed through the `Reporting` class (`src/m_wave/core/reporting.py`). It writes to three destinations simultaneously:
+
+1. **Process output display** — live streaming into the `ScrolledText` widget via the Tk event loop.
+2. **Run log file** — a `.log` file written to `generated/reports/TIMESTAMP_(name)/` on `save_report()`.
+3. **Application error log** — a general `generated/logs/TIMESTAMP_general_error.log` capturing Python-level log records.
+
+### Output Formatting Helpers
+
+| Method                        | Visual style                                             |
+| ----------------------------- | -------------------------------------------------------- |
+| `title(msg)`                  | Heavy box (`+=+`) — major section start/end              |
+| `subtitle(msg)`               | Light box (`+-+`) — sub-section header                   |
+| `simple_title(msg)`           | Dashed inline header (`-- text --`)                      |
+| `highlight_error(msg)`        | Single-line error banner (`X=== msg ===X`)               |
+| `highlight_titled_error(msg)` | Boxed error with title and message (`X==+ TITLE +==X`)   |
+| `divider()`                   | Full-width `=` line                                      |
+| `separator()`                 | Full-width `-` line                                      |
+| `section()`                   | Half-width `-` line                                      |
+
+### Modal Dialogs
+
+Popup dialogs raised from background threads are routed through a **modal queue** and dispatched safely on the main thread, one at a time, FIFO. This prevents overlapping dialogs and Tk thread-safety issues.
+
+---
+
+## Running from Source (Development)
 
 ### Requirements
 
-- Python **3.11+** (recommended)
+- Python **3.11+**
 - Microsoft Excel installed (required for `xlwings` automation)
+- Windows
 
-### Setup
+### Quick Start
 
-```bash
+Use the included `setup.bat` to create the virtual environment and install dependencies, then `run.bat` to launch:
+
+```bat
+setup.bat
+run.bat
+```
+
+### Manual Setup
+
+```bat
 python -m venv .venv
-
-# Windows:
 .venv\Scripts\activate
-
-# macOS/Linux:
-source .venv/bin/activate
-
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Run
 
-```bash
-python main.py
+```bat
+python -m m_wave
 ```
 
-> If you don't have a `requirements.txt` yet, create one (either curated or via `pip freeze > requirements.txt`)
+or, after `pip install -e .`:
 
-## Building a standalone executable (PyInstaller)
+```bat
+m-wave
+```
 
-### Build tooling
+---
 
-```bash
-python -m pip install --upgrade pip
+## Building a Standalone Executable (PyInstaller)
+
+```bat
+.venv\Scripts\activate
 pip install pyinstaller
-```
-
-### Build
-
-```bash
 pyinstaller wave.spec
 ```
 
-Build artifacts will be under `dist/` (depending on `wave.spec`).
+Build artifacts will be placed under `dist/`.
 
-### PyInstaller path resolution
+### PyInstaller Path Resolution
 
-WAVE uses a PyInstaller-aware path module (`src/app/paths.py`) that resolves resource and data directories correctly in both environments:
+M-WAVE uses a PyInstaller-aware path module (`src/m_wave/core/paths.py`) that resolves resource and data directories correctly in both environments:
 
-| Environment         | Resource path (assets, bundled configs) | Data path (logs, reports, user prefs) |
-| ------------------- | --------------------------------------- | ------------------------------------- |
-| Running from source | Project root                            | Project root                          |
-| Compiled `.exe`     | `sys._MEIPASS` temp extraction folder   | Directory containing the `.exe`       |
+| Environment         | Resource path (assets, bundled configs)  | Data path (logs, reports, user prefs)   |
+| ------------------- | ---------------------------------------- | --------------------------------------- |
+| Running from source | `src/m_wave/` (package root)             | `m-wave/generated/` (project root)      |
+| Compiled `.exe`     | `sys._MEIPASS` temp extraction folder    | Directory containing the `.exe`         |
 
-This means logs, reports, and user preferences always appear **next to the executable**, never inside the temp extraction folder.
+Logs, reports, and user preferences always appear **next to the executable**, never inside the temp extraction folder.
 
 ---
 
 ## Troubleshooting
 
-### "Configuration not found. Cannot run application."
+### `TclError: is not a valid theme`
 
-- Ensure `assets/mtl_config.json` is present and bundled for runtime.
-- Endure the json file is properly written with no errors within json syntax.
-- If running a built executable, make sure your PyInstaller spec includes `assets\`.
+Your saved `user_preferences.json` contains a legacy ttkbootstrap 1.x theme name. Delete `user_prefs/user_preferences.json` and restart — M-WAVE will regenerate it with the default theme. Then select a theme from the **Themes** menu.
 
-### Excel automation issues
+### `Configuration not found. Cannot run application.`
 
-- Close any open MTL/CMD workbooks.
+- Ensure `src/m_wave/assets/configurations/mtl_config.json` is present.
+- Verify the JSON file has no syntax errors.
+- If running a built executable, confirm your PyInstaller spec includes the `assets/` directory.
+
+### Excel Automation Issues
+
+- Close any open MTL/CMD workbooks before running.
 - Confirm Excel is installed and opens normally.
 
-### CSV encoding issues
+### CSV Encoding Issues
 
-- WAVE attempts fallback encoding conversion of non-UTF-8 files and may emit a `*_fixed.csv` in the run report folder. If this automatic process fails, try saving the CSV file as a `UTF-8 encoded CSV` file via the newest version of Excel available to you.
+M-WAVE attempts fallback encoding conversion of non-UTF-8 files and may emit a `*_fixed.csv` in the run report folder. If this fails, re-save the CSV as **UTF-8 encoded CSV** from Excel.
 
 ---
 
 ## Project Structure
 
 ```
-wave/
-|-- main.py                        # Entry point -- initialises logging and launches AppWindow
-|-- pyproject.toml                 # Project metadata and dependency declarations
-|-- requirements.txt               # Pinned runtime dependencies
-|-- wave.spec                      # PyInstaller build spec
-|-- assets/
-|   |-- logo.png                   # Application icon
-|   |-- mtl_config.json            # MTL/CMD configuration (bundled with executable)
-|   |-- user_preferences.json      # Default user preferences (bundled with executable)
-|   `-- instructions.txt           # Help text shown via the Help menu
-|-- user_prefs/
-|   `-- user_preferences.json      # User-editable preferences (auto-generated on first run)
-|-- logs/
-|   `-- <timestamp>_general_error.log
-|-- reports/
-|   `-- <timestamp>_(<filter>)/
-|       |-- <filter>.log
-|       `-- *.csv
-`-- src/
-    |-- app/                       # Application-level shared modules
-    |   |-- gui.py                 # AppWindow, LauncherFrame, ExampleFrame
-    |   |-- controller.py          # AppController -- reporting and config management
-    |   |-- utils.py               # WavePackFrame, ProcessController, font/layout constants
-    |   |-- reporting.py           # Reporting -- log/display/modal output routing
-    |   `-- paths.py               # PyInstaller-aware path resolution helpers
-    `-- mtl/                       # MTL-CMD WavePack modules
-        |-- gui.py                 # MTLFrame -- MTL-CMD WavePack GUI
-        |-- controller.py          # MTLController, MTLRequest, MTLUi, MTLProcessorType
-        |-- process.py             # Process -- orchestrates compare and append workflows
-        |-- extraction.py          # DataExtractor -- reads MTL named tables and input CSVs
-        |-- formatter.py           # DataFormatter -- normalisation, conforming, filtering, sorting
-        |-- comparator.py          # DataComparator -- shape and row-level diff reporting
-        |-- appender.py            # DataAppender -- upsert logic and workbook export
-        `-- metadata.py            # MtlMetadata, TableType, WORKSHEET_METADATA, TABLE_FORMATTING
+m-wave/
+├── setup.bat                          # Creates venv and installs dependencies
+├── run.bat                            # Activates venv and launches M-WAVE
+├── pyproject.toml                     # Project metadata and dependency declarations
+├── requirements.txt                   # Dev/tooling dependencies (pytest, pyinstaller, etc.)
+├── wave.spec                          # PyInstaller build spec
+├── generated/                         # Runtime-generated output (gitignored)
+│   ├── logs/
+│   │   └── <timestamp>_general_error.log
+│   └── reports/
+│       └── <timestamp>_(<table>_<filter>_<processtype>)/
+│           ├── <name>.log
+│           └── *.csv
+├── user_prefs/                        # User-editable preferences (auto-generated)
+│   └── user_preferences.json
+└── src/
+    └── m_wave/
+        ├── __main__.py                # Entry point — configures logging, launches App
+        ├── assets/
+        │   ├── configurations/
+        │   │   ├── mtl_config.json    # MTL/CMD configuration (bundled with executable)
+        │   │   └── user_preferences.json  # Default preferences template
+        │   ├── images/
+        │   │   └── logo.png           # Application icon
+        │   └── instruction_files/
+        │       └── *.txt              # Help text shown via the Help menu
+        ├── core/                      # Application-level shared modules
+        │   ├── gui.py                 # App (root window), WavePack registration
+        │   ├── launcher.py            # LauncherFrame — WavePack selection screen
+        │   ├── wavepack_frame.py      # WavePackFrame — base class for all WavePacks
+        │   ├── wavepack_controller.py # WavePackController — base controller
+        │   ├── context.py             # AppContext — shared runtime state
+        │   ├── reporting.py           # Reporting — log/display/modal output routing
+        │   ├── paths.py               # AppPaths — PyInstaller-aware path resolution
+        │   └── utils.py               # Font/layout constants and shared utilities
+        └── wave_packs/
+            ├── mtl/                   # Master Tag List WavePack
+            │   ├── gui.py             # MTLFrame — MTL WavePack GUI
+            │   ├── controller.py      # MTLController, MTLRequest, MTLUi, MTLProcessorType
+            │   ├── process.py         # Process — orchestrates compare and append workflows
+            │   ├── extraction.py      # DataExtractor — reads MTL tables and input CSVs
+            │   ├── formatter.py       # DataFormatter — normalisation, conforming, filtering
+            │   ├── comparisons.py     # DataComparator — shape and row-level diff reporting
+            │   ├── appender.py        # DataAppender — upsert logic and workbook export
+            │   ├── metadata.py        # Metadata, TableType, table formatting rules
+            │   └── paths.py           # MTL-specific path constants
+            └── example/               # Example WavePack (dev/testing placeholder)
+                └── gui.py             # ExampleFrame
 ```
 
 ---
@@ -311,4 +325,4 @@ Internal use only. See [LICENSE](./LICENSE).
 
 ## Repositories
 
-You can find this repo on both GitHub and Gitea. Consult the WAVE SOP for details.
+This project is hosted on both **GitHub** and **Gitea**. Consult the M-WAVE SOP for repository access details.
