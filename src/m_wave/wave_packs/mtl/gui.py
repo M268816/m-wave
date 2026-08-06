@@ -32,7 +32,7 @@ from ttkbootstrap.constants import (
     Y,
     YES,
     PRIMARY,
-    SUCCESS
+    SUCCESS,
 )
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
@@ -46,11 +46,15 @@ from m_wave.core.utils import (
 from m_wave.core.wavepack_frame import WavePackFrame
 
 # local wave pack
-from m_wave.wave_packs.mtl.controller import MTLController, MTLProcessorType, MTLRequest, MTLUi
+from m_wave.wave_packs.mtl.controller import (
+    MTLController,
+    MTLProcessorType,
+    MTLRequest,
+    MTLUi,
+)
 from m_wave.wave_packs.mtl.extraction import DataExtractor
 from m_wave.wave_packs.mtl.metadata import Metadata
 from m_wave.wave_packs.mtl.paths import MTL_INSTRUCTIONS_PATH
-
 
 
 class MTLFrame(WavePackFrame):
@@ -120,7 +124,7 @@ class MTLFrame(WavePackFrame):
         return self.stext
 
     def build_menus(self, menubar: tkb.Menu) -> None:
-        report_menu = tkb.Menu(menubar, tearoff=0)
+        report_menu = tkb.Menu(menubar, tearoff=False)
         for label, var, key in (
             ("Report Timestamps", self.opt_use_timestamps, "use_timestamps"),
             ("Report Message Types", self.opt_use_msg_types, "use_msg_types"),

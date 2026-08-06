@@ -61,7 +61,6 @@ class Process:
         self.report = report
         self.metadata = Metadata(self.report)
         self.metadata.set_worksheet_name(self.mtl_worksheet_name)
-        self.metadata.set_table_type()
 
         self.data_appender = DataAppender(self.report, self.metadata)
         self.data_extractor = DataExtractor(self.report, self.metadata)
@@ -72,7 +71,7 @@ class Process:
         self, version_stringvar: tkb.StringVar, mtl_path_stringvar: tkb.StringVar
     ) -> bool:
         """
-        A test process that attemps to pull the MTL directly from ManGo.
+        A test process that attempts to pull the MTL directly from ManGo.
         """
         self.report.title("ATTEMPTING TO DOWNLOAD THE MTL FROM MANGO")
         try:

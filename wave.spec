@@ -9,6 +9,7 @@
 
 import os
 from PyInstaller.building.build_main import Analysis, PYZ, EXE
+from PyInstaller.utils.hooks import collect_data_files
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 # Assumes the spec file lives at the project root
@@ -37,7 +38,9 @@ a = Analysis(
 
     # paths.py reads these via get_temp_path() / sys._MEIPASS at runtime.
     datas=[
-        (ASSETS_DIR, "assets")
+        (ASSETS_DIR, "assets"),
+        *collect_data_files("ttkbootstrap"),
+        *collect_data_files("datacompy"),
     ],
 
     # Modules PyInstaller cannot detect automatically (dynamic imports, etc.)
@@ -94,13 +97,15 @@ a = Analysis(
         "numpy.lib.format",
 
         # ── the wave package ───────────────────────────────────────────────────
-        "m_wave",
         "m_wave.core",
-        "m_wave.core.controller",
+        "m_wave.core.context",
         "m_wave.core.gui",
+        "m_wave.core.launcher",
         "m_wave.core.paths",
         "m_wave.core.reporting",
         "m_wave.core.utils",
+        "m_wave.core.wavepack_controller",
+        "m_wave.core.wavepack_frame",
         "m_wave.wave_packs",
         "m_wave.wave_packs.mtl",
         "m_wave.wave_packs.mtl.appender",
@@ -163,7 +168,6 @@ exe = EXE(
     upx_exclude=[],
 
     console=False,
-    onefile=True,
 
     disable_windowed_traceback=False,
     target_arch=None,

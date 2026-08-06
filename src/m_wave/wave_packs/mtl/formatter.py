@@ -13,6 +13,7 @@ import pandas as pd
 from m_wave.core.reporting import Reporting
 
 # local wave pack
+from m_wave.core.utils import DATETIME_FORMAT_MERCK
 from m_wave.wave_packs.mtl.metadata import Metadata, TableType
 from m_wave.wave_packs.mtl.utils import report_shape_differences
 
@@ -274,10 +275,11 @@ class DataFormatter:
                     self.report.info("Path based sorting detected.")
                     _df["group_key"] = _df[path_sorting_keys].apply(
                         lambda row: "\\".join(
-                                str(val) for val in row
-                                if pd.notna(val) and str(val).strip() !=""
-                            ),
-                            axis=1,
+                            str(val)
+                            for val in row
+                            if pd.notna(val) and str(val).strip() != ""
+                        ),
+                        axis=1,
                     )
                 else:
                     # Ties each member row back to a parent set
@@ -345,6 +347,41 @@ class DataFormatter:
 
             # Remove blank rows if they exist
             df = self._drop_na_rows(df, index_keys)
+
+            # Changing these columns to datetime, helps some data comparison errors.
+            datetime_columns = self.metadata.dataframe_formatting.get(
+                "datetime_columns", []
+            )
+            for column in datetime_columns:
+                if column in df.columns:
+                    col_dtype = df[column].dtype
+                    if pd.api.types.is_float_dtype(
+                        col_dtype
+                    ) or pd.api.types.is_integer_dtype(col_dtype):
+
+                        # Not a string, cast from date serial to string
+                        self.report.debug(
+                            f"Converting QA date serial in '{column}' to string.",
+                            report=False,
+                        )
+
+                        df[column] = (
+                            pd.to_datetime(
+                                df[column],
+                                unit="D",
+                                origin="1899-12-30",
+                                errors="coerce",
+                            )
+                            .dt.strftime(DATETIME_FORMAT_MERCK)
+                            .fillna("")
+                        )
+                    else:
+                        # Already a string - normalize to merck standard
+                        df[column] = (
+                            pd.to_datetime(df[column], errors="coerce")
+                            .dt.strftime(DATETIME_FORMAT_MERCK)
+                            .fillna("")
+                        )
 
             # Changing these columns to int, helps some data comparison errors.
             numeric_columns = self.metadata.dataframe_formatting["numeric_columns"]
@@ -420,7 +457,9 @@ class DataFormatter:
         try:
             if use_version:
                 if "Version" not in _input.columns:
-                    _input["Version"] = float(self.metadata.get_mtl_version()) + float(1)
+                    _input["Version"] = float(self.metadata.get_mtl_version()) + float(
+                        1
+                    )
             else:
                 _input = _input.drop(columns=["Version"], errors="ignore")
                 _mtl = _mtl.drop(columns=["Version"], errors="ignore")

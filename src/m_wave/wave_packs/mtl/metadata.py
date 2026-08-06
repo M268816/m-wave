@@ -46,16 +46,18 @@ class Metadata:
         self.worksheet_name = ws_name
         self.mtl_configs = self.get_mtl_configs()
         self.worksheet_metadata = self.get_worksheet_metadata()
-        self.table_type: TableType = self.get_table_type()
-        self.table_formatting = self.get_table_formatting()
         self.dataframe_formatting = self.get_dataframe_formatting()
         self.mtl_document_path = self.get_mtl_document_path()
+        self.table_formatting = self.get_table_formatting()
+
+    @property
+    def table_type(self) -> TableType:
+        if self.worksheet_name and self.worksheet_name in self.worksheet_metadata:
+            return self.worksheet_metadata[self.worksheet_name].type
+        return TableType.UNKNOWN
 
     def set_worksheet_name(self, name: str):
         self.worksheet_name = name
-
-    def set_table_type(self):
-        self.table_type = self.worksheet_metadata[self.worksheet_name].type
 
     def worksheet_name_is_set(self) -> bool:
         if self.worksheet_name:
@@ -215,4 +217,3 @@ class Metadata:
         if self.table_type_is_set():
             return self.table_formatting[self.table_type]["Path Sorting Keys"]
         return []
-

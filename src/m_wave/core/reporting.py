@@ -151,10 +151,13 @@ class Reporting:
 
         prefix = ""
 
+        diff = max(0, len("EXCEPTION") - len(msg_type))
+        type_padding = " " * diff
+
         if self.use_timestamps:
             prefix = f"{timestamp}:"
         if self.use_msg_types:
-            prefix += f"{msg_type}\t> "
+            prefix += f"{msg_type}" + type_padding + "❚┋❚"
 
         prefix_len = len(prefix)
         indent = " " * prefix_len
