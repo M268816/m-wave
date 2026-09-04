@@ -9,14 +9,7 @@ from tkinter import PhotoImage
 # third party
 from PIL import Image, ImageTk
 import ttkbootstrap as tkb
-from ttkbootstrap.constants import (
-    BOTH,
-    CENTER,
-    NSEW,
-    TOP,
-    X,
-    PRIMARY
-)
+from ttkbootstrap.constants import BOTH, CENTER, NSEW, TOP, X, PRIMARY
 from ttkbootstrap.dialogs import Messagebox
 
 # local
@@ -36,8 +29,9 @@ from m_wave.core.utils import (
 
 # from src.kepware.gui import KepwareFrame
 from m_wave.wave_packs.mtl.gui import MTLFrame
-# from m_wave.wave_packs.example.gui import ExampleFrame
-# from m_wave.wave_packs.tag_doc_gen.gui import TagDocGenFrame
+
+from m_wave.wave_packs.example.gui import ExampleFrame
+from m_wave.wave_packs.tag_doc_gen.gui import TDGFrame
 
 # CONSTANTS
 THEMES = (
@@ -74,7 +68,6 @@ THEMES = (
     "united-dark",
     "sandstone-dark",
 )
-
 
 
 class App(tkb.Window):
@@ -119,21 +112,24 @@ class App(tkb.Window):
             MTLFrame,  # type: ignore
             "Compare or append new PI records to the MTL/CMD.",
         )
-        # self.add_wavepack(
-        #     "Example Package",
-        #     ExampleFrame,  # type: ignore
-        #     "This is just an example of an additional WavePack!",
-        #  )
+
+        self.add_wavepack(
+            "Example Package",
+            ExampleFrame,  # type: ignore
+            "This is just an example of an additional WavePack!",
+        )
+
         # self.add_wavepack(
         #     "Kepware Environment Comparison",
         #     KepwareFrame,  # type: ignore
         #     "Compare environment (VAL, DEV) CSV tag exports.",
         # )
-        # self.add_wavepack(
-        #     "Tag Document Genereator",
-        #     TagDocGenFrame,  # type: ignore
-        #     "Generate Kepware/PI tag documents.",
-        # )
+
+        self.add_wavepack(
+            "Tag Document Genereator",
+            TDGFrame,
+            "Generate Kepware/PI tag documents.",
+        )
 
     def add_wavepack(self, key: str, frame_cls: WavePackFrame, desc: str) -> None:
         """

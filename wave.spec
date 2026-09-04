@@ -98,6 +98,7 @@ a = Analysis(
 
         # ── the wave package ───────────────────────────────────────────────────
         "m_wave.core",
+
         "m_wave.core.context",
         "m_wave.core.gui",
         "m_wave.core.launcher",
@@ -106,7 +107,9 @@ a = Analysis(
         "m_wave.core.utils",
         "m_wave.core.wavepack_controller",
         "m_wave.core.wavepack_frame",
+
         "m_wave.wave_packs",
+
         "m_wave.wave_packs.mtl",
         "m_wave.wave_packs.mtl.appender",
         "m_wave.wave_packs.mtl.comparisons",
@@ -118,6 +121,21 @@ a = Analysis(
         "m_wave.wave_packs.mtl.paths",
         "m_wave.wave_packs.mtl.process",
         "m_wave.wave_packs.mtl.utils",
+
+        "m_wave.wave_packs.tag_doc_gen",
+        "m_wave.wave_packs.tag_doc_gen.controller",
+        "m_wave.wave_packs.tag_doc_gen.gui",
+        "m_wave.wave_packs.tag_doc_gen.metadata",
+        "m_wave.wave_packs.tag_doc_gen.paths",
+        "m_wave.wave_packs.tag_doc_gen.process",
+        "m_wave.wave_packs.tag_doc_gen.utils",
+
+        "m_wave.wave_packs.example",
+        "m_wave.wave_packs.example.controller",
+        "m_wave.wave_packs.example.gui",
+        "m_wave.wave_packs.example.paths",
+        "m_wave.wave_packs.example.process",
+
     ],
 
     hookspath=[],

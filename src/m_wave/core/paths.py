@@ -15,7 +15,7 @@ class AppPaths:
         self.package_root = self.get_package_root()
         self.exe_dir = self.get_exe_dir()
         self.resource_root = self.get_resource_root()
-        self.generated_root =self.get_generated_root()
+        self.generated_root = self.get_generated_root()
 
         self.known_bundled_resources = [
             "assets",
@@ -32,10 +32,12 @@ class AppPaths:
 
         # Common build files
         self.logo_path = self.images_dir / "logo.png"
-        self.user_preferences_template_path = self.configurations_dir / "user_preferences.json"
+        self.user_preferences_template_path = (
+            self.configurations_dir / "user_preferences.json"
+        )
 
         # Generated/writable folders
-        self.logs_dir =  self.create_generated_folder("logs")
+        self.logs_dir = self.create_generated_folder("logs")
         self.reports_dir = self.create_generated_folder("reports")
         self.user_preferences_dir = self.create_generated_folder("user_prefs")
 

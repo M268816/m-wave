@@ -358,7 +358,6 @@ class DataFormatter:
                     if pd.api.types.is_float_dtype(
                         col_dtype
                     ) or pd.api.types.is_integer_dtype(col_dtype):
-
                         # Not a string, cast from date serial to string
                         self.report.debug(
                             f"Converting QA date serial in '{column}' to string.",
@@ -403,9 +402,7 @@ class DataFormatter:
             df[normal_cols] = df[normal_cols].replace(_VALUE_NORMALIZATION_MAP)
 
             output = self._normalize_whitespace(df)
-
-            df = df.astype("string")
-
+            output = output.astype("string")
             return output
 
         except Exception as e:

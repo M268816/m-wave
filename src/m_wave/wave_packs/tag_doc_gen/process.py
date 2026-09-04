@@ -12,210 +12,42 @@ from typing import Callable
 # third-party
 import pandas as pd
 
-# local
-from src.app.reporting import Reporting
-from src.app.utils import DATETIME_FORMAT_MERCK, USER
-from src.tag_doc_gen.utils import TagDocGenRequest, TagGeneratorType, TagGenFileType
+# local core
+from m_wave.core.reporting import Reporting
+from m_wave.core.utils import DATETIME_FORMAT_MERCK, USER
 
-UA_FILTER_HEADERS = [
-    "KepwareTag",
-    "NodeId",
-    "CustomStreamId",
-]
-
-FILTER_FILE_HEADERS = [
-    "NodeId",
-    "CustomStreamId",
-    "SamplingInterval",
-    "QueueSize",
-    "MonitoringMode",
-    "DataChangeTrigger",
-    "Deadband",
-    "DeadbandType",
-]
-
-TAG_TO_ATTRIBUTE_HEADERS = [
-    "Prefix",
-    "Tags",
-    "Attributes",
-    "Config String",
-]
-
-KEPWARE_TO_PI_HEADERS = [
-    "Selected(x)",
-    "Name",
-    "ObjectType",
-    "pointsource",
-    "sourcetag",
-    "pointtype",
-    "engunits",
-    "digitalset",
-    "displaydigits",
-    "Description",
-    "exdesc",
-    "future",
-    "ptclassname",
-    "archiving",
-    "compressing",
-    "compdev",
-    "compmax",
-    "compmin",
-    "compdevpercent",
-    "excdev",
-    "excmax",
-    "excmin",
-    "excdevpercent",
-    "scan",
-    "shutdown",
-    "span",
-    "step",
-    "typicalvalue",
-    "zero",
-    "convers",
-    "filtercode",
-    "instrumenttag",
-    "location1",
-    "location2",
-    "location3",
-    "location4",
-    "location5",
-    "squareroot",
-    "scriptid",
-    "totalcode",
-    "userint1",
-    "userint2",
-    "userreal1",
-    "userreal2",
-]
-
-KEPWARE_TO_PI_DEFAULTS = {
-    "Selected(x)": "x",
-    "ObjectType": "PIPoint",
-    "pointsource": "<I.T. INPUT FIELD>",  # IT fills in
-    "digitalset": "<USER INPUT FIELD>",  # Digital set name, or blank
-    "sourcetag": "<I.T. INPUT FIELD>",  # IT fills in
-    "engunits": "<USER INPUT FIELD>",  # Engineering units (blank if unitless)
-    "displaydigits": "<USER INPUT FIELD>",  # -20 to 10 (int)
-    "exdesc": None,  # Extended descriptor / free text
-    "future": 0,  # Most tags; cannot change after creation
-    "ptclassname": "classic",
-    "archiving": 1,  # Actively archived
-    "compressing": 1,  # Compression enabled
-    "compdev": 0,  # Compression deviation (eng units)
-    "compmax": 28800,  # Max seconds between archive events
-    "compmin": 0,  # Min seconds between archive events
-    "compdevpercent": 0,  # Compression deviation (% of span)
-    "excdev": 0,  # Exception deviation (eng units)
-    "excmax": 0,  # Max seconds between reported values
-    "excmin": 0,  # Min seconds between reported values (usually 0)
-    "excdevpercent": 0,  # Exception deviation (% of span)
-    "scan": 1,  # Scan mode: 0-5
-    "shutdown": 0,  # Active (not shut down)
-    "span": "<USER INPUT FIELD>",  # Full-scale range (numeric points only)
-    "step": "<USER INPUT FIELD>",  # 1=stepped, 0=interpolated
-    "typicalvalue": "<USER INPUT FIELD>",  # Typical value if known
-    "zero": "<USER INPUT FIELD>",  # Raw value = 0 EU
-    "convers": "<USER INPUT FIELD>",  # Conversion multiplier for totalizer (usually 1)
-    "filtercode": "<USER INPUT FIELD>",  # Data filter/validation code
-    "location1": 1,
-    "location2": 0,
-    "location3": 1,
-    "location4": 1,
-    "location5": 0,
-    "squareroot": 0,
-    "scriptid": 0,
-    "totalcode": 0,
-    "userint1": 0,
-    "userint2": 0,
-    "userreal1": 0,
-    "userreal2": 0,
-}
-
-KEPWARE_TO_PI_AUTO_INPUTS = [
-    "Name",  # Meaningful tag name
-    "pointtype",  # Digital, Float64, Float32, Int32, Int16, String
-    "Description",  # 255-char max
-    "instrumenttag",  # PLC / controller tag name (full path)
-]
-
-PI_DATA_CONVERSION_MAP = {
-    # Lookups with Kepware values returns Pi values
-    "DEFAULT": "STRING",
-    "STRING": "STRING",
-    "CHAR": "STRING",
-    "LONG": "INT32",
-    "SHORT": "INT16",
-    "DOUBLE": "FLOAT64",
-    "FLOAT": "FLOAT32",
-    "DATE": "TIMESTAMP",
-    "BOOLEAN": "DIGITAL",
-}
-
-KEPWARE_DATA_CONVERSION_MAP = {
-    # Lookups with Pi values returns Kepware Values
-    "STRING": "STRING",
-    "INT32": "LONG",
-    "INT16": "SHORT",
-    "FLOAT64": "DOUBLE",
-    "FLOAT32": "FLOAT",
-    "TIMESTAMP": "DATE",
-    "DIGITAL": "BOOLEAN",
-}
-
-LOOKUP_KEYS = [
-    "Equipment Unit Code",
-    "Kepware Channel",
-    "Kepware Device",
-    "Department Code",
-    "PI Tag Prefix Length",
-    "NodeId Prefix",
-    "NamespaceIndex",
-]
-
-KEPWARE_EXPORT_HEADERS = [
-    "Tag Name",
-    "Address",
-    "Data Type",
-    "Respect Data Type",
-    "Client Access",
-    "Scan Rate",
-    "Scaling",
-    "Raw Low",
-    "Raw High",
-    "Scaled Low",
-    "Scaled High",
-    "Scaled Data Type",
-    "Clamp Low",
-    "Clamp High",
-    "Eng Units",
-    "Description",
-    "Negate Value",
-]
+# local wave pack
+from m_wave.wave_packs.tag_doc_gen.metadata import Metadata
+from m_wave.wave_packs.tag_doc_gen.utils import (
+    ProcessRequest,
+    DocGeneratorType,
+    TagFileType,
+)
 
 
 class Process:
     def __init__(
         self,
         report: Reporting,
-        req: TagDocGenRequest,
+        req: ProcessRequest,
     ) -> None:
         self.report = report
+        self.metadata: Metadata = Metadata(self.report)
+        self.req = req
         # Key Data
         self.site = "USJA"
-        self.dept = req.department_code.get()
-        self.equipment_code = req.equipment_code.get()
-        self.kepware_channel = req.kepware_channel.get()
-        self.kepware_device = req.kepware_device.get()
-        self.namespace_index = req.namespace_index.get()
-        self.node_id_prefix = req.node_id_prefix.get()
-        self.prefix_len = req.tag_prefix_length.get()
         self.tag_prefix = self.set_tag_prefix()
         self.kepware_prefix = self.set_kepware_prefix()
-        self.processor_type = req.processor_type
         # Init dataframes
-        self.attribute_df = pd.DataFrame(columns=TAG_TO_ATTRIBUTE_HEADERS)
-        self.ua_to_filter_df = pd.DataFrame(columns=UA_FILTER_HEADERS)
-        self.filter_file_df = pd.DataFrame(columns=FILTER_FILE_HEADERS)
+        self.attribute_df = pd.DataFrame(
+            columns=self.metadata.get_tag_to_attribute_headers()
+        )
+        self.ua_to_filter_df = pd.DataFrame(
+            columns=self.metadata.get_ua_filter_headers()
+        )
+        self.filter_file_df = pd.DataFrame(
+            columns=self.metadata.get_filter_file_headers()
+        )
         self.instrument_tag_df = pd.DataFrame(columns=["Instrument Tag"])
         # Input File Paths
         self.input_path = Path(req.input_path.get())
@@ -234,7 +66,7 @@ class Process:
         for item in kepware_export:
             self.report.info(f'Processing:\t{item["Tag Name"]}')
             new_row = {}
-            for header in FILTER_FILE_HEADERS:
+            for header in self.metadata.get_filter_file_headers():
                 if header == "NodeId":
                     new_row[header] = self.create_node_id(item["Tag Name"])
                 elif header == "CustomStreamId":
@@ -246,7 +78,9 @@ class Process:
 
         self.filter_file_df = self.append_dict_to_df(self.filter_file_df, new_data)
 
-        file_name = self.report.report_folder / f"{self.kepware_device}-Filter_File.csv"
+        file_name = self.report.report_folder / (
+            f"{self.req.kepware_device.get()}" + "-Filter_File.csv"
+        )
         self.filter_file_df.to_csv(
             file_name,
             index=False,
@@ -263,7 +97,7 @@ class Process:
         for item in kepware_export:
             new_row = {}
             self.report.info(f'Processing:\t{item["Tag Name"]}')
-            for header in TAG_TO_ATTRIBUTE_HEADERS:
+            for header in self.metadata.get_tag_to_attribute_headers():
                 match header:
                     case "Prefix":
                         new_row[header] = tag_prefix
@@ -280,8 +114,8 @@ class Process:
 
         self.attribute_df = self.append_dict_to_df(self.attribute_df, new_data)
 
-        file_name = (
-            self.report.report_folder / f"{self.kepware_device}-PI_Attributes.csv"
+        file_name = self.report.report_folder / (
+            f"{self.req.kepware_device.get()}-PI_Attributes.csv"
         )
         self.attribute_df.to_csv(
             file_name,
@@ -307,8 +141,8 @@ class Process:
             self.instrument_tag_df, new_data
         )
 
-        file_name = (
-            self.report.report_folder / f"{self.kepware_device}-Instrument_Tags.csv"
+        file_name = self.report.report_folder / (
+            f"{self.req.kepware_device.get()}-Instrument_Tags.csv"
         )
         self.instrument_tag_df.to_csv(
             file_name,
@@ -331,8 +165,8 @@ class Process:
         pi_data = []
         for item in kepware_data:
             self.report.info(f'Processing:\t{item["Tag Name"]}')
-            new_row = dict(KEPWARE_TO_PI_DEFAULTS)
-            for header in KEPWARE_TO_PI_AUTO_INPUTS:
+            new_row = dict(self.metadata.get_kepware_to_pi_defaults())
+            for header in self.metadata.get_kepware_to_pi_auto_inputs():
                 match header:
                     case "Name":
                         new_row[header] = item["Tag Name"]
@@ -345,21 +179,26 @@ class Process:
                             new_row[header] = item[header]
                         except KeyError:
                             self.report.error(
-                                f"KeyError:\t{item[header]} does not exist."
+                                f"KeyError: PI tag header: {header} does not exist."
                             )
                             new_row[header] = None
 
             original_row = new_row.copy()
-            new_row = {col: original_row[col] for col in KEPWARE_TO_PI_HEADERS}
+            new_row = {
+                col: original_row[col]
+                for col in self.metadata.get_kepware_to_pi_headers()
+            }
 
             pi_data.append(new_row)
 
         df = self.append_dict_to_df(
-            pd.DataFrame(columns=KEPWARE_TO_PI_HEADERS), pi_data
+            pd.DataFrame(columns=self.metadata.get_kepware_to_pi_headers()), pi_data
         )
         df = df.sort_values(by="instrumenttag")
 
-        file_name = self.report.report_folder / f"{self.kepware_device}-Pi_Tags.csv"
+        file_name = (
+            self.report.report_folder / f"{self.req.kepware_device.get()}-Pi_Tags.csv"
+        )
         df.to_csv(
             file_name,
             index=False,
@@ -376,7 +215,7 @@ class Process:
         for item in pi_data:
             self.report.info(f'Processing:\t{item["Name"]}')
             new_row = {}
-            for header in KEPWARE_EXPORT_HEADERS:
+            for header in self.metadata.get_kepware_export_headers():
                 match header:
                     case "Tag Name":
                         new_row[header] = item["Name"]
@@ -400,12 +239,14 @@ class Process:
             kepware_data.append(new_row)
 
         df = self.append_dict_to_df(
-            pd.DataFrame(columns=KEPWARE_EXPORT_HEADERS), kepware_data
+            pd.DataFrame(columns=self.metadata.get_kepware_export_headers()),
+            kepware_data,
         )
         df = df.sort_values(by="Address")
 
         file_name = (
-            self.report.report_folder / f"{self.kepware_device}-Kepware_Tags.csv"
+            self.report.report_folder
+            / f"{self.req.kepware_device.get()}-Kepware_Tags.csv"
         )
         df.to_csv(
             file_name,
@@ -421,14 +262,14 @@ class Process:
         Converts a PI Tag data type to a Kepware Tag Datatype
         """
         d_type = data_type.upper()
-        return KEPWARE_DATA_CONVERSION_MAP[d_type]
+        return self.metadata.get_kepware_data_conversion_map()[d_type]
 
     def pi_datatype_conversion(self, data_type: str) -> str:
         """
         Converts a Kepware data type to a PI tag data type.
         """
         d_type = data_type.upper()
-        return PI_DATA_CONVERSION_MAP[d_type]
+        return self.metadata.get_pi_data_conversion_map()[d_type]
 
     # -------------- #
     # Prefix Setters #
@@ -437,13 +278,17 @@ class Process:
     def set_tag_prefix(self) -> str:
         lst: list[str] = []
         lst.append(self.site)
-        lst.append(self.dept)
-        lst.append(self.equipment_code)
+        lst.append(self.req.department_code.get())
+        lst.append(self.req.equipment_code.get())
         return "_".join(lst) + "_"
 
     def set_kepware_prefix(self) -> str:
         return (
-            self.node_id_prefix + self.kepware_channel + "." + self.kepware_device + "."
+            self.req.node_id_prefix.get()
+            + self.req.kepware_channel.get()
+            + "."
+            + self.req.kepware_device.get()
+            + "."
         )
 
     # ---------------------------------------- #
@@ -484,7 +329,9 @@ class Process:
 
     def document_original_input(self, input_path: Path) -> None:
         df = pd.read_csv(input_path)
-        file_name = self.report.report_folder / f"{self.kepware_device}-Original.csv"
+        file_name = self.report.report_folder / (
+            f"{self.req.kepware_device.get()}-Original.csv"
+        )
         df.to_csv(
             file_name,
             index=False,
@@ -496,7 +343,7 @@ class Process:
     # Processors #
     # ---------- #
 
-    def run(self, gen_type: TagGeneratorType, file_type: TagGenFileType):
+    def run(self, gen_type: DocGeneratorType, file_type: TagFileType):
         self.report.title("Tag Document Generator")
         merck_datetime = datetime.now().strftime(DATETIME_FORMAT_MERCK)
         self.report.subtitle(f"Started by {USER} on {merck_datetime}")
@@ -504,24 +351,24 @@ class Process:
             f"Generating {gen_type.value} for {file_type.value} document."
         )
 
-        generators: dict[TagGenFileType, dict[TagGeneratorType, Callable]] = {
-            TagGenFileType.PI_TAGS: {
-                TagGeneratorType.ALL: self.process_pi_all,
-                TagGeneratorType.PI_TAGS_TO_KEPWARE_TAGS: self.process_pi_to_kepware,
+        generators: dict[TagFileType, dict[DocGeneratorType, Callable]] = {
+            TagFileType.PI_TAGS: {
+                DocGeneratorType.ALL: self.process_pi_all,
+                DocGeneratorType.PI_TAGS_TO_KEPWARE_TAGS: self.process_pi_to_kepware,
             },
-            TagGenFileType.KEPWARE_TAGS: {
-                TagGeneratorType.ALL: self.process_kepware_all,
-                TagGeneratorType.KEPWARE_TAG_TO_ATTRIBUTE: self.process_attributes,
-                TagGeneratorType.KEPWARE_TO_FILTER: self.process_filter_file,
-                TagGeneratorType.KEPWARE_TO_PI_TAGS: self.process_kepware_to_pi,
-                TagGeneratorType.INSTRUMENT_TAGS: self.process_instrument_tags,
+            TagFileType.KEPWARE_TAGS: {
+                DocGeneratorType.ALL: self.process_kepware_all,
+                DocGeneratorType.KEPWARE_TAG_TO_ATTRIBUTE: self.process_attributes,
+                DocGeneratorType.KEPWARE_TO_FILTER: self.process_filter_file,
+                DocGeneratorType.KEPWARE_TO_PI_TAGS: self.process_kepware_to_pi,
+                DocGeneratorType.INSTRUMENT_TAGS: self.process_instrument_tags,
             },
         }
 
         self.document_original_input(self.input_path)
 
-        if gen_type == TagGeneratorType.ALL:
-            if file_type == TagGenFileType.KEPWARE_TAGS:
+        if gen_type == DocGeneratorType.ALL:
+            if file_type == TagFileType.KEPWARE_TAGS:
                 self.process_kepware_all()
             else:
                 self.process_pi_all()

@@ -6,16 +6,16 @@
 # stdlib
 import logging
 import textwrap
-from queue import Queue
-from datetime import datetime
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from queue import Queue
 
 # third party
 import ttkbootstrap as tkb
-from ttkbootstrap.dialogs import Messagebox as modal
 from ttkbootstrap.constants import DISABLED, END, NORMAL
+from ttkbootstrap.dialogs import Messagebox as modal
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
@@ -157,7 +157,7 @@ class Reporting:
         if self.use_timestamps:
             prefix = f"{timestamp}:"
         if self.use_msg_types:
-            prefix += f"{msg_type}" + type_padding + "❚┋❚"
+            prefix += f"{msg_type}" + type_padding + "❚┋❚ "
 
         prefix_len = len(prefix)
         indent = " " * prefix_len
@@ -381,7 +381,7 @@ class Reporting:
         inner_padding = self.width - 4
         padded = message.center(inner_padding)
         self.info(f"╔{'═' * (self.width - 2)}╗")
-        self.info(f"║ { padded             } ║")
+        self.info(f"║ {padded} ║")
         self.info(f"╚{'═' * (self.width - 2)}╝")
 
     def subtitle(self, message: str) -> None:
@@ -392,7 +392,7 @@ class Reporting:
         inner_padding = self.width - 4
         padded = message.center(inner_padding)
         self.info(f"┌{'─' * (self.width - 2)}┐")
-        self.info(f"│ { padded             } │")
+        self.info(f"│ {padded} │")
         self.info(f"└{'─' * (self.width - 2)}┘")
 
     def simple_title(self, message: str) -> None:
@@ -403,7 +403,7 @@ class Reporting:
         inner_padding = self.width - 2
         padding = (inner_padding - len(message)) // 2
         remainder = (inner_padding - len(message)) % 2
-        self.info(f"{'─'*padding} {message} {'─'*(padding + remainder)}")
+        self.info(f"{'─' * padding} {message} {'─' * (padding + remainder)}")
 
     def highlight_error(self, message: str, is_critical: bool = False) -> None:
         """
@@ -438,9 +438,9 @@ class Reporting:
         m = message.center(inner_padding)
 
         func(f"X{'═' * (self.width - 2)}X")
-        func(f"║ {t                   } ║")
+        func(f"║ {t} ║")
         func(f"╠{'═' * (self.width - 2)}╣")
-        func(f"║ {m                   } ║")
+        func(f"║ {m} ║")
         func(f"X{'═' * (self.width - 2)}X")
 
     def divider(self) -> None:
@@ -459,7 +459,7 @@ class Reporting:
         """
         A half-width light divider. Used between minor sections.
         """
-        self.info("─" * (self.width // 2))
+        self.info("─" * (self.width))
 
     def error_divider(self) -> None:
         """
@@ -477,7 +477,7 @@ class Reporting:
         """
         A half-width light divider. Used between minor sections.
         """
-        self.error("~" * (self.width // 2))
+        self.error("~" * (self.width))
 
     def save_report(self, popup: bool = False) -> None:
         """

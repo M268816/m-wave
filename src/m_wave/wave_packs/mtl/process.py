@@ -6,18 +6,19 @@
 # stdlib
 import logging
 
+import pandas as pd
+
 # third party
 import ttkbootstrap as tkb
-import pandas as pd
 
 # local core
 from m_wave.core.reporting import Reporting
 
 # local wave pack
 from m_wave.wave_packs.mtl.appender import DataAppender
+from m_wave.wave_packs.mtl.comparisons import Comparisons
 from m_wave.wave_packs.mtl.extraction import DataExtractor
 from m_wave.wave_packs.mtl.formatter import DataFormatter
-from m_wave.wave_packs.mtl.comparisons import Comparisons
 from m_wave.wave_packs.mtl.metadata import Metadata
 from m_wave.wave_packs.mtl.utils import report_shape_differences
 

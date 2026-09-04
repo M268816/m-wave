@@ -27,8 +27,10 @@ def report_shape_differences(
 
     comparison = {
         "shapes_equal": mtl_df.shape == input_df.shape,
-        "mtl_shape": mtl_df.shape,
-        "input_shape": input_df.shape,
+        "mtl_rows": mtl_rows,
+        "mtl_cols": mtl_cols,
+        "input_rows": input_rows,
+        "input_cols": input_cols,
         "row_difference": abs(mtl_rows - input_rows),
         "column_difference": abs(mtl_cols - input_cols),
     }
@@ -46,7 +48,7 @@ def report_shape_differences(
 
     report.info("Tables shape comparison:")
     for key, value in comparison.items():
-        report.info(f"{key:>20}:\t{value}")
+        report.info(f"{key:>19}:\t{value}")
 
     _emit(mtl_cols, input_cols, "column")
     _emit(mtl_rows, input_rows, "row")
