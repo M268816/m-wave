@@ -97,7 +97,7 @@ class Comparisons:
 
         # Exclude Manual Verificaiton Columns like datasecurity and ptsecurity
         # Make these a configuration later instead of hard coded.
-        excluded_cols = ["datasecurity", "ptsecurity"]
+        excluded_cols = ["datasecurity", "ptsecurity", "securitystring"]
         manual_cols = [c.lower() for c in excluded_cols]
         excluded = [
             c for c in manual_cols if c in excluded_cols or c in input_dataframe.columns

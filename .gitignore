@@ -3,6 +3,7 @@
 .*
 test_files/
 generated/
+*.lock
 
 # security checks
 sec-*.*
