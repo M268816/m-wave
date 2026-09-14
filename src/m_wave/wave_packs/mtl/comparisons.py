@@ -110,7 +110,7 @@ class Comparisons:
             for col in excluded:
                 self.report.warning(f"\t{col}")
             self.report.warning(
-                "These columns require a manual check by the reviewr by design.\n "
+                "These columns require a manual check by the reviewer by design.\n "
                 + "they are reconfigured for the master tag list and differences\n"
                 + "here are expected, and not defects or artifacts."
             )

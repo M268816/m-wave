@@ -7,7 +7,6 @@
 from pathlib import Path
 
 # third-party
-
 # local core
 from m_wave.core.paths import PATHS
 
@@ -17,11 +16,12 @@ MTL_DOC_DIR = PATHS.create_sub_folder(MTL_GENERATED_DIR, "stored_documents")
 MTL_CONFIG_DIR = PATHS.create_sub_folder(MTL_GENERATED_DIR, "configurations")
 
 # Read-only resources
-MTL_INSTRUCTIONS_PATH = PATHS.instruction_files_dir / "mtl.txt"
+MTL_INSTRUCTIONS_PATH = PATHS.instruction_files_dir / "master_tag_list.txt"
 MTL_CONFIG_TEMPLATE_PATH = PATHS.configurations_dir / "mtl_config.json"
 
 # Writable resources
 MTL_CONFIG_PATH = MTL_CONFIG_DIR / "mtl_config.json"
+
 
 def get_mtl_config_path() -> Path:
     """

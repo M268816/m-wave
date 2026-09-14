@@ -305,7 +305,12 @@ class DataExtractor:
                 self.report.info(f"Converted input saved to: {fixed_name}")
                 return df
             except Exception as e:
-                error_msg = "Conversion attempt failed. Please report this error."
+                error_msg = (
+                    "Conversion attempt failed. This input file is unable to be"
+                    + " properly processed in this format. You can try to correct this error"
+                    + " yourself by opening the input CSV in excel and saving to the format:"
+                    + " 'UTF-8 CSV'. Please report this error to your WAVE admin."
+                )
                 self.report.highlight_error("Could not convert bad input data.")
                 self.report.critical(error_msg, popup=True)
                 return df
