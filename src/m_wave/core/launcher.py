@@ -4,7 +4,9 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from m_wave.core.gui import App
 
@@ -13,26 +15,20 @@ from tkinter import font
 
 # third party
 import ttkbootstrap as tkb
-from ttkbootstrap.constants import (
-    BOTH,
-    CENTER,
-    NSEW,
-    X,
-    PRIMARY
-)
+from ttkbootstrap.constants import BOTH, CENTER, NSEW, PRIMARY, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.widgets.scrolled import ScrolledFrame
 
-# local
-from m_wave.core.wavepack_frame import WavePackFrame
-
 from m_wave.core.utils import (
+    FONT,
+    H1,
     PAD,
     PAD_X,
     PAD_Y,
-    H1,
-    FONT,
 )
+
+# local
+from m_wave.core.wavepack_frame import WavePackFrame
 
 
 class LauncherFrame(WavePackFrame):

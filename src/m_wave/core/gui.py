@@ -6,34 +6,36 @@
 # stdlib
 from tkinter import PhotoImage
 
+import ttkbootstrap as tkb
+
 # third party
 from PIL import Image, ImageTk
-import ttkbootstrap as tkb
-from ttkbootstrap.constants import BOTH, CENTER, NSEW, TOP, X, PRIMARY
+from ttkbootstrap.constants import BOTH, CENTER, NSEW, PRIMARY, TOP, X
 from ttkbootstrap.dialogs import Messagebox
 
-# local
-from m_wave.core.wavepack_frame import WavePackFrame
+from m_wave.core.context import AppContext
 from m_wave.core.launcher import LauncherFrame
 from m_wave.core.paths import PATHS
-from m_wave.core.utils import set_config_value, get_user_prefs_path
-
-from m_wave.core.context import AppContext
 from m_wave.core.utils import (
     FONT_SMALL,
     PAD,
     PAD_X,
     PAD_Y,
     apply_scaled_geometry,
+    get_user_prefs_path,
+    set_config_value,
 )
+
+# local
+from m_wave.core.wavepack_frame import WavePackFrame
+from m_wave.wave_packs.example.gui import ExampleFrame
 
 # from src.kepware.gui import KepwareFrame
 from m_wave.wave_packs.mtl.gui import MTLFrame
 
-from m_wave.wave_packs.example.gui import ExampleFrame
-from m_wave.wave_packs.tag_doc_gen.gui import TDGFrame
-
 # CONSTANTS
+VERSION = "1.0.0"
+
 THEMES = (
     # Light themes
     "bootstrap-light",
@@ -117,18 +119,6 @@ class App(tkb.Window):
             "Example Package",
             ExampleFrame,  # type: ignore
             "This is just an example of an additional WavePack!",
-        )
-
-        # self.add_wavepack(
-        #     "Kepware Environment Comparison",
-        #     KepwareFrame,  # type: ignore
-        #     "Compare environment (VAL, DEV) CSV tag exports.",
-        # )
-
-        self.add_wavepack(
-            "Tag Document Genereator",
-            TDGFrame,
-            "Generate Kepware/PI tag documents.",
         )
 
     def add_wavepack(self, key: str, frame_cls: WavePackFrame, desc: str) -> None:
@@ -293,7 +283,7 @@ class App(tkb.Window):
         ver = tkb.Label(
             container,
             font=FONT_SMALL,
-            text="Workbook Automation & Verification Engine\nVersion: 0.1.0.prerelease.6",
+            text=f"Workbook Automation & Verification Engine\nVersion: {VERSION}",
             padding=PAD,
         )
         ver.pack(fill=X)
