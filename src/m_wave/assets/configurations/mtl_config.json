@@ -112,7 +112,7 @@
       "group_member_key": null,
       "group_key_order": null,
       "sort_order": ["ObjectType", "Name"],
-      "sort_ascending": [true]
+      "sort_ascending": [true, true]
     },
     "DIGITAL_SET": {
       "index_keys": ["Parent", "Name"],
