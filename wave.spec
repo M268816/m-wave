@@ -1,4 +1,3 @@
-# -*- mode: python ; coding: utf-8 -*-
 # m-wave.spec — PyInstaller spec file for WAVE one-file executable
 #
 # Build command:
@@ -122,14 +121,6 @@ a = Analysis(
         "m_wave.wave_packs.mtl.process",
         "m_wave.wave_packs.mtl.utils",
 
-        "m_wave.wave_packs.tag_doc_gen",
-        "m_wave.wave_packs.tag_doc_gen.controller",
-        "m_wave.wave_packs.tag_doc_gen.gui",
-        "m_wave.wave_packs.tag_doc_gen.metadata",
-        "m_wave.wave_packs.tag_doc_gen.paths",
-        "m_wave.wave_packs.tag_doc_gen.process",
-        "m_wave.wave_packs.tag_doc_gen.utils",
-
         "m_wave.wave_packs.example",
         "m_wave.wave_packs.example.controller",
         "m_wave.wave_packs.example.gui",
@@ -173,10 +164,6 @@ exe = EXE(
     name="m-wave",
 
     # ── Appearance ─────────────────────────────────────────────────────────────
-    # If logo.png is your only asset, convert it first:
-    #   pip install pillow
-    #   python -c "from PIL import Image; Image.open('assets/logo.png').save('assets/logo.ico')"
-
     icon=ICON_PATH,
 
     debug=False,
