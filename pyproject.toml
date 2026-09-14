@@ -1,9 +1,9 @@
 [project]
 name = "m-wave"
-version = "0.1.0dev6"
+version = "1.0.0"
 description = "An application that helps Jaffrey PI developers with configurations."
 readme = "README.md"
-requires-python = ">=3.11.3"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE.*"]
 authors = [
@@ -14,10 +14,9 @@ maintainers = [
 ]
 keywords = ["CMD", "DDS", "Jaffrey", "MTL", "USJA"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 :: Production/Stable",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
   "Operating System :: Microsoft :: Windows",
   "Intended Audience :: Developers",
 ]
@@ -42,9 +41,9 @@ dependencies = [
 m-wave = "m_wave.__main__:main"
 
 [project.urls]
-"Bug Tracker" = "http://157.93.24.68/M268816/WAVE/issues"
-Changelog = "http://157.93.24.68/M268816/WAVE/blob/main/CHANGELOG.md"
-Repository = "https://157.92.24.68/M268816/WAVE"
+"Bug Tracker" = "https://gitlab-ce.merckgroup.com/jaffreydatasystems/m-wave/-/issues"
+Changelog = "https://gitlab-ce.merckgroup.com/jaffreydatasystems/m-wave/-/blob/main/CHANGELOG.md"
+Repository = "https://gitlab-ce.merckgroup.com/jaffreydatasystems/m-wave"
 
 [dependency-groups]
 dev = [

@@ -9,4 +9,8 @@ pytest-cov
 pyinstaller
 datacompy
 pip-audit
-gitleaks
+
+# gitleaks
+# gitleaks is NOT a PyPI package - it is a standalone Go binary (secret scanner).
+# Install it separately, e.g.:  scoop install gitleaks
+# Do not list it here, or `pip install -r requirements.txt` will always fail.
