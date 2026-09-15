@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
+from threading import Event
 
 # third party
 import ttkbootstrap as tkb
@@ -50,6 +51,9 @@ _INFO_CONFIG: LogConfig = LogConfig(
 )
 _WARNING_CONFIG: LogConfig = LogConfig(
     logger.warning, modal.show_warning, "WARNING", "Warning!"
+)
+_QUESTION_CONFIG: LogConfig = LogConfig(
+    logger.warning, modal.show_question, "QUESTION", "Input needed"
 )
 
 
@@ -114,25 +118,31 @@ class Reporting:
 
         self._modal_busy = True
 
-        # Unpacks stored tuple
-        func, msg, title = self._modal_queue.get()
+        # Unpacks stored tuple, on_result is optional and is used by ask().
+        func, msg, title, on_result = self._modal_queue.get()
 
         def dismiss():
             self.parent_window.after(0, self._show_next_modal)
 
         def show_next():
-            func(msg, title=title, parent=self.parent_window)
-            dismiss()
+            result = None
+            try:
+                result = func(msg, title=title, parent=self.parent_window)
+            finally:
+                if on_result is not None:
+                    on_result(result)
+                dismiss()
 
         # Recursive call
         self.parent_window.after(0, show_next)
 
-    def _queue_modal(self, func, msg: str, title: str) -> None:
+    def _queue_modal(self, func, msg: str, title: str, on_result=None) -> None:
         """
         Queue a modal dialog and start processing modals if not already busy.
+        Pass on_result to receive the value the modal returns (see ask()).
         """
         if self.parent_window:
-            self._modal_queue.put((func, msg, title))
+            self._modal_queue.put((func, msg, title, on_result))
             if not self._modal_busy:
                 self._modal_busy = True
                 self.parent_window.after(0, self._show_next_modal)
@@ -372,6 +382,75 @@ class Reporting:
             verbose=verbose,
             popup=popup,
         )
+
+    def ask(
+        self,
+        msg: str,
+        title: str | None = None,
+        yes_text: str = "Yes",
+        no_text: str = "No",
+        default: bool = False,
+        report: bool | None = None,
+        log: bool | None = None,
+        verbose: bool | None = None,
+    ) -> bool:
+        """
+        Ask the user a yes/no question and block until they answer.
+
+        Safe to call from a worker thread: the dialog is queued into the main
+        thread like other modals, and this call waits for the answer.
+        Returns True if the user chose yes_text, otherwise False. If no parent
+        window is available the question cannot be shown so 'default' is returned
+        and the question is logged.
+        """
+        prompt = f"{msg}\n\n[{yes_text}, {no_text}]"
+        self._emit(
+            msg=prompt,
+            config=_QUESTION_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=False,
+        )
+
+        if not self.parent_window:
+            self.warning(f"No window available to ask the user, Assuming: '{default}'")
+            return default
+
+        answered = Event()
+        holder: dict = {}
+
+        def on_result(result) -> None:
+            holder["value"] = result
+            answered.set()
+
+        def question(message, title, parent):
+            return modal.show_question(
+                message,
+                title=title,
+                parent=parent,
+                buttons=[f"{no_text}:secondary", f"{yes_text}:primary"],
+            )
+
+        self._queue_modal(
+            question,
+            msg,
+            title or _QUESTION_CONFIG.modal_title,
+            on_result=on_result,
+        )
+        answered.wait()
+
+        choice = holder.get("value")
+        answer = str(choice).strip().lower() == yes_text.strip().lower()
+        self._emit(
+            msg=f"User Answered: {choice if choice else no_text}",
+            config=_QUESTION_CONFIG,
+            report=report,
+            log=log,
+            verbose=verbose,
+            popup=False,
+        )
+        return answer
 
     def title(self, message: str) -> None:
         """
