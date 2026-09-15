@@ -126,9 +126,10 @@ class Comparisons:
         )
 
         # --- unmatched records -------------------------------------------- #
+        self.report.simple_title("Any non matching records are not being recorded.")
         self.report.info(
-            "Any non matching records are now being recorded. Any records within "
-            "these files could not be compared, and manual fixes will be needed."
+            "Any records within these files could not be compared, "
+            "and manual fixes will be needed."
         )
         comparison.df1_unq_rows.to_csv(
             self.report.report_folder / "mtl_non_matching_records.csv", index=False
@@ -148,9 +149,11 @@ class Comparisons:
             )
 
         # --- differing cells ---------------------------------------------- #
+        self.report.simple_title(
+            "Matching records that were compared are now being recorded."
+        )
         self.report.info(
-            "Matching records that were compared are now being recorded. Any "
-            "records within this file were successfully compared, but may "
+            "Any records within this file were successfully compared, but may "
             "contain errors."
         )
 
@@ -246,7 +249,9 @@ class Comparisons:
 
         else:
             self.report.subtitle(" 🎉 COMPARISON IS SOUND 🎉 ")
-            self.report.info(" 🎉 COMPARISON IS SOUND 🎉 ", popup=True)
+            self.report.info(
+                " 🎉 COMPARISON IS SOUND 🎉 ", popup=True, log=False, report=False
+            )
             self.report.simple_title("Check that all comparison files are blank.")
             self.report.info("Blank files are a good thing here!")
 
