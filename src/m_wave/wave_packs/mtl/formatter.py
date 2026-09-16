@@ -4,6 +4,7 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 # stdlib
+import math
 import re
 
 # third party
@@ -24,14 +25,14 @@ _VALUE_NORMALIZATION_MAP: dict = {
     "FALSE": False,
     "False": False,
     "false": False,
-    "": None,
-    " ": None,
-    "N/A": None,
-    "None": None,
-    "NULL": None,
-    "null": None,
-    "NaN": None,
-    "nan": None,
+    "": pd.NA,
+    " ": pd.NA,
+    "N/A": pd.NA,
+    "None": pd.NA,
+    "NULL": pd.NA,
+    "null": pd.NA,
+    "NaN": pd.NA,
+    "nan": pd.NA,
 }
 
 
@@ -49,23 +50,33 @@ class DataFormatter:
     ) -> pd.DataFrame:
         """
         Aggressively normalize white space - removes all extra spaces and newlines.
+        This could break again because im not pushing all cell values to strings anymore.
         """
         try:
             df_copy = df.copy()
 
             if columns is None:
-                columns = df_copy.select_dtypes(
-                    include=["object", "string"]
-                ).columns.tolist()
-            for col in columns:  # type: ignore
-                if col in df_copy.columns:
-                    if df_copy[col].dropna().map(type).eq(bool).any():
-                        continue
-                    # Replace all white space with a single space
-                    df_copy[col] = df_copy[col].str.replace(r"\s+", " ", regex=True)
-                    # Strip leading/trailing white space
-                    df_copy[col] = df_copy[col].str.strip()
+                columns = [
+                    col
+                    for col in df_copy.columns
+                    if pd.api.types.is_string_dtype(df_copy[col])
+                    or df_copy[col].dtype == "object"
+                ]
 
+            for col in columns:
+                if col not in df_copy.columns:
+                    continue
+
+                values = df_copy[col].dropna()
+                if values.map(lambda v: v is True or v is False).any():
+                    continue
+
+                df_copy[col] = (
+                    df_copy[col]
+                    .astype("string")
+                    .str.replace(r"\s+", " ", regex=True)
+                    .str.strip()
+                )
             return df_copy
         except Exception as e:
             error_msg = f"Could not normalize white space:\n{e}"
@@ -384,18 +395,37 @@ class DataFormatter:
 
             # Changing these columns to int, helps some data comparison errors.
             numeric_columns = self.metadata.dataframe_formatting["numeric_columns"]
+
             for column in numeric_columns:
-                if column in df.columns:
-                    # Convert strings to numbers
-                    converted_vals = pd.to_numeric(df[column], errors="coerce")
-                    # Convert back to strings
-                    df[column] = converted_vals.apply(  # type: ignore
-                        lambda x: (
-                            str(int(x))
-                            if pd.notna(x) and x == int(x)
-                            else (str(x) if pd.notna(x) else "")
-                        )
-                    )
+                if column not in df.columns:
+                    continue
+
+                def normalize_cell(x):
+                    # Convert possible numeric column values to the normalization map,
+                    # or a stringified number, unless its NA, then
+                    # keep or convert the value to pd.NA
+                    if pd.isna(x):
+                        return pd.NA
+                    if x in _VALUE_NORMALIZATION_MAP:
+                        return _VALUE_NORMALIZATION_MAP[x]
+                    if isinstance(x, bool):
+                        return str(x)
+
+                    numeric_value = pd.to_numeric(x, errors="coerce")
+
+                    if (
+                        pd.notna(numeric_value)
+                        and pd.notna(numeric_value) != "NoReturn"  # type: ignore
+                    ):
+                        numeric_value = float(numeric_value)  # type: ignore
+                        if numeric_value == 0:
+                            return "0"
+                        if math.isfinite(numeric_value) and numeric_value.is_integer():
+                            return str(int(numeric_value))
+
+                    return str(x)
+
+                df[column] = df[column].map(normalize_cell)
 
             # Replace to standardize bools and blanks to python types
             normal_cols = [col for col in df.columns if col not in index_keys]

@@ -91,15 +91,16 @@ class Comparisons:
             {c for c in mtl.columns if c in MANUAL_REVIEW_COLUMNS}
             | {c for c in inp.columns if c in MANUAL_REVIEW_COLUMNS}
         )
+
         if excluded:
             self.report.warning(
                 "The following columns are EXCLUDED from this comparison."
             )
             for column in excluded:
-                self.report.warning(f"\t{column}")
+                self.report.warning(f"\t- {column}")
             self.report.warning(
-                "These columns require a manual check by the reviewer by design.\n"
-                "They are reconfigured for the master tag list, so differences\n"
+                "These columns require a manual check by the reviewer by design. "
+                "They are reconfigured for the master tag list, so differences "
                 "here are expected and are not defects or artifacts."
             )
 
@@ -126,7 +127,7 @@ class Comparisons:
         )
 
         # --- unmatched records -------------------------------------------- #
-        self.report.simple_title("Any non matching records are not being recorded.")
+        self.report.simple_title("Any non matching records are now being recorded.")
         self.report.info(
             "Any records within these files could not be compared, "
             "and manual fixes will be needed."
