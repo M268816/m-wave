@@ -158,7 +158,9 @@
         "AttributeTemplate": 1,
         "AnalysisTemplate": 2,
         "NotificationRuleTemplate": 3,
-        "TemplateAnalysisRule": 4
+        "TemplateAnalysisRule": 4,
+        "DeliveryFormat": 5,
+        "DeliveryFormatProperty": 6
       },
       "sort_order": ["group_key", "group_key_order", "Parent", "Name"],
       "sort_ascending": [true, true, true, true]
