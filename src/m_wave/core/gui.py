@@ -29,8 +29,6 @@ from m_wave.core.utils import (
 # local
 from m_wave.core.wavepack_frame import WavePackFrame
 from m_wave.wave_packs.example.gui import ExampleFrame
-
-# from src.kepware.gui import KepwareFrame
 from m_wave.wave_packs.mtl.gui import MTLFrame
 
 # CONSTANTS

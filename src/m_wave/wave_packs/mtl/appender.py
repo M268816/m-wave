@@ -41,14 +41,14 @@ class DataAppender:
 
             - Column schema: every column in the input must already exist in the
             MTL. If the input contains a column in the MTL does not recognize, the
-            upsert is stopped and the user is propted to check that
+            upsert is stopped and the user is prompted to check that
             they are using the correct input data.
             - Key integrity: the key columns must be present in the input, and the
-            key values must be unique. Duplicate keys foind in the input, or already
-            present in the MTL, are reported to the user rather than siletl merged or
+            key values must be unique. Duplicate keys found in the input, or already
+            present in the MTL, are reported to the user rather than silently merged or
             dropped.
-            - XOR append: for every key, the sefuult contains either the updated MTL
-            row or a newly appenede row, never both, and never a duplicate. This is
+            - XOR append: for every key, the default contains either the updated MTL
+            row or a newly appended row, never both, and never a duplicate. This is
             verified defensively after the merge.
 
         Returns an empty data frame if the upsert cannot be safely completed.
@@ -73,7 +73,7 @@ class DataAppender:
                     f"column(s) that do not exist in the mtl ({unmatched_list}). "
                     "Please confirm that you are using the correct input file, or "
                     "correct the column headers so they match the MTL exactly, "
-                    "then try agian.",
+                    "then try again.",
                     popup=True,
                 )
                 return output
@@ -82,9 +82,9 @@ class DataAppender:
             if missing_key_columns:
                 missing_list = ", ".join(sorted(missing_key_columns))
                 self.report.critical(
-                    "The upsert was stopped because the input file is mising "
+                    "The upsert was stopped because the input file is missing "
                     f"the required key column(s): {missing_list}. These keys "
-                    "are defined in the MTL configuration and are requied to "
+                    "are defined in the MTL configuration and are required to "
                     "match input rows to the MTL. Please check that you are "
                     "using the correct input data.",
                     popup=True,
@@ -146,7 +146,7 @@ class DataAppender:
             result_keyed = output.set_index(keys)
             if result_keyed.index.duplicated().any():
                 self.report.critical(
-                    "The upsert was abored because it would have produced "
+                    "The upsert was aborted because it would have produced "
                     "duplicate keys in the resulting table. No changes were "
                     "made. Please report this issue.",
                     popup=True,
@@ -197,7 +197,7 @@ class DataAppender:
             if auto_filter is not None and auto_filter.FilterMode:
                 return True
         except Exception as e:
-            self.report.debug(
+            self.report.exception(
                 f"Could not read the table AutoFilter state. {e}", report=False
             )
 
@@ -207,7 +207,7 @@ class DataAppender:
             if worksheet.api.FitlerMode:
                 return True
         except Exception as e:
-            self.report.debug(
+            self.report.exception(
                 f"Could not read the worksheet AutoFilter state. {e}", report=False
             )
 
@@ -219,58 +219,28 @@ class DataAppender:
         worksheet. Returns True if the filter appears to be gone.
         """
         try:
-            self.report.debug(
-                f"Xlwings show_autofilter before: {table.show_autofilter}",
-                report=False,
-            )
             table.show_autofilter = not table.show_autofilter
-            self.report.debug(
-                f"Xlwings show_autofilter after: {table.show_autofilter}",
-                report=False,
-            )
         except Exception as e:
-            self.report.debug(f"Xlwings filter clear failed: {e}", report=False)
+            self.report.exception(f"Xlwings filter clear failed: {e}")
 
         try:
             auto_filter = table.api.AutoFilter
             if auto_filter is not None and auto_filter.FilterMode:
-                self.report.debug(
-                    f"Range.AutoFilter Before: {table.api.Range.AutoFilter}",
-                    report=False,
-                )
                 table.api.Range.AutoFilter()
-                self.report.debug(
-                    f"Range.AutoFilter After: {table.api.Range.AutoFilter}",
-                    report=False,
-                )
         except Exception as e:
-            self.report.debug(f"Table level filter clear failed: {e}", report=False)
+            self.report.exception(f"Table level filter clear failed: {e}")
 
         try:
             if worksheet.api.FilterMode:
-                self.report.debug(
-                    f"Api.ShowAllData Before: {table.api.ShowAllData}", report=False
-                )
                 worksheet.api.ShowAllData()
-                self.report.debug(
-                    f"Api.ShowAllData After: {table.api.ShowAllData}", report=False
-                )
         except Exception as e:
-            self.report.debug(f"ShowAllData failed. {e}", report=False)
+            self.report.exception(f"ShowAllData failed. {e}")
 
         try:
             if worksheet.api.AutoFilterMode:
-                self.report.debug(
-                    f"Api.AutoFilterMode Before: {table.api.AutoFilterMode}",
-                    report=False,
-                )
                 worksheet.api.AutoFilterMode = False
-                self.report.debug(
-                    f"Api.AutoFilterMode After: {table.api.AutoFilterMode}",
-                    report=False,
-                )
         except Exception as e:
-            self.report.debug(f"AutoFilterMode reset failed. {e}", report=False)
+            self.report.exception(f"AutoFilterMode reset failed. {e}")
 
         return not self._table_has_filter(worksheet, table)
 
@@ -282,47 +252,29 @@ class DataAppender:
         # xlwings attempt first, then try the AIs api attempts
         try:
             auto_filter = table.show_autofilter
-            self.report.debug(
-                f"Xlwings show_autofilter status: {auto_filter}", report=False
-            )
             if auto_filter == True:
-                self.report.debug(
-                    f"Xlwings show_autofilter before: {table.show_autofilter}",
-                    report=False,
-                )
                 table.show_autofilter = False
-                self.report.debug(
-                    f"Xlwings show_autofilter after: {table.show_autofilter}",
-                    report=False,
-                )
         except Exception as e:
-            self.report.debug(f"Xlwings filter clear failed: {e}", report=False)
+            self.report.exception(f"Xlwings filter clear failed: {e}")
 
         try:
             auto_filter = table.api.AutoFilter
             if auto_filter is not None and auto_filter.FilterMode:
-                self.report.debug("Attempting to toggle the AutoFilter", report=False)
-                self.report.debug(f"Range Filter Status: {table.api.Range.AutoFilter}")
                 table.api.Range.AutoFilter()
-                self.report.debug(f"Range Filter Status: {table.api.Range.AutoFilter}")
         except Exception as e:
-            self.report.debug(f"Table level filter clear failed: {e}", report=False)
+            self.report.exception(f"Table level filter clear failed: {e}")
 
         try:
             if worksheet.api.FilterMode:
-                self.report.debug("Attempting to toggle ShowAllData", report=False)
                 worksheet.api.ShowAllData()
         except Exception as e:
-            self.report.debug(f"ShowAllData failed. {e}", report=False)
+            self.report.exception(f"ShowAllData failed. {e}")
 
         try:
             if worksheet.api.AutoFilterMode:
-                self.report.debug(
-                    "Attepmting to set AutoFilterMode to False", report=False
-                )
                 worksheet.api.AutoFilterMode = False
         except Exception as e:
-            self.report.debug(f"AutoFilterMode reset failed. {e}", report=False)
+            self.report.exception(f"AutoFilterMode reset failed. {e}")
 
         return not self._table_has_filter(worksheet, table)
 
@@ -487,7 +439,5 @@ class DataAppender:
         finally:
             if workbook is not None:
                 workbook.close()
-                self.report.debug("Workbook should be closed.", report=False)
             if excel is not None:
                 excel.quit()
-                self.report.debug("Excel should be closed.", report=False)

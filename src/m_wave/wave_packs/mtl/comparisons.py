@@ -25,7 +25,7 @@ MANUAL_REVIEW_COLUMNS: tuple[str, ...] = (
     "securitystring",
 )
 
-BLANK_TOKEN = "<blank>"
+BLANK_TOKEN = ""
 
 
 class Comparisons:
@@ -126,7 +126,7 @@ class Comparisons:
             df2_name=df2_name,
         )
 
-        # --- unmatched records -------------------------------------------- #
+        # unmatched records
         self.report.simple_title("Any non matching records are now being recorded.")
         self.report.info(
             "Any records within these files could not be compared, "
@@ -149,7 +149,7 @@ class Comparisons:
                 f"{df2_name}. See input_non_matching_records.csv."
             )
 
-        # --- differing cells ---------------------------------------------- #
+        # differing cells
         self.report.simple_title(
             "Matching records that were compared are now being recorded."
         )
@@ -249,7 +249,7 @@ class Comparisons:
                 self.report.error(line)
 
         else:
-            self.report.subtitle(" 🎉 COMPARISON IS SOUND 🎉 ")
+            self.report.simple_title(" 🎉 COMPARISON IS SOUND 🎉 ")
             self.report.info(
                 " 🎉 COMPARISON IS SOUND 🎉 ", popup=True, log=False, report=False
             )

@@ -187,20 +187,6 @@ def set_config_value(
     Returns True if the value was written. Raises runtime error if it fails.
     Warning: will mutate the given config_variable with new data.
     """
-    # Move this logic to the caller
-    # if proc_ctrl and proc_ctrl.process_thread and proc_ctrl.process_thread.is_alive():
-    #     # If there is a process controller, it has a thread, and the thread is alive
-    #     # Set the widget to the previous value, denying the change
-    #     value.set(config_variable.get(key, False))
-    #
-    #     window.after(
-    #         0,
-    #         lambda: self.report.warning(
-    #             "Cannot change configurations while a process is running.",
-    #             popup=True,
-    #         ),
-    #     )
-    #     return False
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)

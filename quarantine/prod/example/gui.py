@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.app.gui import App
+    from m_wave.core.gui import App
 
 # stdlib
 from pathlib import Path
@@ -35,14 +35,19 @@ from ttkbootstrap.constants import (
     PRIMARY,
 )
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.scrolled import ScrolledText
+from ttkbootstrap.widgets.scrolled import ScrolledText
 
-# local
-from src.app.utils import PAD, PAD_X, PAD_Y, FONT_MONO
-from src.app.wavepack_frame import WavePackFrame
+# local core
+from m_wave.core.utils import PAD, PAD_X, PAD_Y, FONT_MONO
+from m_wave.core.wavepack_frame import WavePackFrame
 
-from src.example.controller import ExampleController, ExampleRequest, ExampleUi
-from src.example.paths import EXAMPLE_INSTRUCTIONS_PATH
+# local wave-pack
+from m_wave.wave_packs.example.controller import (
+    ExampleController,
+    ExampleRequest,
+    ExampleUi,
+)
+from m_wave.wave_packs.example.paths import EXAMPLE_INSTRUCTIONS_PATH
 
 with open(EXAMPLE_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
     INSTRUCTIONS = f.read()
@@ -100,7 +105,7 @@ class ExampleFrame(WavePackFrame):
         # Currently on_option_change only updates the current user_preferences
         # configuration file, so to add configurations per wave pack the user_prefs.json
         # file must be updated with the new wave pack options.
-        example_menu = tkb.Menu(menubar, tearoff=0)
+        example_menu = tkb.Menu(menubar, tearoff=False)
         for label, var, key in (
             ("I'm a checkbox option.", self.opt_example, "example_option"),
         ):

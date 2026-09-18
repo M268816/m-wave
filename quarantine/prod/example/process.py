@@ -11,8 +11,8 @@ from pathlib import Path
 import pandas as pd
 
 # local
-from src.app.reporting import Reporting
-from src.app.utils import DATETIME_FORMAT_MERCK, USER
+from m_wave.core.reporting import Reporting
+from m_wave.core.utils import DATETIME_FORMAT_MERCK, USER
 
 
 class ExampleProcess:

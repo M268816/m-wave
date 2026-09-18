@@ -14,12 +14,13 @@ import ttkbootstrap as tkb
 from ttkbootstrap.constants import NORMAL, DISABLED
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
-# local
-from src.app.context import AppContext
-from src.app.wavepack_controller import WavePackController
-from src.app.paths import PATHS
+# local core
+from m_wave.core.context import AppContext
+from m_wave.core.paths import PATHS
+from m_wave.core.wavepack_controller import WavePackController
 
-from src.example.process import ExampleProcess
+# local wave_pack
+from m_wave.wave_packs.example.process import ExampleProcess
 
 
 @dataclass(frozen=True)
