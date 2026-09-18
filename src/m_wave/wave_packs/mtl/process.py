@@ -18,8 +18,9 @@ from m_wave.core.reporting import Reporting
 from m_wave.wave_packs.mtl.appender import DataAppender
 from m_wave.wave_packs.mtl.comparisons import Comparisons
 from m_wave.wave_packs.mtl.extraction import DataExtractor
-from m_wave.wave_packs.mtl.formatter import DataFormatter
+from m_wave.wave_packs.mtl.formatting import Formatting
 from m_wave.wave_packs.mtl.metadata import Metadata
+from m_wave.wave_packs.mtl.sorting import Sorting
 from m_wave.wave_packs.mtl.utils import report_shape_differences
 
 logger = logging.getLogger(__name__)
@@ -63,9 +64,10 @@ class Process:
         self.metadata = Metadata(self.report)
         self.metadata.set_worksheet_name(self.mtl_worksheet_name)
 
-        self.data_appender = DataAppender(self.report, self.metadata)
-        self.data_extractor = DataExtractor(self.report, self.metadata)
-        self.data_formatter = DataFormatter(self.report, self.metadata)
+        self.appender = DataAppender(self.report, self.metadata)
+        self.extractor = DataExtractor(self.report, self.metadata)
+        self.formatter = Formatting(self.report, self.metadata)
+        self.sorter = Sorting(self.report, self.metadata)
         self.comparisons = Comparisons(self.report, self.metadata)
 
     def get_mtl_from_web(
@@ -76,12 +78,12 @@ class Process:
         """
         self.report.title("ATTEMPTING TO DOWNLOAD THE MTL FROM MANGO")
         try:
-            mtl_path = self.data_extractor.download_mtl()
+            mtl_path = self.extractor.download_mtl()
             self.report.info("MTL SUCCESSFULLY DOWNLOADED")
             if mtl_path is not None:
                 self.mtl_file_path = str(mtl_path)
                 mtl_path_stringvar.set(str(self.mtl_file_path))
-                revision = self.data_extractor.get_last_revision(mtl_path)
+                revision = self.extractor.get_last_revision(mtl_path)
                 self.report.simple_title(f"Revision of the MTL: {revision}")
                 version_stringvar.set(f"{revision}")
                 self.metadata.set_mtl_version(str(revision))
@@ -144,13 +146,13 @@ class Process:
 
             # NOTE: EXTRACTION PHASE
             self.report.simple_title("Extracting the Table from the MTL")
-            mtl_df = self.data_extractor.extract_mtl_table(self.mtl_file_path)
+            mtl_df = self.extractor.extract_mtl_table(self.mtl_file_path)
             self.report.simple_title("Extracting the Table from the PI Builder input.")
-            input_df = self.data_extractor.extract_input_csv(
+            input_df = self.extractor.extract_input_csv(
                 self.input_file_path, self.filter_string
             )
 
-            if not self.data_extractor.could_extract(mtl_df, input_df):
+            if not self.extractor.could_extract(mtl_df, input_df):
                 self.report.warning(
                     "Could not extract data sets. Process stopped.", popup=True
                 )
@@ -163,13 +165,13 @@ class Process:
 
             # NOTE: FORMATTING PHASE
             self.report.simple_title("Formatting the MTL table.")
-            mtl_df = self.data_formatter.format(mtl_df)
+            mtl_df = self.formatter.format(mtl_df)
             self.report.simple_title("Formatting the PI Builder table.")
-            input_df = self.data_formatter.format(input_df)
+            input_df = self.formatter.format(input_df)
 
             # NOTE: COLUMN CONFORMING PHASE
             self.report.simple_title("Comparing columns and making adjustments")
-            mtl_df, input_df = self.data_formatter.conform_columns(mtl_df, input_df)
+            mtl_df, input_df = self.formatter.conform_columns(mtl_df, input_df)
 
             if mtl_df.empty or input_df.empty:
                 self.report.warning(
@@ -183,13 +185,9 @@ class Process:
             if self.filter_string:
                 self.report.simple_title(f"Filter detected: {self.filter_string}")
                 self.report.simple_title("Filtering the MTL table.")
-                mtl_df = self.data_formatter.filter_by_string(
-                    mtl_df, self.filter_string
-                )
+                mtl_df = self.formatter.filter_by_string(mtl_df, self.filter_string)
                 self.report.simple_title("Filtering the PI Builder table.")
-                input_df = self.data_formatter.filter_by_string(
-                    input_df, self.filter_string
-                )
+                input_df = self.formatter.filter_by_string(input_df, self.filter_string)
 
                 if mtl_df.empty or input_df.empty:
                     self.report.warning(
@@ -205,9 +203,9 @@ class Process:
             # NOTE: SORTING PHASE
             self.report.simple_title("Sorting the data frames per MTL table formatting")
             self.report.info("Sorting the MTL.")
-            mtl_df = self.data_formatter.sort(mtl_df)
+            mtl_df = self.sorter.sort(mtl_df)
             self.report.info("Sorting the input.")
-            input_df = self.data_formatter.sort(input_df)
+            input_df = self.sorter.sort(input_df)
             if mtl_df.empty or input_df.empty:
                 self.report.warning(
                     "Could not sort the data frames! Stopping process.", popup=True
@@ -221,7 +219,7 @@ class Process:
 
             # NOTE: COMPARISON AND REPORTING PHASE
             self.report.simple_title("Now running the comparison.")
-            return self.comparisons.compare(mtl_df, input_df, self.data_formatter.sort)
+            return self.comparisons.compare(mtl_df, input_df, self.sorter.sort)
         except Exception as e:
             self.report.exception(
                 "There was an unexpected error during the comparison. "
@@ -254,13 +252,13 @@ class Process:
 
             # NOTE: EXTRACTION PHASE
             self.report.simple_title("Extracting the Table from the MTL")
-            mtl_df = self.data_extractor.extract_mtl_table(self.mtl_file_path)
+            mtl_df = self.extractor.extract_mtl_table(self.mtl_file_path)
             self.report.simple_title("Extracting the Table from the PI Builder input.")
-            input_df = self.data_extractor.extract_input_csv(
+            input_df = self.extractor.extract_input_csv(
                 self.input_file_path, self.filter_string
             )
 
-            if not self.data_extractor.could_extract(mtl_df, input_df):
+            if not self.extractor.could_extract(mtl_df, input_df):
                 self.report.warning(
                     "Could not extract data sets. Process stopped.", popup=True
                 )
@@ -276,11 +274,11 @@ class Process:
 
             # Format the data frames to the worksheet table type formats of the MTL.
             self.report.simple_title("Formatting MTL dataframe...")
-            mtl_df = self.data_formatter.format(mtl_df)
+            mtl_df = self.formatter.format(mtl_df)
             self.report.simple_title("Formatting INPUT CSV dataframe...")
-            input_df = self.data_formatter.format(input_df)
+            input_df = self.formatter.format(input_df)
 
-            if not self.data_formatter.could_format(mtl_df, input_df):
+            if not self.formatter.could_format(mtl_df, input_df):
                 self.report.warning(
                     "Could not format the data sets. Process stopped.", popup=True
                 )
@@ -288,7 +286,7 @@ class Process:
 
             # NOTE: COLUMN CONFORMING PHASE
             self.report.simple_title("Comparing columns and making adjustments")
-            mtl_df, input_df = self.data_formatter.conform_columns(
+            mtl_df, input_df = self.formatter.conform_columns(
                 mtl_df, input_df, use_version=True
             )
 
@@ -304,13 +302,9 @@ class Process:
             if self.filter_string:
                 self.report.simple_title(f"Filter detected: {self.filter_string}")
                 self.report.simple_title("Filtering the MTL table.")
-                mtl_df = self.data_formatter.filter_by_string(
-                    mtl_df, self.filter_string
-                )
+                mtl_df = self.formatter.filter_by_string(mtl_df, self.filter_string)
                 self.report.simple_title("Filtering the PI Builder table.")
-                input_df = self.data_formatter.filter_by_string(
-                    input_df, self.filter_string
-                )
+                input_df = self.formatter.filter_by_string(input_df, self.filter_string)
 
                 if mtl_df.empty or input_df.empty:
                     self.report.warning(
@@ -326,9 +320,9 @@ class Process:
             # NOTE: SORTING PHASE
             self.report.simple_title("Sorting the data frames per MTL table formatting")
             self.report.info("Sorting the MTL.")
-            mtl_df = self.data_formatter.sort(mtl_df)
+            mtl_df = self.sorter.sort(mtl_df)
             self.report.info("Sorting the input.")
-            input_df = self.data_formatter.sort(input_df)
+            input_df = self.sorter.sort(input_df)
             if mtl_df.empty or input_df.empty:
                 self.report.warning(
                     "Could not sort the data frames! Stopping process. Check your PI "
@@ -359,7 +353,7 @@ class Process:
 
             # NOTE: APPEND PHASE
             self.report.simple_title("Appending and updating the MTL.")
-            appended_dataframe = self.data_appender.upsert(mtl_df, input_df)
+            appended_dataframe = self.appender.upsert(mtl_df, input_df)
             if appended_dataframe.empty:
                 self.report.warning(
                     "New appended data came back empty. Could not append data. "
@@ -370,7 +364,7 @@ class Process:
 
             # NOTE: REPORT PHASE
             self.report.simple_title("Saving final data frame to CSV.")
-            self.data_appender.export_to_csv(appended_dataframe)
+            self.appender.export_to_csv(appended_dataframe)
             self.report.info(
                 "Review the generated .LOG and CSV files for detailed results."
             )
@@ -378,7 +372,7 @@ class Process:
                 "Attempting to create an appended version of the MTL."
             )
             self.report.warning("This may take take a moment...")
-            self.data_appender.export_to_mtl(appended_dataframe, self.mtl_file_path)
+            self.appender.export_to_mtl(appended_dataframe, self.mtl_file_path)
 
             # FINALLY
             self.report.title("Appending completed.")

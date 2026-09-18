@@ -12,7 +12,7 @@ from threading import Thread
 
 # third-party
 import ttkbootstrap as tkb
-from ttkbootstrap.constants import NORMAL, DISABLED
+from ttkbootstrap.constants import DISABLED, NORMAL
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local core

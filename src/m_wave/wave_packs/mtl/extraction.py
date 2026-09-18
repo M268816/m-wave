@@ -274,7 +274,8 @@ class DataExtractor:
             self.report.info("Extracting the Input file.")
             df = pd.read_csv(
                 file_path,
-                na_values=["None", "none", "NULL", "null", ""],
+                # na_values=["None", "none", "NULL", "null", ""],
+                na_values=[""],
                 keep_default_na=False,
                 encoding="utf-8",
             )
@@ -287,7 +288,7 @@ class DataExtractor:
             try:
                 df = pd.read_csv(
                     file_path,
-                    na_values=["None", "none", "NULL", "null", ""],
+                    # na_values=["None", "none", "NULL", "null", ""],
                     keep_default_na=False,
                     encoding="latin-1",
                 )

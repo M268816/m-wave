@@ -147,7 +147,7 @@
       "sort_ascending": [true, true, false, true]
     },
     "ELEMENT_TEMPLATE": {
-      "index_keys": ["Parent", "Name"],
+      "index_keys": ["Parent", "Name", "ObjectType"],
       "filter_on_keys": false,
       "filter_keys": ["Parent", "Name"],
       "group_key": "ObjectType",
@@ -155,12 +155,13 @@
       "group_member_key": "Parent",
       "group_key_order": {
         "ElementTemplate": 0,
-        "AttributeTemplate": 1,
-        "AnalysisTemplate": 2,
-        "NotificationRuleTemplate": 3,
+        "TemplateExtendedProperty": 1,
+        "AttributeTemplate": 2,
+        "AnalysisTemplate": 3,
         "TemplateAnalysisRule": 4,
-        "DeliveryFormat": 5,
-        "DeliveryFormatProperty": 6
+        "NotificationRuleTemplate": 5,
+        "DeliveryFormat": 6,
+        "DeliveryFormatProperty": 7
       },
       "sort_order": ["group_key", "group_key_order", "Parent", "Name"],
       "sort_ascending": [true, true, true, true]
@@ -240,6 +241,7 @@
       "compmax",
       "compmin",
       "displaydigits",
+      "EnumerationValue",
       "excmax",
       "excmin",
       "excdev",

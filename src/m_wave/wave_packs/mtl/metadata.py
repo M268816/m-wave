@@ -5,9 +5,9 @@
 
 # stdlib
 import json
-from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 # local core
 from m_wave.core.reporting import Reporting

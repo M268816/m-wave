@@ -7,6 +7,8 @@
 import math
 import re
 
+import numpy as np
+
 # third party
 import pandas as pd
 
@@ -19,24 +21,18 @@ from m_wave.wave_packs.mtl.metadata import Metadata, TableType
 from m_wave.wave_packs.mtl.utils import report_shape_differences
 
 _VALUE_NORMALIZATION_MAP: dict = {
-    "TRUE": True,
-    "True": True,
-    "true": True,
-    "FALSE": False,
-    "False": False,
-    "false": False,
+    "TRUE": "True",
+    "True": "True",
+    "true": "True",
+    "FALSE": "False",
+    "False": "False",
+    "false": "False",
     "": pd.NA,
     " ": pd.NA,
-    "N/A": pd.NA,
-    "None": pd.NA,
-    "NULL": pd.NA,
-    "null": pd.NA,
-    "NaN": pd.NA,
-    "nan": pd.NA,
 }
 
 
-class DataFormatter:
+class Formatting:
     """
     Helper class that handles all MTL and INPUT CSV formatting.
     """
@@ -44,86 +40,6 @@ class DataFormatter:
     def __init__(self, report: Reporting, metadata: Metadata) -> None:
         self.report = report
         self.metadata = metadata
-
-    def _normalize_whitespace(
-        self, df: pd.DataFrame, columns: list[str] | None = None
-    ) -> pd.DataFrame:
-        """
-        Aggressively normalize white space - removes all extra spaces and newlines.
-        This could break again because im not pushing all cell values to strings anymore.
-        """
-        try:
-            df_copy = df.copy()
-
-            if columns is None:
-                columns = [
-                    col
-                    for col in df_copy.columns
-                    if pd.api.types.is_string_dtype(df_copy[col])
-                    or df_copy[col].dtype == "object"
-                ]
-
-            for col in columns:
-                if col not in df_copy.columns:
-                    continue
-
-                values = df_copy[col].dropna()
-                if values.map(lambda v: v is True or v is False).any():
-                    continue
-
-                df_copy[col] = (
-                    df_copy[col]
-                    .astype("string")
-                    .str.replace(r"\s+", " ", regex=True)
-                    .str.strip()
-                )
-            return df_copy
-        except Exception as e:
-            error_msg = f"Could not normalize white space:\n{e}"
-            self.report.exception(error_msg, popup=True)
-            return df
-
-    def _classic_data_check(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Helper function that checks the table type and determines whether
-        to add classic columns to the table if not already present.
-        """
-        _df = df.copy()
-        table_type = self.metadata.table_type
-        formatting = self.metadata.dataframe_formatting["classic_gxp_columns"]
-        classic_columns = set(formatting)
-
-        if table_type == TableType.GXP:
-            if classic_columns.issubset(set(_df.columns)):
-                self.report.info("Classic columns found.")
-                return _df
-            else:
-                for col in classic_columns:
-                    if col not in _df.columns:
-                        _df[col] = None
-                self.report.info("Classic columns applied.")
-        return _df
-
-    def _drop_na_rows(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
-        """
-        Drop rows that do not have proper keys assigned. Most likely picked up from
-        bad PI Builder exports or misaligned MTL Tables.
-        """
-        self.report.info("Dropping possible empty rows.")
-        _df = df.copy()
-        keys = [this_key for this_key in keys if this_key in _df.columns]
-
-        if not keys:
-            return _df
-
-        # for keys with one column, drops any row with an empty value
-        if len(keys) == 1:
-            _df = _df.dropna(subset=keys)
-            return _df
-        # for keys with multi columns, keeps rows if at least one value is not empty
-        else:
-            keep_mask = _df[keys].notna().any(axis=1)
-            return _df.loc[keep_mask].copy()
 
     def filter_on_keys(
         self, mtl_df: pd.DataFrame, input_df: pd.DataFrame
@@ -256,116 +172,62 @@ class DataFormatter:
             self.report.exception(str(e))
             return output
 
-    def sort(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _drop_na_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Helper function that sorts the data according to the master data table formats.
-        Returns an empty data frame if it fails.
+        Remove columns from the dataframe that have null values.
         """
-        output = pd.DataFrame()
-        _df = df.copy()
         try:
-            sort_order = self.metadata.get_table_sort_order()
-            sort_ascending = self.metadata.get_table_sort_direction()
-            group_key = self.metadata.get_group_key()
-            group_parent_key = self.metadata.get_group_parent_key()
-            group_member_key = self.metadata.get_group_member_key()
-            group_key_order = self.metadata.get_group_key_order()
-
-            if group_key_order is not None:
-                self.report.info("Special ordering required.")
-
-                uses_path_sort = self.metadata.use_path_sorting()
-                path_sorting_keys = self.metadata.get_path_sorting_keys()
-
-                # Creates a temp numeric ordering column
-                _df["group_key_order"] = _df[group_key].map(group_key_order)  # type: ignore
-                self.report.info("Created temporary sorting column 'group_key_order'.")
-
-                if uses_path_sort and path_sorting_keys:
-                    # Build a full path string for sorting: \Parent\Name
-                    self.report.info("Path based sorting detected.")
-                    _df["group_key"] = _df[path_sorting_keys].apply(
-                        lambda row: "\\".join(
-                            str(val)
-                            for val in row
-                            if pd.notna(val) and str(val).strip() != ""
-                        ),
-                        axis=1,
-                    )
-                else:
-                    # Ties each member row back to a parent set
-                    _df["group_key"] = _df.apply(
-                        lambda row: (
-                            row[group_parent_key]
-                            if row[group_key] == next(iter(group_key_order.keys()))
-                            else row[group_member_key]
-                        ),
-                        axis=1,
-                    )
-                    self.report.info("Created temporary sorting column 'group_key'.")
-
-            # Sort the data frame
-            self.report.info("Sorting...")
-            _df = _df.sort_values(
-                by=sort_order,
-                ascending=sort_ascending,
-                ignore_index=True,
-                kind="stable",
-            )
-
-            # If we used the custom ordering columns, drop them here
-            if group_key_order is not None:
-                self.report.info("Dropping the sorting column.")
-                _df = _df.drop(columns=["group_key_order", "group_key"])
-
-            # Reset the index
-            output = _df.reset_index(drop=True)
-            self.report.info("Index reset!")
-            self.report.info("Sorting completed.")
-            return output
-        except Exception as e:
-            self.report.exception(f"{e}")
-            return output
-
-    def format(
-        self,
-        df: pd.DataFrame | None,
-    ) -> pd.DataFrame:
-        """
-        Helper function that universally formats the cell values to strings for
-        data comparison.
-        Returns an empty data frame if it fails.
-        """
-        output = pd.DataFrame()
-        if df is None:
-            self.report.error("There was a problem with formatting the data frame.")
-            self.report.error("Cannot format empty DataFrame. Returned None.")
-            return pd.DataFrame()
-        index_keys = self.metadata.get_table_index_keys()
-        try:
-            # Remove blank columns if they exist
-            df = df.drop(
+            _df = df.copy()
+            _df = _df.drop(
                 columns=["", " ", None, "none", "nan", "None"], errors="ignore"
             )
-            df = df.drop(
+            _df = _df.drop(
                 columns=[
                     col
-                    for col in df.columns
+                    for col in _df.columns
                     if isinstance(col, str) and "unnamed" in col.lower()
                 ],
                 errors="ignore",
             )
+            return _df
+        except Exception as e:
+            self.report.exception(f"Could not drop na columns: {e}")
+            return df
 
-            # Remove blank rows if they exist
-            df = self._drop_na_rows(df, index_keys)
+    def _drop_na_rows(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+        """
+        Drop rows that do not have proper keys assigned. Most likely picked up from
+        bad PI Builder exports or misaligned MTL Tables.
+        """
+        self.report.info("Dropping possible empty rows.")
+        _df = df.copy()
+        keys = [this_key for this_key in keys if this_key in _df.columns]
 
-            # Changing these columns to datetime, helps some data comparison errors.
+        if not keys:
+            return _df
+
+        # for keys with one column, drops any row with an empty value
+        if len(keys) == 1:
+            _df = _df.dropna(subset=keys)
+            return _df
+        # for keys with multi columns, keeps rows if at least one value is not empty
+        else:
+            keep_mask = _df[keys].notna().any(axis=1)
+            return _df.loc[keep_mask].copy()
+
+    def _conform_datetime_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Format helper to handle datetime columns, helps some data comparison errors.
+        Returns a dataframe.
+        """
+        try:
+            _df = df.copy()
             datetime_columns = self.metadata.dataframe_formatting.get(
                 "datetime_columns", []
             )
             for column in datetime_columns:
-                if column in df.columns:
-                    col_dtype = df[column].dtype
+                if column in _df.columns:
+                    col_dtype = _df[column].dtype
                     if pd.api.types.is_float_dtype(
                         col_dtype
                     ) or pd.api.types.is_integer_dtype(col_dtype):
@@ -375,9 +237,9 @@ class DataFormatter:
                             report=False,
                         )
 
-                        df[column] = (
+                        _df[column] = (
                             pd.to_datetime(
-                                df[column],
+                                _df[column],
                                 unit="D",
                                 origin="1899-12-30",
                                 errors="coerce",
@@ -387,17 +249,41 @@ class DataFormatter:
                         )
                     else:
                         # Already a string - normalize to merck standard
-                        df[column] = (
-                            pd.to_datetime(df[column], errors="coerce")
+                        _df[column] = (
+                            pd.to_datetime(_df[column], errors="coerce")
                             .dt.strftime(DATETIME_FORMAT_MERCK)
                             .fillna("")
                         )
+            return _df
+        except Exception as e:
+            self.report.error(f"Could not format datetime columns: {e}")
+            self.report.exception(f"Could not format datetime columns: {e}")
+            return pd.DataFrame
 
-            # Changing these columns to int, helps some data comparison errors.
+    def _conform_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Format helper that changes columns to int, helps some data comparison errors.
+
+        These columns are mostly numeric, but may contain boolean and string
+        values.
+
+        Boolean and null values should be normalized and strigified.
+          true = True = "True"
+
+        Numerics should keep their values stringified.
+          13.2 = "13.2", 12 = "12"
+
+        Any numeric equal to 0 should be stringified to "0".
+          0.0 = 0 = "0"
+
+        Other Strings should remain as strings.
+        """
+        try:
+            _df = df.copy()
             numeric_columns = self.metadata.dataframe_formatting["numeric_columns"]
 
             for column in numeric_columns:
-                if column not in df.columns:
+                if column not in _df.columns:
                     continue
 
                 def normalize_cell(x):
@@ -406,32 +292,180 @@ class DataFormatter:
                     # keep or convert the value to pd.NA
                     if pd.isna(x):
                         return pd.NA
-                    if x in _VALUE_NORMALIZATION_MAP:
-                        return _VALUE_NORMALIZATION_MAP[x]
-                    if isinstance(x, bool):
-                        return str(x)
+
+                    if isinstance(x, (bool, np.bool_)):
+                        return "True" if bool(x) else "False"
+
+                    if isinstance(x, str):
+                        normal_text = x.strip()
+
+                        if normal_text == "":
+                            return pd.NA
+
+                        if normal_text in _VALUE_NORMALIZATION_MAP:
+                            return _VALUE_NORMALIZATION_MAP[normal_text]
+                    else:
+                        normal_text = str(x).strip()
 
                     numeric_value = pd.to_numeric(x, errors="coerce")
 
-                    if (
-                        pd.notna(numeric_value)
-                        and pd.notna(numeric_value) != "NoReturn"  # type: ignore
-                    ):
+                    if pd.notna(numeric_value):
                         numeric_value = float(numeric_value)  # type: ignore
+
                         if numeric_value == 0:
                             return "0"
+
                         if math.isfinite(numeric_value) and numeric_value.is_integer():
                             return str(int(numeric_value))
 
                     return str(x)
 
-                df[column] = df[column].map(normalize_cell)
+                _df[column] = _df[column].map(normalize_cell)
+            return _df
+        except Exception as e:
+            self.report.exception(f"Could not normalize numeric columns: {e}")
+            return df
+
+    def _conform_blank_cells(
+        self, df: pd.DataFrame, index_keys: list[str]
+    ) -> pd.DataFrame:
+        """
+        Conform excel and csv blank cells to pd.NA, but not indexed columns.
+        """
+        try:
+            _df = df.copy()
+
+            for column in _df.columns:
+                if column in index_keys:
+                    continue
+
+                values = _df[column]
+
+                missing_mask = values.isna()
+
+                blank_string_mask = (
+                    values.astype("string").str.strip().eq("").fillna(False)
+                )
+
+                _df[column] = values.mask(
+                    missing_mask | blank_string_mask,
+                    pd.NA,
+                )
+
+            return _df
+
+        except Exception as e:
+            self.report.exception(f"Could not conform blank cells: {e}")
+            return df
+
+    def _normalize_key_columns(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+        """
+        Normalizes blank keys to the pandas standard pd.NA while perserving literal
+        key values like "N/A", "None", and "Null", which may be valid names
+        within key groups.
+        """
+        try:
+            result = df.copy()
+
+            for key in keys:
+                if key not in result.columns:
+                    self.report.debug(f"{key} not found in for key normaliztion.")
+                    self.report.debug(f"Columns: {result.columns.tolist()}")
+                    continue
+
+                values = (
+                    result[key]
+                    .astype("string")
+                    .str.replace(r"\s+", " ", regex=True)
+                    .str.strip()
+                )
+
+                result[key] = values.mask(values.eq(""), pd.NA)
+
+            return result
+
+        except Exception as e:
+            self.report.exception(f"Could not normalize key columns: {e}")
+            return df
+
+    def _normalize_whitespace(
+        self, df: pd.DataFrame, columns: list[str] | None = None
+    ) -> pd.DataFrame:
+        """
+        Aggressively normalize white space - removes all extra spaces and newlines.
+        This could break again because im not pushing all cell values to strings anymore.
+        """
+        try:
+            df_copy = df.copy()
+
+            if columns is None:
+                columns = [
+                    col
+                    for col in df_copy.columns
+                    if pd.api.types.is_string_dtype(df_copy[col])
+                    or df_copy[col].dtype == "object"
+                ]
+
+            for col in columns:
+                if col not in df_copy.columns:
+                    continue
+
+                values = df_copy[col].dropna()
+                if values.map(lambda v: v is True or v is False).any():
+                    continue
+
+                df_copy[col] = (
+                    df_copy[col]
+                    .astype("string")
+                    .str.replace(r"\s+", " ", regex=True)
+                    .str.strip()
+                )
+            return df_copy
+        except Exception as e:
+            error_msg = f"Could not normalize white space:\n{e}"
+            self.report.exception(error_msg, popup=True)
+            return df
+
+    def format(
+        self,
+        df: pd.DataFrame | None,
+    ) -> pd.DataFrame:
+        """
+        Universally format cell values to strings for data comparison.
+        Returns an empty data frame if it fails.
+        """
+        output = pd.DataFrame()
+
+        if df is None:
+            self.report.error("Cannot format empty DataFrame. Formating stopped.")
+            return pd.DataFrame()
+
+        try:
+            index_keys = self.metadata.get_table_index_keys()
+
+            # Remove blank columns if they exist
+            df = self._drop_na_columns(df)
+
+            df = self._normalize_key_columns(df, index_keys)
+
+            # Remove blank rows if they exist
+            df = self._drop_na_rows(df, index_keys)
+
+            # Format datetimes to a merck standard string
+            df = self._conform_datetime_columns(df)
+
+            # Format numerical columns cell-be-cell.
+            df = self._conform_numeric_columns(df)
+
+            # Conform blank cells to pd.NA
+            df = self._conform_blank_cells(df, index_keys)
 
             # Replace to standardize bools and blanks to python types
             normal_cols = [col for col in df.columns if col not in index_keys]
             df[normal_cols] = df[normal_cols].replace(_VALUE_NORMALIZATION_MAP)
 
             output = self._normalize_whitespace(df)
+            output = self._normalize_key_columns(output, index_keys)
             output = output.astype("string")
             return output
 
@@ -461,6 +495,27 @@ class DataFormatter:
         self.report.info(f"       Rows: {input_dataframe.shape[0]}")
         self.report.info(f"    Columns: {input_dataframe.shape[1]}")
         return True
+
+    def _classic_data_check(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Helper function that checks the table type and determines whether
+        to add classic columns to the table if not already present.
+        """
+        _df = df.copy()
+        table_type = self.metadata.table_type
+        formatting = self.metadata.dataframe_formatting["classic_gxp_columns"]
+        classic_columns = set(formatting)
+
+        if table_type == TableType.GXP:
+            if classic_columns.issubset(set(_df.columns)):
+                self.report.info("Classic columns found.")
+                return _df
+            else:
+                for col in classic_columns:
+                    if col not in _df.columns:
+                        _df[col] = None
+                self.report.info("Classic columns applied.")
+        return _df
 
     def conform_columns(
         self,

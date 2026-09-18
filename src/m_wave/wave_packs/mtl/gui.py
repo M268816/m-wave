@@ -4,16 +4,17 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from m_wave.core.gui import App
 
 # stdlib
+import webbrowser
 from pathlib import Path
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
-import webbrowser
 
 # third party
 import ttkbootstrap as tkb
@@ -22,26 +23,26 @@ from ttkbootstrap.constants import (
     BOTTOM,
     INDETERMINATE,
     LEFT,
-    N,
     NO,
+    PRIMARY,
     READONLY,
     RIGHT,
-    S,
+    SUCCESS,
     TOP,
+    YES,
+    N,
+    S,
     X,
     Y,
-    YES,
-    PRIMARY,
-    SUCCESS,
 )
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local core
 from m_wave.core.utils import (
+    FONT_MONO,
     PAD,
     PAD_X,
     PAD_Y,
-    FONT_MONO,
 )
 from m_wave.core.wavepack_frame import WavePackFrame
 
