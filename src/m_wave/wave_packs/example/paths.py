@@ -1,13 +1,12 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
 # stdlib
 from pathlib import Path
 
 # third-party
-
 # local
 from m_wave.core.paths import PATHS
 

@@ -1,11 +1,11 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
-# stdio
-from threading import Thread
+# stdlib
 from pathlib import Path
+from threading import Thread
 
 # third party
 import ttkbootstrap as tkb

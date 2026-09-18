@@ -1,15 +1,15 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
-# stdio
+# stdlib
 import getpass
 import json
 import tkinter as tk
-from tkinter import font
-from pathlib import Path
 import warnings
+from pathlib import Path
+from tkinter import font
 
 # third party
 import ttkbootstrap as tkb
@@ -80,6 +80,7 @@ def get_user_prefs_path() -> Path:
             stacklevel=2,
         )
         return user_prefs_path
+
 
 # UTILS
 def get_window_scale_factor(

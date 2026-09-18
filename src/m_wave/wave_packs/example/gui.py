@@ -1,11 +1,12 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
 # WavePackFrames will always need a circular import to App
 # Use this type_chekcing blocker for these classes.
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -18,27 +19,27 @@ from tkinter.filedialog import askopenfilename
 # third party
 import ttkbootstrap as tkb
 from ttkbootstrap.constants import (
-    Y,
-    X,
-    TOP,
     BOTH,
-    CENTER,
-    YES,
-    NO,
     BOTTOM,
+    CENTER,
     INDETERMINATE,
-    N,
-    S,
     LEFT,
+    NO,
+    PRIMARY,
     RIGHT,
     SUCCESS,
-    PRIMARY,
+    TOP,
+    YES,
+    N,
+    S,
+    X,
+    Y,
 )
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local core
-from m_wave.core.utils import PAD, PAD_X, PAD_Y, FONT_MONO
+from m_wave.core.utils import FONT_MONO, PAD, PAD_X, PAD_Y
 from m_wave.core.wavepack_frame import WavePackFrame
 
 # local wave-pack

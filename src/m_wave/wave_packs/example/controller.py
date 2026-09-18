@@ -1,9 +1,9 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
-# stdio
+# stdlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +11,7 @@ from threading import Thread
 
 # third-party
 import ttkbootstrap as tkb
-from ttkbootstrap.constants import NORMAL, DISABLED
+from ttkbootstrap.constants import DISABLED, NORMAL
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local core
@@ -108,7 +108,6 @@ class ExampleController(WavePackController):
         """
         # Make sure that the report object was initialized.
         if self.report:
-
             # Create a new report folder, and attach any ui elements
             self.reset_report(ui.stext)
             self.report.create_report("Example Report")

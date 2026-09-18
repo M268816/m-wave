@@ -1,14 +1,13 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
 # stdlib
 from datetime import datetime
 
 # third party
 from pathlib import Path
-import pandas as pd
 
 # local
 from m_wave.core.reporting import Reporting
@@ -16,7 +15,6 @@ from m_wave.core.utils import DATETIME_FORMAT_MERCK, USER
 
 
 class ExampleProcess:
-
     def __init__(self, report: Reporting, file_path_1: Path) -> None:
         self.report = report
         self.file_path_1 = file_path_1

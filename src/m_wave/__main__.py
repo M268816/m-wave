@@ -1,17 +1,16 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
 # stdlib
 import logging
 from datetime import datetime
 
 # third party
-
 # local
-from m_wave.core.utils import DATETIME_FORMAT
 from m_wave.core.paths import PATHS
+from m_wave.core.utils import DATETIME_FORMAT
 
 # Logging initialization
 LOG_FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
@@ -36,10 +35,11 @@ def configure_logging():
         level=logging.DEBUG,
     )
 
+
 class Main:
     """
     Application entry point.
-    
+
     Initializes the GUI application and starts the main loop.
     """
 
@@ -50,6 +50,7 @@ class Main:
 
     def run(self):
         self.app.run()
+
 
 def main():
     """

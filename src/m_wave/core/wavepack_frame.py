@@ -1,9 +1,9 @@
 # Copyright 2026 Merck KGaA, Darmstadt, Germany and/or its affiliates.
 # All rights reserved
-#
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
+# This tool was created with the help of AI.
 
-# stdio
+# stdlib
 
 # third party
 import ttkbootstrap as tkb
@@ -48,7 +48,6 @@ class WavePackFrame(tkb.Frame):
         Override in subclasses to display frame-specific help instructions.
         Default is a no-op if not overridden, the help menu item is hidden.
         """
-        pass
 
     @property
     def has_new_menus(self) -> bool:
@@ -64,7 +63,6 @@ class WavePackFrame(tkb.Frame):
         Override in the subclasses to add WavePack specific menus to the menubar.
         Called by AppWidnow after lock_wavepack()
         """
-        pass
 
     @property
     def has_teardown(self) -> bool:
