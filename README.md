@@ -36,20 +36,19 @@ M-WAVE is intended to **increase data transfer accuracy** and **reduce validatio
 - **MTL/CMD workbook** — `.xlsx` / `.xlsm` containing named Excel tables
 - **PI Builder export** — `.csv`
 
-_Planned_
-
-- **MES**
-
 ### Outputs
 
-M-WAVE writes artifacts next to the executable (or project root when running from source):
+M-WAVE creates and writes to files and folders next to the executable (or project root when running from source):
 
-- `generated/reports/` — per-run report folders named `TIMESTAMP_(table_filter_processtype)/` containing:
-  - `*.log` run report
-  - CSV snapshots/exports (see below)
-  - Appended workbook copy (append workflow only)
-- `generated/logs/` — general application error logs
-- `user_prefs/` — persisted user preferences
+- `generated/reports/`
+  - per-run report folders named `TIMESTAMP_(table_filter_processtype)/` containing:
+    - a run report log.
+    - formatting before and after snapshots of the input data
+    - wide table, and single one for one table comparison data
+    - (for appending) a copy of the MTL with updated and appended data.
+- `generated/mtl/` - user facing table configurations for the MTL process.
+- `generated/logs/` - general application error logs
+- `user_prefs/` - session persistant user preferences
 
 Common per-run CSV artifacts:
 
@@ -63,10 +62,9 @@ Common per-run CSV artifacts:
 ## Important Notes / Assumptions
 
 - **Close any MTL/CMD workbook before running M-WAVE.** M-WAVE automates Excel via `xlwings`.
-- M-WAVE is tested against a specific MTL/CMD version defined in `src/m_wave/assets/configurations/mtl_config.json` (see `"mtl_version"`).
 - For append workflows, **do not pre-populate a `Version` column** in the input CSV — M-WAVE manages this during column conformance.
 - **Do not change configurations or report options while a process is running.** M-WAVE will reject the change and restore the previous value.
-- **Do not close M-WAVE while a process is running.** A confirmation dialog will warn you — any in-progress work will be lost.
+- **Do not close M-WAVE while a process is running.** A confirmation dialog will warn you - any in-progress work will be lost.
 
 ---
 
@@ -87,20 +85,22 @@ To add a new WavePack, register its `WavePackFrame` subclass in `App.init_wavepa
 self.add_wavepack("My WavePack Name", MyWavePackFrame, "Short description.")
 ```
 
+The only official validated WavePack is for the **Master Tag List Processor**. Using other custom built WavePacks, or building your own and bundling them in your own version of the M-WAVE must not be used in official validation protocols. Any attempts to use unofficial WavePacks may lead to lost work or unwanted deviations and R.O.Es.
+
 ---
 
 ## How It Works (MTL Example)
 
-1. Launch M-WAVE — the **WavePack Launcher** is shown.
-2. Select a WavePack (e.g. **Master Tag List Processor**). You are locked into your WavePack for the session; restart to change.
+1. Launch the M-WAVE executable - the **WavePack Launcher** is shown.
+2. Select a WavePack (e.g. **Master Tag List Processor**). You are locked into your WavePack for the session; and must restart to change.
 3. Select files:
-   - MTL/CMD workbook (`.xlsx` / `.xlsm`)
-   - PI Builder export (`.csv`) — or use **Import** to download the latest MTL from the web
+   - MTL/CMD workbook (`.xlsx` / `.xlsm`) - or use **Import** to download the latest MTL from the web
+   - PI Builder export (`.csv`)
 4. Choose a target **MTL/CMD table** from the dropdown (mappings come from `mtl_config.json`)
 5. Optionally enter a **Filter** string (applied to configured filter columns; some tables use key-based filtering)
 6. Select a process type:
-   - **Compare** — validate differences between selected files
-   - **Append** — upsert and generate an updated workbook copy
+   - **Compare** - validate differences between selected files
+   - **Append** - upsert and generate an updated workbook copy
 7. Review the generated run report and CSVs in:
    ```
    generated/reports/TIMESTAMP_(table_filter_processtype)/
@@ -357,7 +357,3 @@ m-wave/
 ## License
 
 Internal use only. See [LICENSE](./LICENSE).
-
-## Repository
-
-This project is hosted on the company **GitLab**: [jaffreydatasystems/m-wave](https://gitlab-ce.merckgroup.com/jaffreydatasystems/m-wave). Consult the M-WAVE SOP for repository access details.
