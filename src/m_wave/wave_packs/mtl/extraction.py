@@ -21,6 +21,7 @@ import xlwings as xl
 from m_wave.core.reporting import Reporting
 
 # local wave pack
+from m_wave.core.utils import DATETIME_FORMAT_MERCK
 from m_wave.wave_packs.mtl.metadata import Metadata
 from m_wave.wave_packs.mtl.paths import MTL_DOC_DIR
 
@@ -226,6 +227,69 @@ class DataExtractor:
             if wb is not None:
                 wb.close()
 
+    def _normalize_datetime_column(
+        self,
+        series: pd.Series,
+        datetime_format: str = DATETIME_FORMAT_MERCK,
+    ) -> pd.Series:
+        """
+        Normalizes datetime columns that may contain:
+        - pandas datetime values
+        - text datetimes
+        - excel serial dates, as floats or text
+        """
+
+        EXCEL_EPOCH = pd.Timestamp("1899-12-30")
+
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return series.dt.round("s")
+
+        values = series.astype("string").str.strip()
+
+        result = pd.Series(pd.NaT, index=series.index, dtype="datetime64[ns]")
+
+        is_missing = pd.isna(values) | values.eq("")
+
+        numeric_values: pd.Series = pd.to_numeric(values, errors="coerce")
+
+        is_numeric = pd.notna(numeric_values) & ~is_missing
+
+        if is_numeric.any():
+            result.loc[is_numeric] = EXCEL_EPOCH + pd.to_timedelta(
+                numeric_values.loc[is_numeric], unit="D"
+            )
+
+        is_text = ~is_numeric & ~is_missing
+
+        if is_text.any():
+            parsed_text = pd.to_datetime(
+                values.loc[is_text],
+                format=datetime_format,
+                errors="coerce",
+            )
+            still_unparsed = parsed_text.isna()
+            if still_unparsed.any():
+                fallback_idx = parsed_text.index[still_unparsed]
+                parsed_text.loc[fallback_idx] = pd.to_datetime(
+                    values.loc[fallback_idx],
+                    errors="coerce",
+                )
+            result.loc[is_text] = parsed_text
+
+        return result
+
+    def _normalize_datetime_columns(
+        self,
+        df: pd.DataFrame,
+        datetime_columns: list[str],
+        datetime_format: str = DATETIME_FORMAT_MERCK,
+    ) -> pd.DataFrame:
+        _df = df.copy()
+        for col in datetime_columns:
+            if col in _df.columns:
+                _df[col] = self._normalize_datetime_column(_df[col], datetime_format)
+        return _df
+
     def extract_mtl_table(self, mtl_file_path: str) -> pd.DataFrame:
         """
         Returns a data frame from a named excel table in the MTL.
@@ -237,6 +301,7 @@ class DataExtractor:
         dataframe = pd.DataFrame()
         excel = None
         workbook = None
+        datetime_columns = self.metadata.dataframe_formatting["datetime_columns"]
         try:
             excel = xl.App(visible=False, add_book=False)
             workbook = excel.books.open(mtl_file_path)
@@ -245,6 +310,7 @@ class DataExtractor:
             dataframe: pd.DataFrame = table.range.options(
                 pd.DataFrame, header=True, index=False
             ).value
+            dataframe = self._normalize_datetime_columns(dataframe, datetime_columns)
             self.report.info("MTL Data extracted successfully.")
             return dataframe
         except Exception as e:
@@ -269,15 +335,21 @@ class DataExtractor:
         """
         # Read the input csv
         df = pd.DataFrame()
-        try:
-            self.report.info("Extracting the Input file.")
-            df = pd.read_csv(
+        datetime_columns = self.metadata.dataframe_formatting["datetime_columns"]
+
+        def read(_df: pd.DataFrame, encoding: str = "utf-8") -> pd.DataFrame:
+            _df = pd.read_csv(
                 file_path,
                 # na_values=["None", "none", "NULL", "null", ""],
                 na_values=[""],
                 keep_default_na=False,
-                encoding="utf-8",
+                encoding=encoding,
             )
+            return self._normalize_datetime_columns(_df, datetime_columns)
+
+        try:
+            self.report.info("Extracting the Input file.")
+            df = read(df)
             self.report.info("Input extraction was successful!")
             return df
         except UnicodeDecodeError as e:
@@ -285,22 +357,15 @@ class DataExtractor:
             self.report.exception(f"\n{e}")
             self.report.warning("Will attempt to convert known problem symbols...")
             try:
-                df = pd.read_csv(
-                    file_path,
-                    # na_values=["None", "none", "NULL", "null", ""],
-                    keep_default_na=False,
-                    encoding="latin-1",
-                )
+                df = read(df, encoding="latin-1")
                 df = df.replace("�C", "°C", regex=False)
                 df = df.replace("�F", "°F", regex=False)
                 fixed_name = f"{filter_str}_fixed.csv"
                 fixed_file = self.report.report_folder / fixed_name
                 df.to_csv(fixed_file, encoding="utf-8-sig", index=False)
-                df = pd.read_csv(
-                    fixed_file,
-                    na_values=["None", "none", "NULL", "null", ""],
-                    keep_default_na=False,
-                )
+                df = read(
+                    df
+                )  # may need to set encoding to none here, or not use the parameter
                 self.report.info("Conversion completed!")
                 self.report.info(f"Converted input saved to: {fixed_name}")
                 return df
