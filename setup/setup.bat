@@ -1,6 +1,10 @@
 @echo off
 setlocal EnableExtensions
 
+REM Prevent uv from creating hardlinks.
+REM This avoids conflicts with OneDrive and other cloud-synced folders.
+set "UV_LINK_MODE=copy"
+
 REM Resolve the project root:
 REM %~dp0 = m-wave\setup\
 for %%I in ("%~dp0..") do set "PROJECT_ROOT=%%~fI"
@@ -11,7 +15,8 @@ cd /d "%PROJECT_ROOT%" || (
     exit /b 1
 )
 
-set "VENV_PYTHON=%PROJECT_ROOT%\.venv\Scripts\python.exe"
+set "VENV_DIR=%PROJECT_ROOT%\.venv"
+set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
 
 where uv >nul 2>nul
 if errorlevel 1 (
@@ -35,7 +40,7 @@ if not exist "%VENV_PYTHON%" (
     uv venv ^
         --python 3.11 ^
         --prompt m-wave ^
-        "%PROJECT_ROOT%\.venv"
+        "%VENV_DIR%"
 
     if errorlevel 1 (
         echo Failed to create virtual environment.
@@ -85,7 +90,7 @@ echo DONE
 echo.
 
 echo Virtual environment ready at:
-echo %PROJECT_ROOT%\.venv
+echo %VENV_DIR%
 echo.
 
 echo To activate the environment from the project root, run:
@@ -96,7 +101,7 @@ echo To activate it while staying in the setup folder, run:
 echo ..\.venv\Scripts\activate
 echo.
 
-echo To run the application as a python package, run:
+echo To run the application as a Python package, run:
 echo python -m m_wave
 echo.
 
