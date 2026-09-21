@@ -250,6 +250,10 @@ class Process:
                     + f'"{self.mtl_worksheet_name}"'
                 )
 
+            # NOTE: META DATA COMPARISON CHECK
+            if not self._can_compare():
+                return False
+
             # NOTE: EXTRACTION PHASE
             self.report.simple_title("Extracting the Table from the MTL")
             mtl_df = self.extractor.extract_mtl_table(self.mtl_file_path)

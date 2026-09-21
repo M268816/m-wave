@@ -17,16 +17,6 @@ from m_wave.core.reporting import Reporting
 from m_wave.wave_packs.mtl.metadata import Metadata
 from m_wave.wave_packs.mtl.utils import report_shape_differences
 
-# Columns the reviewer checks by hand. Differences here are expected by design.
-# TODO: move to configuration.
-MANUAL_REVIEW_COLUMNS: tuple[str, ...] = (
-    "datasecurity",
-    "ptsecurity",
-    "securitystring",
-)
-
-BLANK_TOKEN = ""
-
 
 class Comparisons:
     """
@@ -40,16 +30,20 @@ class Comparisons:
     def __init__(self, report: Reporting, metadata: Metadata) -> None:
         self.report = report
         self.metadata = metadata
+        self.manual_review_columns = self.metadata.dataframe_formatting[
+            "manual_review_columns"
+        ]
 
     @staticmethod
     def _display(value: Any) -> str:
         """Human readable cell value, with blanks made explicit."""
+        blank_token = ""
         if value is None or (isinstance(value, float) and pd.isna(value)):
-            return BLANK_TOKEN
+            return blank_token
         if pd.isna(value):
-            return BLANK_TOKEN
+            return blank_token
         text = str(value).strip()
-        return text if text else BLANK_TOKEN
+        return text if text else blank_token
 
     def compare(
         self,
@@ -88,8 +82,8 @@ class Comparisons:
         inp = input_dataframe.rename(columns=str.lower)
 
         excluded = sorted(
-            {c for c in mtl.columns if c in MANUAL_REVIEW_COLUMNS}
-            | {c for c in inp.columns if c in MANUAL_REVIEW_COLUMNS}
+            {c for c in mtl.columns if c in self.manual_review_columns}
+            | {c for c in inp.columns if c in self.manual_review_columns}
         )
 
         if excluded:
