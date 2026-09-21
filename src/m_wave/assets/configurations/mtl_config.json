@@ -104,7 +104,7 @@
       "sort_ascending": [true]
     },
     "CATEGORIES": {
-      "index_keys": ["Name"],
+      "index_keys": ["Name", "ObjectType"],
       "filter_on_keys": false,
       "filter_keys": ["Name"],
       "group_key": null,
@@ -222,6 +222,12 @@
     }
   },
   "dataframe_formatting": {
+    "manual_review_columns": [
+      "datasecurity",
+      "ptsecurity",
+      "securitystring",
+      "asset details",
+    ],
     "datetime_columns": [
       "VersionEffectiveDate",
       "VersionObsoleteDate",
