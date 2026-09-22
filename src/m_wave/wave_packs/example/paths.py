@@ -13,7 +13,7 @@ from m_wave.core.paths import PATHS
 _config_doc = "example_config.json"
 
 # Generated/writable tag doc generator folders
-EXAMPLE_GENERATED_DIR = PATHS.create_generated_folder("tag_doc_gen")
+EXAMPLE_GENERATED_DIR = PATHS.create_generated_folder("example")
 EXAMPLE_CONFIG_DIR = PATHS.create_sub_folder(EXAMPLE_GENERATED_DIR, "configurations")
 
 # Read-only resources
