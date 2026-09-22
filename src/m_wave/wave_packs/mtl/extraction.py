@@ -80,8 +80,12 @@ class DataExtractor:
                         )
                         self.report.info(f"Download dir: {custom_dir}")
                         return Path(custom_dir)
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.report.exception(
+                        "Could not detect a custom directory."
+                        + "This is not an issue, just an observation."
+                        + f"Execption caught: {e}"
+                    )
         self.report.info("No custom download directory found. Using defaults.")
         return Path(downloads_folder)
 
