@@ -226,7 +226,7 @@
       "datasecurity",
       "ptsecurity",
       "securitystring",
-      "asset details",
+      "asset details"
     ],
     "datetime_columns": [
       "VersionEffectiveDate",

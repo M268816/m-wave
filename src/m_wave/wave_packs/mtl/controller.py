@@ -77,12 +77,17 @@ class MTLController(WavePackController):
         super().__init__(app, context)
         self.app = app
         self.context: AppContext = context
-        self.configs = load_configs(get_mtl_config_path())
 
         self.report = self.set_report(
             PATHS.reports_dir,
             self.context.user_preferences,
         )
+
+        try:
+            self.configs = load_configs(get_mtl_config_path())
+        except Exception as e:
+            msg = f"Could not load configurations, check the general log file: {e}"
+            self.report.exception(msg, popup=True)
 
     def _start_thread(
         self,

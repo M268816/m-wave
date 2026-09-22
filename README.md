@@ -6,7 +6,7 @@
 <p align="center"><strong>Workbook Automation &amp; Verification Engine</strong></p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-green" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.1-green" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-lightgrey" />
   <a href="https://gitlab-ce.merckgroup.com/jaffreydatasystems/m-wave/-/issues">
