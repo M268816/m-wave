@@ -109,7 +109,6 @@ class Comparisons:
                 "Cannot compare. These index key columns are missing from one or "
                 f"both tables: {', '.join(missing)}"
             )
-            self.report.save_report()
             return False
 
         comparison = datacompy.PandasCompare(
@@ -174,7 +173,6 @@ class Comparisons:
                 f"intersect_rows using suffixes {suffix_1!r} and {suffix_2!r}. "
                 f"Columns present: {list(intersect.columns)}"
             )
-            self.report.save_report()
             return False
 
         long_rows: list[dict[str, Any]] = []
@@ -250,5 +248,4 @@ class Comparisons:
             self.report.simple_title("Check that all comparison files are blank.")
             self.report.info("Blank files are a good thing here!")
 
-        self.report.save_report()
         return matches
