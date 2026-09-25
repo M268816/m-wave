@@ -51,6 +51,10 @@ class LauncherFrame(WavePackFrame):
         self.app.after(500, self._build_ui)
 
     def _build_ui(self) -> None:
+        """
+        Creates a simple header label with instructions, then attempts to
+        create a grid of buttons that will launch WavePacks.
+        """
         self.app.update_idletasks()
 
         tkb.Label(self, text="Select a Session Type", font=H1).pack(
@@ -89,19 +93,19 @@ class LauncherFrame(WavePackFrame):
             row = index // self.grid_width
             col = index % self.grid_width
 
-            f = tkb.Frame(self.scroll_frame)
-            f.grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
-            f.columnconfigure(0, weight=0, minsize=max_btn_width)
-            f.columnconfigure(1, weight=1)
+            parent_frame = tkb.Frame(self.scroll_frame)
+            parent_frame.grid(row=row, column=col, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
+            parent_frame.columnconfigure(0, weight=0, minsize=max_btn_width)
+            parent_frame.columnconfigure(1, weight=1)
 
             tkb.Button(
-                f,
+                parent_frame,
                 text=name,
                 command=lambda n=name, fc=frame_cls: self._confirm_and_launch(n, fc),
             ).grid(row=0, column=0, padx=PAD_X, pady=PAD_Y, sticky=NSEW)
 
             lbl = tkb.Label(
-                f,
+                parent_frame,
                 text=desc,
                 justify="left",
             )

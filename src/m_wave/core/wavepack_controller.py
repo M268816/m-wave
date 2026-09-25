@@ -18,7 +18,15 @@ from m_wave.core.reporting import Reporting
 
 class WavePackController:
     """
-    Class helper for type assignment.
+    A WavePack logic controller class. This class is used to control the reporting,
+    GUI, and other process control methods for a WavePack.
+
+    Basic structure is defined here for root composition:
+    app = root app connection
+    context = root context connection
+
+    Basic functionality for all controllers includes setting and resetting reporting
+    processes.
     """
 
     def __init__(self, app: tkb.Window, context: AppContext) -> None:

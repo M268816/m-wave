@@ -14,7 +14,12 @@ from m_wave.core.wavepack_controller import WavePackController
 
 class WavePackFrame(tkb.Frame):
     """
-    Class helper for type assignment.
+    Base class for WavePack GUI Frames.
+
+    Basic strucutre for composition with the WavePack is defined here.
+    controller = wavepack controller
+
+    Defines help, menubar and teardown methods.
     """
 
     def __init__(

@@ -403,7 +403,7 @@ class Reporting:
         window is available the question cannot be shown so 'default' is returned
         and the question is logged.
         """
-        prompt = f"{msg}\n\n[{yes_text}, {no_text}]"
+        prompt = f"Question: {msg}\n\nAnswers: [{yes_text}, {no_text}]"
         self._emit(
             msg=prompt,
             config=_QUESTION_CONFIG,
@@ -542,19 +542,19 @@ class Reporting:
 
     def error_divider(self) -> None:
         """
-        A full-width light divider. Used between minor sections.
+        A full-width heavy divider. Used between major error sections.
         """
-        self.error("=" * self.width)
+        self.error("#" * self.width)
 
     def error_separator(self) -> None:
         """
-        A full-width light divider. Used between minor sections.
+        A full-width light divider. Used between minor error sections.
         """
-        self.error("-" * self.width)
+        self.error("+" * self.width)
 
     def error_section(self) -> None:
         """
-        A half-width light divider. Used between minor sections.
+        A half-width light divider. Used between minor error sections.
         """
         self.error("~" * (self.width))
 

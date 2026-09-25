@@ -97,7 +97,7 @@ class App(tkb.Window):
         self.container.grid_rowconfigure(0, weight=1)
         self.container.grid_columnconfigure(0, weight=1)
 
-        self._build_menu()
+        self.build_menu()
 
         saved_theme = self.context.user_preferences.get("theme", "bootstrap-light")
         self.style.theme_use(saved_theme)
@@ -105,7 +105,49 @@ class App(tkb.Window):
         self.init_wavepacks()
         self.start_launcher()
 
+    def build_menu(self) -> None:
+        """
+        Construct the main application level menu bar. Call only once.
+        """
+        self.menubar = tkb.Menu(self)
+
+        # File Menu
+        file_menu = tkb.Menu(self.menubar, tearoff=0)  # type: ignore
+        file_menu.add_command(label="Exit", command=self.destroy)
+        self.menubar.add_cascade(label="File", menu=file_menu)
+
+        # Themes
+        theme_var = tkb.StringVar(
+            value=self.context.user_preferences.get("theme", "litera")
+        )
+        self.theme_menu = tkb.Menu(self.menubar, tearoff=0)  # type: ignore
+        for theme in THEMES:
+            self.theme_menu.add_radiobutton(
+                label=theme.capitalize(),
+                value=theme,
+                variable=theme_var,
+                command=lambda t=theme_var: self._on_theme_change(t),
+            )
+        self.menubar.add_cascade(label="Themes", menu=self.theme_menu)
+
+        # Help Menu
+        self.help_menu = tkb.Menu(self.menubar, tearoff=0)  # type: ignore
+        self.help_menu.add_command(label="About", command=self._show_about_window)
+        self.menubar.add_cascade(label="Help", menu=self.help_menu)
+
+        self.config(menu=self.menubar)
+
+    def add_wavepack(self, key: str, frame_cls: WavePackFrame, desc: str) -> None:
+        """
+        Register a new WavePack frame class under a named key.
+        """
+        self.wavepacks[key] = (frame_cls, desc)
+
     def init_wavepacks(self) -> None:
+        """
+        Registers WavePacks to the applicaiton. Only registered packs can be loaded
+        and initialized by the Launcher frame.
+        """
         self.add_wavepack(
             "Master Tag List Processor",
             MTLFrame,  # type: ignore
@@ -118,13 +160,10 @@ class App(tkb.Window):
             "This is just an example of an additional WavePack!",
         )
 
-    def add_wavepack(self, key: str, frame_cls: WavePackFrame, desc: str) -> None:
-        """
-        Register a new WavePack frame class under *name*.
-        """
-        self.wavepacks[key] = (frame_cls, desc)
-
     def start_launcher(self) -> None:
+        """
+        Creates the WavePack launcher frame and attaches it to the root application.
+        """
         self.launcher = LauncherFrame(self.container, self, grid_width=1)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
@@ -149,41 +188,6 @@ class App(tkb.Window):
         self.minsize(app_frame.width_min, app_frame.height_min)
         self.resizable(app_frame.resizable[0], app_frame.resizable[1])
         self._rebuild_menu_for(self.active_app)  # type: ignore
-
-    def run(self) -> None:
-        self.mainloop()
-
-    def _build_menu(self) -> None:
-        """
-        Construct the main application level menu bar. Call only once.
-        """
-        self.menubar = tkb.Menu(self)
-
-        # File Menu
-        file_menu = tkb.Menu(self.menubar, tearoff=0)
-        file_menu.add_command(label="Exit", command=self.destroy)
-        self.menubar.add_cascade(label="File", menu=file_menu)
-
-        # Themes
-        theme_var = tkb.StringVar(
-            value=self.context.user_preferences.get("theme", "litera")
-        )
-        self.theme_menu = tkb.Menu(self.menubar, tearoff=0)
-        for theme in THEMES:
-            self.theme_menu.add_radiobutton(
-                label=theme.capitalize(),
-                value=theme,
-                variable=theme_var,
-                command=lambda t=theme_var: self._on_theme_change(t),
-            )
-        self.menubar.add_cascade(label="Themes", menu=self.theme_menu)
-
-        # Help Menu
-        self.help_menu = tkb.Menu(self.menubar, tearoff=0)
-        self.help_menu.add_command(label="About", command=self._show_about_window)
-        self.menubar.add_cascade(label="Help", menu=self.help_menu)
-
-        self.config(menu=self.menubar)
 
     def _rebuild_menu_for(self, frame: WavePackFrame) -> None:
         """
@@ -248,7 +252,8 @@ class App(tkb.Window):
 
     def _on_theme_change(self, theme: tkb.StringVar) -> None:
         """
-        If the theme changes, try to set the config value, if true (success), change the theme.
+        If the theme changes, try to set the config value, if true (success),
+        change the theme.
         """
         if set_config_value(
             get_user_prefs_path(), self.context.user_preferences, "theme", theme
@@ -256,6 +261,9 @@ class App(tkb.Window):
             self.style.theme_use(theme.get())
 
     def _show_about_window(self) -> None:
+        """
+        Creates and displays a toplevel modal window with 'about' information.
+        """
         about = tkb.Toplevel()
         about.title("About")
         about.iconphoto(False, self.logo)
@@ -326,3 +334,6 @@ class App(tkb.Window):
         container.bind("<Configure>", _on_resize)
 
         about.resizable(False, False)
+
+    def run(self) -> None:
+        self.mainloop()

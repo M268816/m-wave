@@ -13,7 +13,7 @@ from m_wave.core.utils import get_user_prefs_path, load_configs
 
 class AppContext:
     """
-    Master application contextualizer. Controls  root/app and User Preferences.
+    Master application contextualizer. Controls root/app and User Preferences.
     """
 
     def __init__(self) -> None:
