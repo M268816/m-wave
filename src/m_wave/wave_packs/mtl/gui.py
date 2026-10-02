@@ -93,7 +93,7 @@ class MTLFrame(WavePackFrame):
         self.opt_mtl_path = tkb.StringVar(value="Select a file or import from ManGo.")
         self.opt_input_path = tkb.StringVar(value="Select a file.")
         self.opt_filter = tkb.StringVar()
-        self.opt_process = tkb.IntVar(value=MTLProcessorType.NONE.value)
+        self.opt_process = tkb.StringVar(value=MTLProcessorType.NONE)
         self.mtl_version = tkb.StringVar(value="Import needed.")
         self._mtl_is_selected = tkb.BooleanVar(value=False)
         self._input_is_selected = tkb.BooleanVar(value=False)

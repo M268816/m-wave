@@ -66,14 +66,14 @@ class DataAppender:
             if unmatched_columns:
                 unmatched_list = ", ".join(sorted(unmatched_columns))
                 self.report.highlight_titled_error(
-                    f"Input column(s) not found in the MTL: {unmatched_list}",
-                    title="INPUT / MTL COLUMN MISMATCH",
+                    f"PI Builder column(s) not found in the MTL: {unmatched_list}",
+                    title="PI Builder / MTL COLUMN MISMATCH",
                     is_critical=True,
                 )
                 self.report.critical(
-                    "The upsert was stopped because the input file contains "
+                    "The upsert was stopped because the PI Builder file contains "
                     f"column(s) that do not exist in the mtl ({unmatched_list}). "
-                    "Please confirm that you are using the correct input file, or "
+                    "Please confirm that you are using the correct PI Builder file, or "
                     "correct the column headers so they match the MTL exactly, "
                     "then try again.",
                     popup=True,
@@ -84,11 +84,11 @@ class DataAppender:
             if missing_key_columns:
                 missing_list = ", ".join(sorted(missing_key_columns))
                 self.report.critical(
-                    "The upsert was stopped because the input file is missing "
+                    "The upsert was stopped because the PI Builder file is missing "
                     f"the required key column(s): {missing_list}. These keys "
                     "are defined in the MTL configuration and are required to "
-                    "match input rows to the MTL. Please check that you are "
-                    "using the correct input data.",
+                    "match PI Builder rows to the MTL. Please check that you are "
+                    "using the correct PI Builder data.",
                     popup=True,
                 )
                 return output
@@ -102,16 +102,16 @@ class DataAppender:
                     set(keyed_input.index[input_dupe_mask].tolist())
                 )
                 self.report.highlight_titled_error(
-                    f"Duiplicate key value(s) found in the input: {duplicate_keys}",
-                    title="DUPLICATE KEYS IN INPUT",
+                    f"Duiplicate key value(s) found in the PI Builder csv: {duplicate_keys}",
+                    title="DUPLICATE KEYS IN PI BUILDER CSV",
                     is_critical=True,
                 )
                 self.report.critical(
-                    "The upsert was stopped because the input file contains "
+                    "The upsert was stopped because the PI Builder file contains "
                     "more than one row for th same key value. Each key combination "
                     f"({', '.join(keys)}) must be unique. Please remove or "
                     "consolidate the duplicate row(s) listed above in your "
-                    "input data and try again.",
+                    "PI Builder data and try again.",
                     popup=True,
                 )
                 return output
@@ -132,7 +132,7 @@ class DataAppender:
                 self.report.report_dir / "mtl_dataframe_before.csv", index=False
             )
             input_dataframe.to_csv(
-                self.report.report_dir / "input_dataframe.csv", index=False
+                self.report.report_dir / "pi_dataframe.csv", index=False
             )
 
             updated_keys = keyed_mtl.index.intersection(keyed_input.index)

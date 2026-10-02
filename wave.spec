@@ -1,7 +1,7 @@
 # m-wave.spec — PyInstaller spec file for WAVE one-file executable
 #
 # Build command:
-#   pyinstaller wave.spec
+#   pyinstaller m-wave.spec
 #
 # Output: dist/m-wave.exe  (one-file, no console window)
 # The exe will create logs/ and reports/ folders next to itself at runtime.
@@ -33,7 +33,7 @@ for current_dir, _, filenames in os.walk(ASSETS_DIR):
         destination_dir = (
             "assets"
             if relative_dir == "."
-            else os.path.join("assets",relative_dir)
+            else os.path.join("assets", relative_dir)
         )
 
         ASSET_DATAS.append((source_path, destination_dir))
@@ -41,8 +41,8 @@ for current_dir, _, filenames in os.walk(ASSETS_DIR):
 # ── Analysis ───────────────────────────────────────────────────────────────────
 a = Analysis(
     # Entry point
-    # package engry point lives at src/m_wave/__main__.py
-    [os.path.join(PACKAGE_DIR,"__main__.py")],
+    # package entry point lives at src/m_wave/__main__.py
+    [os.path.join(PACKAGE_DIR, "__main__.py")],
 
     # Tell PyInstaller where to look for imports
     pathex=[SRC_DIR],
@@ -51,12 +51,15 @@ a = Analysis(
     binaries=[],
 
     # Static files to bundle into the exe's internal _MEIPASS temp folder.
-    # This bundles: src/m_wave.assets into sys._MEIPASS/assets
+    # This bundles: src/m_wave/assets into sys._MEIPASS/assets
     # paths.py should resolve as: path(sys._MEIPASS) / "assets"
 
     # paths.py reads these via get_temp_path() / sys._MEIPASS at runtime.
+    # NOTE: ASSET_DATAS must be unpacked (*ASSET_DATAS) — passing it as a
+    # single list element nests it inside `datas`, which PyInstaller cannot
+    # parse as individual (source, dest) tuples.
     datas=[
-        ASSET_DATAS,
+        *ASSET_DATAS,
         *collect_data_files("ttkbootstrap"),
         *collect_data_files("datacompy"),
     ],
@@ -165,12 +168,11 @@ a = Analysis(
         "xmlrunner",
     ],
 
-    cipher=None,
     noarchive=False,
 )
 
 # ── PYZ ────────────────────────────────────────────────────────────────────────
-pyz = PYZ(a.pure, a.zipped_data, cipher=None)
+pyz = PYZ(a.pure, a.zipped_data)
 
 # ── EXE ────────────────────────────────────────────────────────────────────────
 exe = EXE(
@@ -199,3 +201,4 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+

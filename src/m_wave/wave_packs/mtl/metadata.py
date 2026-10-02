@@ -16,17 +16,17 @@ from m_wave.core.reporting import Reporting
 from m_wave.wave_packs.mtl.paths import MTL_DOC_DIR, get_mtl_config_path
 
 
-class TableType(int, Enum):
-    UNKNOWN = 0
-    ANALYTICS = 1
-    DIGITAL_SET = 2
-    GXP = 3
-    ENUM_SET = 4
-    CATEGORIES = 5
-    TABLES = 6
-    EVENT_FRAME = 7
-    ELEMENT_TEMPLATE = 8
-    ELEMENT = 9
+class TableType(str, Enum):
+    UNKNOWN = "unknown"
+    ANALYTICS = "analytics"
+    DIGITAL_SET = "digital_set"
+    GXP = "pi_tags"
+    ENUM_SET = "enumeration_set"
+    CATEGORIES = "categories"
+    TABLES = "tables"
+    EVENT_FRAME = "event_frame_templates"
+    ELEMENT_TEMPLATE = "element_templates"
+    ELEMENT = "elements"
 
 
 @dataclass

@@ -26,15 +26,15 @@ from m_wave.wave_packs.mtl.paths import get_mtl_config_path
 from m_wave.wave_packs.mtl.process import Process
 
 
-class MTLProcessorType(int, Enum):
+class MTLProcessorType(str, Enum):
     """
     Enum for the MTL process type selection.
     """
 
-    NONE = 0
-    COMPARE = 1
-    APPEND = 2
-    DOWNLOAD = 3
+    NONE = "none"
+    COMPARE = "compare"
+    APPEND = "append"
+    DOWNLOAD = "download"
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,7 @@ class MTLUi:
 
     progress_bar: tkb.Progressbar
     process_button: tkb.Button
-    opt_process: tkb.IntVar
+    opt_process: tkb.StringVar
     stext: ScrolledText
     version_var: tkb.StringVar
     mtl_path: tkb.StringVar
@@ -109,13 +109,10 @@ class MTLController(WavePackController):
                 )
 
                 if req.process_type == MTLProcessorType.APPEND:
-                    self.report.info("Appending data...")
                     process.run_append()
                 elif req.process_type == MTLProcessorType.COMPARE:
-                    self.report.info("Comparing data...")
                     process.run_comparison()
                 elif req.process_type == MTLProcessorType.DOWNLOAD:
-                    self.report.info("Download test..")
                     process.get_mtl_from_web(ui.version_var, ui.mtl_path)
                 else:
                     self.report.critical(
@@ -133,7 +130,7 @@ class MTLController(WavePackController):
 
                 def _finish_ui():
                     ui.progress_bar.stop()
-                    ui.opt_process.set(MTLProcessorType.NONE.value)
+                    ui.opt_process.set(MTLProcessorType.NONE)
                     ui.process_button.config(state=NORMAL)
 
                 self.app.after(
@@ -156,15 +153,16 @@ class MTLController(WavePackController):
         """
         if self.report is not None:
             self.reset_report(ui.stext)
-            report_name = (
-                f"{req.data_table}_{req.report_name}"
-                if req.report_name is not None
-                else req.data_table
-            )
-            if req.process_type == MTLProcessorType.COMPARE:
-                report_name = f"{report_name}_compare"
-            if req.process_type == MTLProcessorType.APPEND:
-                report_name = f"{report_name}_append"
+
+            if req.process_type == MTLProcessorType.DOWNLOAD:
+                report_name = "downloading_mtl_from_mango"
+            else:
+                report_name = (
+                    f"{req.process_type.value}_{req.data_table.lower()}_by_{req.report_name}"
+                    if req.report_name is not None
+                    else f"{req.process_type.value}_{req.data_table.lower()}"
+                )
+
             self.report.create_report(report_name)
         else:
             raise RuntimeError(

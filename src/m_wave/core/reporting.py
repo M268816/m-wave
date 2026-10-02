@@ -204,19 +204,19 @@ class Reporting:
         self.cleaned_name = self.cleaned_name.replace("*", "")
         # NOTE: "my_report_name"
 
-        self.folder_name = f"{self.timestamp}_({self.cleaned_name})"
-        # NOTE: "TIMESTAMP_(my_report_name)"
+        self.folder_name = f"({self.timestamp})_{self.cleaned_name}"
+        # NOTE: "(TIMESTAMP)_my_report_name"
 
         self.report_dir = self.output_dir / self.folder_name
         if update_dirs:
             self.report_dir.mkdir(parents=True, exist_ok=True)
-        # NOTE: "BASE_DIR\TIMESTAMP_(my_report_name)"
+        # NOTE: "BASE_DIR\(TIMESTAMP)_my_report_name"
 
         n = self.report_dir / self.cleaned_name
-        # NOTE: "BASE_DIR\TIMESTAMP_(my_report_name)\my_report_name"
+        # NOTE: "BASE_DIR\(TIMESTAMP)_my_report_name\my_report_name"
 
         self.report_path = n.with_suffix(".log")
-        # NOTE: "BASE_DIR\TIMESTAMP_(my_report_name)\my_report_name.log"
+        # NOTE: "BASE_DIR\(TIMESTAMP)_(my_report_name)\my_report_name.log"
 
     def _emit(
         self,

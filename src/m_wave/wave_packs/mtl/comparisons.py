@@ -55,7 +55,7 @@ class Comparisons:
         Compare the MTL against the PI Builder input. Returns datacompy's
         verdict: True only when every record matched on every compared column.
         """
-        df1_name, df2_name = "MTL", "Input"
+        df1_name, df2_name = "MTL", "PI Builder"
 
         self.report.info("Obtaining the table index keys from metadata...")
         key_columns = [c.lower() for c in self.metadata.get_table_index_keys()]
@@ -139,7 +139,7 @@ class Comparisons:
         if not comparison.df2_unq_rows.empty:
             self.report.error(
                 f"{len(comparison.df2_unq_rows)} record(s) exist only in the "
-                f"{df2_name}. See input_non_matching_records.csv."
+                f"{df2_name}. See pi_non_matching_records.csv."
             )
 
         # differing cells
