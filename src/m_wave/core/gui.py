@@ -31,7 +31,7 @@ from m_wave.wave_packs.example.gui import ExampleFrame
 from m_wave.wave_packs.mtl.gui import MTLFrame
 
 # CONSTANTS
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 THEMES = (
     # Light themes
