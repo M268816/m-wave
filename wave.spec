@@ -36,7 +36,7 @@ for current_dir, _, filenames in os.walk(ASSETS_DIR):
             else os.path.join("assets",relative_dir)
         )
 
-        ASSET_DATAS.append((source_path, destination_dir)
+        ASSET_DATAS.append((source_path, destination_dir))
 
 # ── Analysis ───────────────────────────────────────────────────────────────────
 a = Analysis(
