@@ -129,10 +129,10 @@ class DataAppender:
 
             # Save each data frame to keep record of the changes.
             mtl_dataframe.to_csv(
-                self.report.report_folder / "mtl_dataframe_before.csv", index=False
+                self.report.report_dir / "mtl_dataframe_before.csv", index=False
             )
             input_dataframe.to_csv(
-                self.report.report_folder / "input_dataframe.csv", index=False
+                self.report.report_dir / "input_dataframe.csv", index=False
             )
 
             updated_keys = keyed_mtl.index.intersection(keyed_input.index)
@@ -179,7 +179,7 @@ class DataAppender:
         Used to export the new appended data frame to csv format.
         """
         appended_filename = "mtl_dataframe_after.csv"
-        appended_filepath = self.report.report_folder / appended_filename
+        appended_filepath = self.report.report_dir / appended_filename
         self.report.info(f"Exporting the appended data to:  {appended_filepath}")
         self.report.info("This data is supplied as the complete mtl table.")
         self.report.info("This includes all appended rows, and updated rows,")
@@ -355,7 +355,7 @@ class DataAppender:
         """
         if not output_file_path:
             doc_num = self.metadata.get_mtl_doc_num()
-            output_file_path = self.report.report_folder / f"{doc_num}_appended.xlsx"
+            output_file_path = self.report.report_dir / f"{doc_num}_appended.xlsx"
 
         table_id = self.metadata.get_table_id()
         worksheet_name = self.metadata.get_worksheet_name()

@@ -75,12 +75,12 @@ class Reporting:
         use_msg_types: bool = True,
         timestamp: datetime | None = None,
     ) -> None:
-        self.name = ""
         self.text_display: ScrolledText | None = None
-        self.cleaned_name = ""
         self.report_name = ""
-        self.file_path = Path()
-        self.report_folder = Path()
+        self.cleaned_name = ""
+        self.folder_name = ""
+        self.report_path = Path()
+        self.report_dir = Path()
         self.parent_window = parent_window
         self.output_dir = output_dir
         self.use_timestamps = use_timestamps
@@ -182,7 +182,7 @@ class Reporting:
 
     def create_report(
         self,
-        new_name: str,
+        report_name: str = "Not_Named",
         new_timestamp: datetime | None = None,
         update_dirs: bool = True,
     ) -> None:
@@ -197,26 +197,26 @@ class Reporting:
             else datetime.now().strftime(DATETIME_FORMAT)
         )
 
-        self.name = new_name.strip() or "No_Filter"
-        # NOTE: "*my report"
+        self.report_name = report_name.strip()
+        # NOTE: "my report name"
 
-        self.cleaned_name = self.name.replace(" ", "_")
+        self.cleaned_name = self.report_name.replace(" ", "_")
         self.cleaned_name = self.cleaned_name.replace("*", "")
-        # NOTE: "my_report"
+        # NOTE: "my_report_name"
 
-        self.report_name = f"{self.timestamp}_({self.cleaned_name})"
-        # NOTE: "TIMESTAMP_(my_report)"
+        self.folder_name = f"{self.timestamp}_({self.cleaned_name})"
+        # NOTE: "TIMESTAMP_(my_report_name)"
 
-        self.report_folder = self.output_dir / self.report_name
+        self.report_dir = self.output_dir / self.folder_name
         if update_dirs:
-            self.report_folder.mkdir(parents=True, exist_ok=True)
-        # NOTE: "BASE_DIR\TIMESTAMP_(my_report)"
+            self.report_dir.mkdir(parents=True, exist_ok=True)
+        # NOTE: "BASE_DIR\TIMESTAMP_(my_report_name)"
 
-        report_path = self.report_folder / self.cleaned_name
-        # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report"
+        n = self.report_dir / self.cleaned_name
+        # NOTE: "BASE_DIR\TIMESTAMP_(my_report_name)\my_report_name"
 
-        self.file_path = report_path.with_suffix(".log")
-        # NOTE: "BASE_DIR\TIMESTAMP_my_report\my_report.log"
+        self.report_path = n.with_suffix(".log")
+        # NOTE: "BASE_DIR\TIMESTAMP_(my_report_name)\my_report_name.log"
 
     def _emit(
         self,
@@ -562,16 +562,15 @@ class Reporting:
         """
         Saves the report to a file.
         """
-        if not self.file_path.name:
+        if not self.report_path.name:
             raise RuntimeError("create_report() must be called before save_report().")
         try:
-            notice = f"{self.name} report saved to: ..//{self.file_path.name}"
+            notice = f"{self.report_name} report saved to: ..//{self.report_path.name}"
             if popup:
                 self._queue_modal(modal.show_info, notice, "Saving...")
             self._add_line(notice, "INFO")
-            with open(self.file_path, "w", encoding="utf-8") as file:
+            with open(self.report_path, "w", encoding="utf-8") as file:
                 file.write("\n".join(self.report_lines))
-            print(notice)
             logger.info(notice)
         except Exception as e:
             error_msg = f"Error saving report:\n{e}"

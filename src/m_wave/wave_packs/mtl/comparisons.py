@@ -126,10 +126,10 @@ class Comparisons:
             "and manual fixes will be needed."
         )
         comparison.df1_unq_rows.to_csv(
-            self.report.report_folder / "mtl_non_matching_records.csv", index=False
+            self.report.report_dir / "mtl_non_matching_records.csv", index=False
         )
         comparison.df2_unq_rows.to_csv(
-            self.report.report_folder / "input_non_matching_records.csv", index=False
+            self.report.report_dir / "pi_non_matching_records.csv", index=False
         )
         if not comparison.df1_unq_rows.empty:
             self.report.error(
@@ -193,7 +193,7 @@ class Comparisons:
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
 
-        base = self.report.report_folder / self.report.cleaned_name
+        base = self.report.report_dir / self.report.cleaned_name
         long_form.to_csv(f"{base}_differences_by_cell.csv", index=False)
         comparison.all_mismatch(ignore_matching_cols=True).to_csv(
             f"{base}_final_comparison.csv", index=False

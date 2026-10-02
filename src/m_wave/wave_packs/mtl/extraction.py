@@ -365,7 +365,7 @@ class DataExtractor:
                 df = df.replace("�C", "°C", regex=False)
                 df = df.replace("�F", "°F", regex=False)
                 fixed_name = f"{filter_str}_fixed.csv"
-                fixed_file = self.report.report_folder / fixed_name
+                fixed_file = self.report.report_dir / fixed_name
                 df.to_csv(fixed_file, encoding="utf-8-sig", index=False)
                 df = read(
                     df

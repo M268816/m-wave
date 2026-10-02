@@ -115,7 +115,7 @@ class Process:
         Helper function to save the data frame content from before and after a process
         run.
         """
-        save_path = self.report.report_folder / filename
+        save_path = self.report.report_dir / filename
         save_path = save_path.with_suffix(".csv")
         df.to_csv(save_path, encoding="utf-8", index=False)
 

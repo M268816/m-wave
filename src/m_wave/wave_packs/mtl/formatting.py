@@ -77,10 +77,10 @@ class Formatting:
 
             # Save each data frame to keep a record
             comparable_mtl.to_csv(
-                self.report.report_folder / "comparable_rows.csv", index=False
+                self.report.report_dir / "comparable_rows.csv", index=False
             )
             non_comparable.to_csv(
-                self.report.report_folder / "non_comparable_rows.csv", index=False
+                self.report.report_dir / "non_comparable_rows.csv", index=False
             )
 
             output = (comparable_mtl, comparable_input)

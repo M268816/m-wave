@@ -292,9 +292,7 @@ class MTLFrame(WavePackFrame):
         file_path = askopenfilename(title="Select a file.", filetypes=types)
 
         if file_path:
-            print(file_path)
             file_path = file_path.replace("/", "\\")
-            print(file_path)
             string_variable.set(file_path)
             is_selected.set(True)
         else:

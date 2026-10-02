@@ -37,7 +37,6 @@ class AppPaths:
         # large files should be packaged with the exe build in the zipped distribution
         # instead. This resource folder generated here is that "external" folder.
         self.extras_dir = self.get_external_folder("extras")
-        print(f"DEBUG: self.extras_dir: {self.extras_dir}")
 
         # Generated/writable folders
         self.logs_dir = self.create_generated_folder("logs")
