@@ -19,6 +19,25 @@ PACKAGE_DIR = os.path.join(SRC_DIR, "m_wave")
 ASSETS_DIR  = os.path.join(PACKAGE_DIR, "assets")
 ICON_PATH   = os.path.join(ASSETS_DIR, "images", "logo.ico")
 
+EXCLUDED_ASSETS = {"mtl_process_demo.mp4"}
+ASSET_DATAS = []
+
+for current_dir, _, filenames in os.walk(ASSETS_DIR):
+    for filename in filenames:
+        if filename.lower() in EXCLUDED_ASSETS:
+            continue
+
+        source_path = os.path.join(current_dir, filename)
+        relative_dir = os.path.relpath(current_dir, ASSETS_DIR)
+
+        destination_dir = (
+            "assets"
+            if relative_dir == "."
+            else os.path.join("assets",relative_dir)
+        )
+
+        ASSET_DATAS.append((source_path, destination_dir)
+
 # ── Analysis ───────────────────────────────────────────────────────────────────
 a = Analysis(
     # Entry point
@@ -37,7 +56,7 @@ a = Analysis(
 
     # paths.py reads these via get_temp_path() / sys._MEIPASS at runtime.
     datas=[
-        (ASSETS_DIR, "assets"),
+        ASSET_DATAS,
         *collect_data_files("ttkbootstrap"),
         *collect_data_files("datacompy"),
     ],
