@@ -11,8 +11,11 @@ from pathlib import Path
 from m_wave.core.paths import PATHS
 
 # Bundled Read-only resources
-MTL_INSTRUCTIONS_PATH = PATHS.instruction_files_dir / "master_tag_list.txt"
-MTL_CONFIG_TEMPLATE_PATH = PATHS.configurations_dir / "mtl_config.json"
+MTL_INSTRUCTIONS_PATH = PATHS.bundled_instructions_dir / "master_tag_list.txt"
+MTL_CONFIG_TEMPLATE_PATH = PATHS.bundled_configs_dir / "mtl_config.json"
+
+# Extra resources
+MTL_DEMO_VIDEO_PATH = PATHS.extras_dir / "mtl_process_demo.mp4"
 
 # Generated/writable MTL folders
 MTL_USER_CONFIG_DIR = PATHS.create_sub_folder(

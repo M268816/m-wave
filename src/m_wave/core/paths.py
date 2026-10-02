@@ -25,16 +25,19 @@ class AppPaths:
         ]
 
         # Bundled/read-only resources
-        self.assets_dir = self.resource_root / "assets"
-        self.configurations_dir = self.assets_dir / "configurations"
-        self.images_dir = self.assets_dir / "images"
-        self.instruction_files_dir = self.assets_dir / "instruction_files"
+        self.bundled_assets_dir = self.resource_root / "assets"
+        self.bundled_configs_dir = self.bundled_assets_dir / "configurations"
+        self.bundled_images_dir = self.bundled_assets_dir / "images"
+        self.bundled_instructions_dir = self.bundled_assets_dir / "instruction_files"
 
-        # Common build files
-        self.logo_path = self.images_dir / "logo.png"
-        self.user_preferences_template_path = (
-            self.configurations_dir / "user_preferences.json"
-        )
+        # External resource folders
+        # This folder shall only contain artifacts when packaged with the built
+        # executable. For example, the MTL Demo video should not be included with
+        # a onefile executable, as the startup time would greatly decrease. So,
+        # large files should be packaged with the exe build in the zipped distribution
+        # instead. This resource folder generated here is that "external" folder.
+        self.extras_dir = self.get_external_folder("extras")
+        print(f"DEBUG: self.extras_dir: {self.extras_dir}")
 
         # Generated/writable folders
         self.logs_dir = self.create_generated_folder("logs")
@@ -44,6 +47,12 @@ class AppPaths:
 
         # Generated/writable files
         self.user_preferences_path = self.user_preferences_dir / "user_preferences.json"
+
+        # Common files
+        self.logo_path = self.bundled_images_dir / "logo.png"
+        self.user_preferences_template_path = (
+            self.bundled_configs_dir / "user_preferences.json"
+        )
 
     @property
     def is_frozen(self) -> bool:
@@ -157,6 +166,16 @@ class AppPaths:
         new_path = parent_folder / folder_name
         new_folder = self._ensure_directory(new_path)
         return new_folder
+
+    def get_external_folder(self, folder_name: str) -> Path:
+        """
+        Returns an external folder.
+        Returns in build: ./exe_folder/external
+        Returns in dev: ./m_wave/assets/external
+        """
+        if self.is_frozen:
+            return self._ensure_directory(self.exe_dir / folder_name)
+        return self._ensure_directory(self.bundled_assets_dir / folder_name)
 
 
 # Create the Paths object here, the rest of the app should use this.

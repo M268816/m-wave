@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from m_wave.core.gui import App
 
 # stdlib
-import webbrowser
 from pathlib import Path
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
@@ -55,7 +55,7 @@ from m_wave.wave_packs.mtl.controller import (
 )
 from m_wave.wave_packs.mtl.extraction import DataExtractor
 from m_wave.wave_packs.mtl.metadata import Metadata
-from m_wave.wave_packs.mtl.paths import MTL_INSTRUCTIONS_PATH
+from m_wave.wave_packs.mtl.paths import MTL_DEMO_VIDEO_PATH, MTL_INSTRUCTIONS_PATH
 
 
 class MTLFrame(WavePackFrame):
@@ -178,8 +178,9 @@ class MTLFrame(WavePackFrame):
             popup=True,
         )
         self.report.info(self.load_mtl_instructions(), log=False, verbose=False)
-        vid_link = self.controller.configs["mtl_help_vid_url"]
-        webbrowser.open(vid_link, new=1)
+        os.startfile(MTL_DEMO_VIDEO_PATH)
+        # vid_link = self.controller.configs["mtl_help_vid_url"]
+        # webbrowser.open(vid_link, new=1)
 
     def _build_file_select(self) -> None:
         """

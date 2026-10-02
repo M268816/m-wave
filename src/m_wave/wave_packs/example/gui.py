@@ -48,10 +48,7 @@ from m_wave.wave_packs.example.controller import (
     ExampleRequest,
     ExampleUi,
 )
-from m_wave.wave_packs.example.paths import EXAMPLE_INSTRUCTIONS_PATH
-
-with open(EXAMPLE_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
-    INSTRUCTIONS = f.read()
+from m_wave.wave_packs.example.paths import BUNDLED_INSTRUCTIONS_PATH
 
 
 class ExampleFrame(WavePackFrame):
@@ -97,7 +94,9 @@ class ExampleFrame(WavePackFrame):
         self.report.info(
             "Instructions will be displayed.", log=False, verbose=False, popup=True
         )
-        self.report.info(INSTRUCTIONS, log=False, verbose=False, popup=True)
+        with open(BUNDLED_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
+            instructions = f.read()
+        self.report.info(instructions, log=False, verbose=False, popup=True)
 
     def build_menus(self, menubar: tkb.Menu) -> None:
         # Do not call build menus, this is called from the App object to rebuild the

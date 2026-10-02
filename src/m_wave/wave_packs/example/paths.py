@@ -14,11 +14,20 @@ _instructions_doc = "example_instructions.txt"
 _config_doc = "example_config.json"
 
 # Bundled read-only resources
-BUNDLED_INSTRUCTIONS_PATH = PATHS.instruction_files_dir / _instructions_doc
-BUNDLED_CONFIG_TEMPLATE_PATH = PATHS.configurations_dir / _config_doc
+BUNDLED_INSTRUCTIONS_PATH = PATHS.bundled_instructions_dir / _instructions_doc
+BUNDLED_CONFIG_TEMPLATE_PATH = PATHS.bundled_configs_dir / _config_doc
 
 # Core writable folders
 USER_CONFIG_DIR = PATHS.create_sub_folder(PATHS.user_config_dir, "example")
+
+# Extra folder
+# This path is to be used for large files that should not be bundled in the exe.
+# After building, extra files should be included with the zipped package within
+# an "extras" folder. Below is an example of a large file that should not be built
+# within the EXE. This files does not actually exist, so don't try to test it.
+
+# EXTRA_DIR = PATHS.extras_dir
+# EXAMPLE_BIG_FILE_PATH = EXTRA_DIR / "8k_paris_panarama.png"
 
 # WavePack writeable folders
 EXAMPLE_WRITABLE_DIR = PATHS.create_generated_folder("example_of_new_directory")
