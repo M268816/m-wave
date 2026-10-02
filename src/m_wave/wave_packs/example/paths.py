@@ -10,50 +10,56 @@ from pathlib import Path
 # local
 from m_wave.core.paths import PATHS
 
+_instructions_doc = "example_instructions.txt"
 _config_doc = "example_config.json"
 
-# Generated/writable tag doc generator folders
-EXAMPLE_GENERATED_DIR = PATHS.create_generated_folder("example")
-EXAMPLE_CONFIG_DIR = PATHS.create_sub_folder(EXAMPLE_GENERATED_DIR, "configurations")
+# Bundled read-only resources
+BUNDLED_INSTRUCTIONS_PATH = PATHS.instruction_files_dir / _instructions_doc
+BUNDLED_CONFIG_TEMPLATE_PATH = PATHS.configurations_dir / _config_doc
 
-# Read-only resources
-EXAMPLE_INSTRUCTIONS_PATH = PATHS.instruction_files_dir / "example_instructions.txt"
-EXAMPLE_CONFIG_TEMPLATE_PATH = PATHS.configurations_dir / _config_doc
+# Core writable folders
+USER_CONFIG_DIR = PATHS.create_sub_folder(PATHS.user_config_dir, "example")
 
-# Writable resources
-EXAMPLE_CONFIG_PATH = EXAMPLE_CONFIG_DIR / _config_doc
+# WavePack writeable folders
+EXAMPLE_WRITABLE_DIR = PATHS.create_generated_folder("example_of_new_directory")
+
+# WavePack writable resources
+USER_CONFIG_PATH = USER_CONFIG_DIR / _config_doc
 
 
 def get_config_path() -> Path:
     """
-    Return the writable tag doc generator config path.
+    Return the writable configuration path.
 
     If it does not exist, create it from the bundled template.
     """
     import shutil
     import warnings
 
-    if EXAMPLE_CONFIG_PATH.exists():
-        return EXAMPLE_CONFIG_PATH
+    if USER_CONFIG_PATH.exists():
+        return USER_CONFIG_PATH
 
-    if not EXAMPLE_CONFIG_TEMPLATE_PATH.exists():
+    if not BUNDLED_CONFIG_TEMPLATE_PATH.exists():
         warnings.warn(
-            f"EXAMPLE config template not found at: {EXAMPLE_CONFIG_TEMPLATE_PATH}. "
-            f"Runtime EXAMPLE config could not be initialized at: {EXAMPLE_CONFIG_PATH}",
+            "This WavePack's configuration template was not found at: "
+            f"{BUNDLED_CONFIG_TEMPLATE_PATH}. "
+            "The user configuration file could not be initialized at: "
+            f"{USER_CONFIG_PATH}",
             RuntimeWarning,
             stacklevel=2,
         )
-        return EXAMPLE_CONFIG_PATH
+        return USER_CONFIG_PATH
 
     try:
-        EXAMPLE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        shutil.copy(EXAMPLE_CONFIG_TEMPLATE_PATH, EXAMPLE_CONFIG_PATH)
-        return EXAMPLE_CONFIG_PATH
+        USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copy(BUNDLED_CONFIG_TEMPLATE_PATH, USER_CONFIG_PATH)
+        return USER_CONFIG_PATH
     except Exception as e:
         warnings.warn(
-            f"Could not initialize writable EXAMPLE config at: {EXAMPLE_CONFIG_PATH}. "
-            f"Error occurred while initializing EXAMPLE config: {e}",
+            "There was a problem initializing this WavePack's configuration file at: "
+            f"{USER_CONFIG_PATH}. "
+            f"The error occurred while attempting to initialize '{_config_doc}': {e}",
             RuntimeWarning,
             stacklevel=2,
         )
-        return EXAMPLE_CONFIG_PATH
+        return USER_CONFIG_PATH

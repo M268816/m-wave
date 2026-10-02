@@ -10,14 +10,16 @@ from pathlib import Path
 # local core
 from m_wave.core.paths import PATHS
 
-# Generated/writable MTL folders
-MTL_GENERATED_DIR = PATHS.create_generated_folder("mtl")
-MTL_DOC_DIR = PATHS.create_sub_folder(MTL_GENERATED_DIR, "stored_documents")
-MTL_CONFIG_DIR = PATHS.create_sub_folder(MTL_GENERATED_DIR, "configurations")
-
-# Read-only resources
+# Bundled Read-only resources
 MTL_INSTRUCTIONS_PATH = PATHS.instruction_files_dir / "master_tag_list.txt"
 MTL_CONFIG_TEMPLATE_PATH = PATHS.configurations_dir / "mtl_config.json"
+
+# Generated/writable MTL folders
+MTL_USER_CONFIG_DIR = PATHS.create_sub_folder(
+    PATHS.user_config_dir, "mtl-cmd_processor"
+)
+MTL_DOC_DIR = PATHS.create_sub_folder(MTL_USER_CONFIG_DIR, "stored_documents")
+MTL_CONFIG_DIR = PATHS.create_sub_folder(MTL_USER_CONFIG_DIR, "configurations")
 
 # Writable resources
 MTL_CONFIG_PATH = MTL_CONFIG_DIR / "mtl_config.json"

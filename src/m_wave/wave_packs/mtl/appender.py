@@ -43,10 +43,12 @@ class DataAppender:
             MTL. If the input contains a column in the MTL does not recognize, the
             upsert is stopped and the user is prompted to check that
             they are using the correct input data.
+
             - Key integrity: the key columns must be present in the input, and the
             key values must be unique. Duplicate keys found in the input, or already
             present in the MTL, are reported to the user rather than silently merged or
             dropped.
+
             - XOR append: for every key, the default contains either the updated MTL
             row or a newly appended row, never both, and never a duplicate. This is
             verified defensively after the merge.

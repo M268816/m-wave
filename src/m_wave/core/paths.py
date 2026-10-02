@@ -15,7 +15,7 @@ class AppPaths:
         self.package_root = self.get_package_root()
         self.exe_dir = self.get_exe_dir()
         self.resource_root = self.get_resource_root()
-        self.generated_root = self.get_generated_root()
+        self.folder_generation_root = self.get_folder_generation_root()
 
         self.known_bundled_resources = [
             "assets",
@@ -40,6 +40,7 @@ class AppPaths:
         self.logs_dir = self.create_generated_folder("logs")
         self.reports_dir = self.create_generated_folder("reports")
         self.user_preferences_dir = self.create_generated_folder("user_prefs")
+        self.user_config_dir = self.create_generated_folder("user_config")
 
         # Generated/writable files
         self.user_preferences_path = self.user_preferences_dir / "user_preferences.json"
@@ -75,7 +76,7 @@ class AppPaths:
 
         # Otherwise app is running in development
         # and needs to be resolved at ./m-wave
-        return Path(__file__).resolve().parents[3]
+        return Path(__file__).resolve().parents[3]  # ./m-wave
 
     def get_package_root(self) -> Path:
         """
@@ -88,12 +89,12 @@ class AppPaths:
         if self.is_frozen:
             return self.get_resource_root()
 
-        return Path(__file__).resolve().parents[1]
+        return Path(__file__).resolve().parents[1]  # ./m-wave/src/m_wave
 
     def get_exe_dir(self) -> Path:
         """
         Returns the folder containing the executable when froze,
-        or the projecr root when in development.
+        or the project root when in development.
         """
         if self.is_frozen:
             return Path(sys.executable).resolve().parent
@@ -111,7 +112,7 @@ class AppPaths:
 
         return self.get_package_root()
 
-    def get_generated_root(self) -> Path:
+    def get_folder_generation_root(self) -> Path:
         """
         Returns the root folder for the generated files.
         Development:
@@ -140,13 +141,13 @@ class AppPaths:
 
     def create_generated_folder(self, folder_name: str) -> Path:
         """
-        Creates the generated/writable folder.
+        Creates a generated/writable folder.
         Development:
             ./m-wave/generated/<folder_name>
         Production:
             exe-folder/<folder_name>
         """
-        new_path = self.generated_root / folder_name
+        new_path = self.folder_generation_root / folder_name
         return self._ensure_directory(new_path)
 
     def create_sub_folder(self, parent_folder: Path, folder_name: str) -> Path:
