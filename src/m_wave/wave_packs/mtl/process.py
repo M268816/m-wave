@@ -219,7 +219,13 @@ class Process:
 
             # NOTE: COMPARISON AND REPORTING PHASE
             self.report.simple_title("Now running the comparison.")
-            return self.comparisons.compare(mtl_df, input_df, self.sorter.sort)
+            return self.comparisons.compare(
+                mtl_df,
+                input_df,
+                self.mtl_file_path,
+                self.input_file_path,
+                self.sorter.sort,
+            )
         except Exception as e:
             self.report.exception(
                 "There was an unexpected error during the comparison. "

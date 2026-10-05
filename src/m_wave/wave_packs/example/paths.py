@@ -30,7 +30,7 @@ USER_CONFIG_DIR = PATHS.create_sub_folder(PATHS.user_config_dir, "example")
 # EXAMPLE_BIG_FILE_PATH = EXTRA_DIR / "8k_paris_panarama.png"
 
 # WavePack writeable folders
-# EXAMPLE_WRITABLE_DIR = PATHS.create_generated_folder("example_of_new_directory")
+EXAMPLE_WRITABLE_DIR = PATHS.create_generated_folder("example_of_new_directory")
 
 # WavePack writable resources
 USER_CONFIG_PATH = USER_CONFIG_DIR / _config_doc

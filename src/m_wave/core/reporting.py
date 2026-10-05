@@ -13,13 +13,16 @@ from pathlib import Path
 from queue import Queue
 from threading import Event
 
-# third party
 import ttkbootstrap as tkb
+
+# third party
 from ttkbootstrap.constants import DISABLED, END, NORMAL
 from ttkbootstrap.dialogs import Messagebox as modal
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
+from m_wave.core.paths import PATHS
+from m_wave.core.pdf_reporting import PDFReportBuilder, PDFReportData
 from m_wave.core.utils import DATETIME_FORMAT, DATETIME_FORMAT_MERCK, USER
 
 logger = logging.getLogger(__name__)
@@ -575,3 +578,35 @@ class Reporting:
         except Exception as e:
             error_msg = f"Error saving report:\n{e}"
             self.exception(error_msg, popup=True)
+
+    def create_pdf_report(
+        self,
+        report_data: PDFReportData,
+        output_dir: Path | None = None,
+        page_size: tuple[float, float] | None = None,
+        logo_path: Path | None = None,
+    ) -> Path | None:
+        """
+        Render a PDF report from any PDFReportData subclass.
+
+        Returns the PDF path, or None when generation failed. The failure is already
+        reported through the normal logging channels.
+        """
+        if output_dir is None:
+            output_dir = self.report_dir
+
+        if not self.cleaned_name:
+            self.error("create_report() must be called before create_pdf_report().")
+            return None
+
+        pdf_output_path = output_dir / f"{self.cleaned_name}.pdf"
+
+        try:
+            builder = PDFReportBuilder(
+                page_size=page_size,
+                logo_path=logo_path or PATHS.logo_path,
+            )
+            builder.build(report_data, pdf_output_path)
+        except Exception as error:
+            self.exception(f"Unable to create the PDF report:\n{error}")
+            return None

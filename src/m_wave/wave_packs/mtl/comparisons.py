@@ -4,6 +4,8 @@
 # This tool was created with the help of AI.
 
 # stdlib
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 # third party
@@ -11,10 +13,16 @@ import datacompy
 import pandas as pd
 
 # local core
+from m_wave.core.pdf_reporting import PDFReportStatus
 from m_wave.core.reporting import Reporting
 
 # local wave pack
 from m_wave.wave_packs.mtl.metadata import Metadata
+from m_wave.wave_packs.mtl.pdf_reporting import (
+    ColumnDifferenceSummary,
+    ComparisonRecord,
+    MTLReportData,
+)
 from m_wave.wave_packs.mtl.utils import report_shape_differences
 
 
@@ -49,6 +57,8 @@ class Comparisons:
         self,
         mtl_dataframe: pd.DataFrame,
         input_dataframe: pd.DataFrame,
+        mtl_source: Path,
+        input_source: Path,
         sort_fn=None,
     ) -> bool:
         """
@@ -56,7 +66,9 @@ class Comparisons:
         verdict: True only when every record matched on every compared column.
         """
         df1_name, df2_name = "MTL", "PI Builder"
-
+        pdf_report_status = PDFReportStatus.NONE
+        self.mtl_source = mtl_source
+        self.pib_source = input_source
         self.report.info("Obtaining the table index keys from metadata...")
         key_columns = [c.lower() for c in self.metadata.get_table_index_keys()]
 
@@ -202,6 +214,7 @@ class Comparisons:
         matches = comparison.matches()
 
         if not long_form.empty:
+            pdf_report_status = PDFReportStatus.FAIL
             self.report.info(
                 f"{len(long_form)} differing cell(s). Reporting the differences below:"
             )
@@ -219,8 +232,7 @@ class Comparisons:
 
                 for _, row in group.iterrows():
                     self.report.error_section()
-                    self.report.error(f"  Column: {row['column']}")
-                    self.report.error("     Diffs:")
+                    self.report.error(f"{'Column':>{key_width}}: {row['column']}")
                     self.report.error(f"    {df1_name:>{name_width}}: {row[df1_name]}")
                     self.report.error(f"    {df2_name:>{name_width}}: {row[df2_name]}")
 
@@ -232,6 +244,7 @@ class Comparisons:
                 self.report.error(f"  {column!s:>{width}}: {count}")
 
         elif not matches:
+            pdf_report_status = PDFReportStatus.ERRORED
             self.report.info(
                 "Every compared cell matched, but datacompy still reports a "
                 "mismatch. Unmatched records or column set differences remain. "
@@ -241,6 +254,7 @@ class Comparisons:
                 self.report.error(line)
 
         else:
+            pdf_report_status = PDFReportStatus.PASS
             self.report.simple_title(" 🎉 COMPARISON IS SOUND 🎉 ")
             self.report.info(
                 " 🎉 COMPARISON IS SOUND 🎉 ", popup=True, log=False, report=False
@@ -248,4 +262,111 @@ class Comparisons:
             self.report.simple_title("Check that all comparison files are blank.")
             self.report.info("Blank files are a good thing here!")
 
+        report_fields = self._build_report_fields(
+            long_form, comparison, key_columns, df1_name, df2_name
+        )
+
+        pdf_report_data = MTLReportData(
+            title="MTL vs PI Builder Comparison Report",
+            report_id=self.report.report_name,
+            user=self.report.user,
+            created_date=datetime.now(UTC),
+            status=pdf_report_status,
+            subtitle="Field-level comparison of the Master Tag List against "
+            "the PI Builder input.",
+            mtl_source=self.mtl_source,
+            pib_source=self.pib_source,
+            csv_export_name=f"{self.report.cleaned_name}_differences_by_cell.csv",
+            **report_fields,
+        )
+
+        self.report.create_pdf_report(pdf_report_data)
+
         return matches
+
+    def _build_report_fields(
+        self,
+        long_form: pd.DataFrame,
+        comparison: "datacompy.PandasCompare",
+        key_columns: list[str],
+        df1_name: str,
+        df2_name: str,
+    ) -> dict[str, Any]:
+        """
+        Translate the finished comparison into the values MTLReportData needs.
+
+        Nothing here re-compares anything. It only counts and reshapes what
+        datacompy and ``long_form`` already established.
+        """
+        # A record is a joined key pair. Records that joined are the ones we
+        # were actually able to compare.
+        records_compared = len(comparison.intersect_rows)
+
+        # A record present on one side only. This is NOT the same as a blank
+        # cell inside a record that joined fine.
+        missing_from_mtl = len(comparison.df2_unq_rows)
+        missing_from_pib = len(comparison.df1_unq_rows)
+
+        column_summaries: list[ColumnDifferenceSummary] = []
+        difference_samples: list[ComparisonRecord] = []
+
+        if long_form.empty:
+            return {
+                "records_compared": records_compared,
+                "matching_records": records_compared,
+                "non_matching_records": 0,
+                "missing_from_mtl": missing_from_mtl,
+                "missing_from_pib": missing_from_pib,
+                "column_summaries": column_summaries,
+                "difference_samples": difference_samples,
+            }
+
+        # long_form holds one row per differing cell, so several rows can
+        # belong to the same record. The report counts records, not cells.
+        non_matching_records = len(long_form[key_columns].drop_duplicates())
+
+        for column, group in long_form.groupby("column", sort=False):
+            column_summaries.append(
+                ColumnDifferenceSummary(
+                    column=str(column),
+                    difference_count=len(group),
+                    missing_from_mtl=int(
+                        (group[df1_name].map(self._display) == "").sum()
+                    ),
+                    missing_from_pib=int(
+                        (group[df2_name].map(self._display) == "").sum()
+                    ),
+                )
+            )
+
+        # Worst offenders first, so the reader sees the real problem on page one.
+        column_summaries.sort(key=lambda s: (-s.difference_count, s.column))
+
+        for _, row in long_form.iterrows():
+            mtl_text = self._display(row[df1_name])
+            pib_text = self._display(row[df2_name])
+            one_side_blank = not mtl_text or not pib_text
+
+            difference_samples.append(
+                ComparisonRecord(
+                    record_key=" | ".join(
+                        self._display(row[key]) for key in key_columns
+                    ),
+                    column=str(row["column"]),
+                    # None renders as an em dash in the PDF, which reads better
+                    # than an empty cell the reader might mistake for a bug.
+                    mtl_value=mtl_text or None,
+                    pib_value=pib_text or None,
+                    severity="warning" if one_side_blank else "error",
+                )
+            )
+
+        return {
+            "records_compared": records_compared,
+            "matching_records": records_compared - non_matching_records,
+            "non_matching_records": non_matching_records,
+            "missing_from_mtl": missing_from_mtl,
+            "missing_from_pib": missing_from_pib,
+            "column_summaries": column_summaries,
+            "difference_samples": difference_samples,
+        }
