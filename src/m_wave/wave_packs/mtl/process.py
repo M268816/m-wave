@@ -12,6 +12,7 @@ import pandas as pd
 import ttkbootstrap as tkb
 
 # local core
+from m_wave.core.pdf_reporting import PDFReportStatus
 from m_wave.core.reporting import Reporting
 
 # local wave pack
@@ -371,6 +372,9 @@ class Process:
                     popup=True,
                 )
                 return False
+                self.report.create_pdf_report(
+                    self.appender.build_append_report(PDFReportStatus.FAIL)
+                )
 
             # NOTE: REPORT PHASE
             self.report.simple_title("Saving final data frame to CSV.")
@@ -383,6 +387,20 @@ class Process:
             )
             self.report.warning("This may take take a moment...")
             self.appender.export_to_mtl(appended_dataframe, self.mtl_file_path)
+            status = (
+                PDFReportStatus.PASS
+                if self.appender.written_to_mtl and not self.appender.issues
+                else PDFReportStatus.ERRORED
+            )
+            self.report.create_pdf_report(
+                self.appender.build_append_report(
+                    status,
+                    self.mtl_worksheet_name,
+                    self.mtl_file_path,
+                    self.input_file_path,
+                    self.filter_string,
+                )
+            )
 
             # FINALLY
             self.report.title("Appending completed.")

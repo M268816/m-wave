@@ -5,6 +5,7 @@
 
 # stdlib
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 # third party
@@ -13,10 +14,12 @@ import pywintypes
 import xlwings as xl
 
 # local core
+from m_wave.core.pdf_reporting import PDFReportStatus
 from m_wave.core.reporting import Reporting
 
 # local wave pack
 from m_wave.wave_packs.mtl.metadata import Metadata
+from m_wave.wave_packs.mtl.pdf_reporting import MTLAppendReportData, UpsertIssue
 
 
 class DataAppender:
@@ -27,6 +30,44 @@ class DataAppender:
     ) -> None:
         self.report = report
         self.metadata = metadata
+
+        # Structured outcome of the most recent updert, for the PDF report.
+        # Process layer reads this after calling upsert()
+        self.issues: list[UpsertIssue] = []
+        self.rows_in_mtl_before: int = 0
+        self.rows_in_pib: int = 0
+        self.rows_in_mtl_after: int = 0
+        self.updated_keys: list[str] = []
+        self.appeneded_keys: list[str] = []
+        self.key_columns: list[str] = []
+        self.artifacts: list[tuple[str, str]] = []
+        self.filter_action: str | None = None
+        self.written_to_mtl: bool = False
+        self.mtl_output_name: str | None = None
+
+    def _reset_report_state(self) -> None:
+        """Clear the previous run so a second upsert cannot inherit its state."""
+        self.issues = []
+        self.rows_in_mtl_before = 0
+        self.rows_in_pib = 0
+        self.rows_in_mtl_after = 0
+        self.updated_keys = []
+        self.appended_keys = []
+        self.key_columns = []
+        self.artifacts = []
+        self.filter_action = None
+        self.written_to_mtl = False
+        self.mtl_output_name = None
+
+    def _add_issue(self, check: str, detail: str, severity: str = "error") -> None:
+        self.issues.append(UpsertIssue(check=check, detail=detail, severity=severity))
+
+    @staticmethod
+    def _key_label(key) -> str:
+        """Render a single or composite index value as one readable key."""
+        if isinstance(key, tuple):
+            return " | ".join(str(part) for part in key)
+        return str(key)
 
     def upsert(
         self,
@@ -57,14 +98,23 @@ class DataAppender:
         """
 
         output = pd.DataFrame()
+        self._reset_report_state()
+        self.rows_in_mtl_before = len(mtl_dataframe)
+        self.rows_in_pib = len(input_dataframe)
+
         try:
             # keys are defined per table in the mtl config json.
             keys = self.metadata.get_table_index_keys()
+            self.key_columns = list(keys)
             original_columns = mtl_dataframe.columns
 
             unmatched_columns = set(input_dataframe.columns) - set(original_columns)
             if unmatched_columns:
                 unmatched_list = ", ".join(sorted(unmatched_columns))
+                self._add_issue(
+                    "Column Schema",
+                    f"PI Builder column(s) not found in the MTL: {unmatched_list}.",
+                )
                 self.report.highlight_titled_error(
                     f"PI Builder column(s) not found in the MTL: {unmatched_list}",
                     title="PI Builder / MTL COLUMN MISMATCH",
@@ -83,6 +133,11 @@ class DataAppender:
             missing_key_columns = set(keys) - set(input_dataframe.columns)
             if missing_key_columns:
                 missing_list = ", ".join(sorted(missing_key_columns))
+                self._add_issue(
+                    "Key Columns",
+                    "The PI Builder file is missing the required key column(s): "
+                    f"{missing_list}",
+                )
                 self.report.critical(
                     "The upsert was stopped because the PI Builder file is missing "
                     f"the required key column(s): {missing_list}. These keys "
@@ -100,6 +155,11 @@ class DataAppender:
             if input_dupe_mask.any():
                 duplicate_keys = sorted(
                     set(keyed_input.index[input_dupe_mask].tolist())
+                )
+                self._add_issue(
+                    "Key Uniqueness",
+                    f"{len(duplicate_keys)} duplicate key value(s) in the PI Builder "
+                    f"csv: {', '.join(self._key_label(k) for k in duplicate_keys[:10])}",
                 )
                 self.report.highlight_titled_error(
                     f"Duiplicate key value(s) found in the PI Builder csv: {duplicate_keys}",
@@ -119,6 +179,11 @@ class DataAppender:
             mtl_dupe_mask = keyed_mtl.index.duplicated(keep=False)
             if mtl_dupe_mask.any():
                 duplicate_keys = sorted(set(keyed_mtl.index[mtl_dupe_mask].tolist()))
+                self._add_issue(
+                    "MTL Key Uniqueness",
+                    f"{len(duplicate_keys)} duplicate key value(s) already in the MTL "
+                    f"table: {', '.join(self._key_label(k) for k in duplicate_keys[:10])}",
+                )
                 self.report.critical(
                     "The upsert was stopped because the existing MTL table contains "
                     f"duplicate key value(s): {duplicate_keys}. Please resolve these "
@@ -131,12 +196,23 @@ class DataAppender:
             mtl_dataframe.to_csv(
                 self.report.report_dir / "mtl_dataframe_before.csv", index=False
             )
+            self.artifacts.append(
+                (
+                    "mtl_dataframe_before.csv",
+                    "The MTL table as extracted, before any changes.",
+                )
+            )
             input_dataframe.to_csv(
                 self.report.report_dir / "pi_dataframe.csv", index=False
+            )
+            self.artifacts.append(
+                ("pi_dataframe.csv", "The PI Builder rows used as the upsert source.")
             )
 
             updated_keys = keyed_mtl.index.intersection(keyed_input.index)
             new_keys = keyed_input.index.difference(keyed_mtl.index)
+            self.updated_keys = [self._key_label(k) for k in updated_keys]
+            self.appended_keys = [self._key_label(k) for k in new_keys]
 
             remaining_mtl = keyed_mtl[~keyed_mtl.index.isin(keyed_input.index)]
             output = (
@@ -147,6 +223,11 @@ class DataAppender:
 
             result_keyed = output.set_index(keys)
             if result_keyed.index.duplicated().any():
+                self._add_issue(
+                    "Result integrity",
+                    "The merge would have produced duplicate keys in the resulting "
+                    "table. No changes were made.",
+                )
                 self.report.critical(
                     "The upsert was aborted because it would have produced "
                     "duplicate keys in the resulting table. No changes were "
@@ -155,6 +236,7 @@ class DataAppender:
                 )
                 return pd.DataFrame()
 
+            self.rows_in_mtl_after = len(output)
             self.report.info(
                 f"Upsert complete: {len(updated_keys)} rows(s) updated, "
                 f"{len(new_keys)} row(s) appended."
@@ -163,14 +245,17 @@ class DataAppender:
 
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
+            self._add_issue("Key error", error_msg)
             self.report.exception(error_msg)
             return pd.DataFrame()
         except ValueError as e:
             error_msg = f"A value error occurred during upserting.\n{e}"
+            self._add_issue("Value error", error_msg)
             self.report.exception(error_msg)
             return pd.DataFrame()
         except Exception as e:
             error_msg = f"An unexpected error occurred during upserting.\n{e}"
+            self._add_issue("Unexpected error", error_msg)
             self.report.exception(error_msg)
             return pd.DataFrame()
 
@@ -185,6 +270,9 @@ class DataAppender:
         self.report.info("This includes all appended rows, and updated rows,")
         self.report.info("along with the full data within the supplied MTL file.")
         appended_dataframe.to_csv(appended_filepath, encoding="utf-8", index=False)
+        self.artifacts.append(
+            (appended_filename, "The complete MTL table after the upsert.")
+        )
 
     def _table_has_filter(self, worksheet, table) -> bool:
         """
@@ -294,6 +382,7 @@ class DataAppender:
         """
         if not self._table_has_filter(worksheet, table):
             self.report.info("No active filers found on this table.")
+            self.filter_action = "No active filter was found on the table."
             return True
 
         self.report.highlight_titled_error(
@@ -318,6 +407,9 @@ class DataAppender:
         )
 
         if not clean_it:
+            self.filter_action = (
+                "An active filter was found. The user chose to clear it automatically."
+            )
             self.report.warning(
                 "Append stopped so the filters can be cleared manually. "
                 "Remove all filters form the table, dave the MTL, then run "
@@ -327,6 +419,9 @@ class DataAppender:
             return False
         self.report.info("Attempting to clear the filters automatically...")
         if not self._toggle_table_filter(worksheet, table):
+            self.filter_action = (
+                "An active filer was found and could not be cleared automatically."
+            )
             self.report.critical(
                 "The filter could not be cleared automatically. Please remove "
                 "all filters form the table in the MTL, save it, and run the "
@@ -334,6 +429,13 @@ class DataAppender:
                 popup=True,
             )
             return False
+        self.filter_action = "An active filter was cleared automatically."
+        self._add_issue(
+            "Table filter",
+            "A filter was cleared automatically. Rows in the appened workbook "
+            "should be reviewed for scrambling.",
+            severity="warning",
+        )
         self.report.warning(
             "The filter was cleared automatically. Please review the appeneded "
             "file carefully. If the rows look scrambled, clear the filters in "
@@ -420,6 +522,10 @@ class DataAppender:
                 return
 
             workbook.save()
+            self.written_to_mtl = True
+            self.artifacts.append(
+                (output_file_path.name, "A copy of the MTL with the table replaced.")
+            )
             self.report.subtitle(" 🎉 UPDATE/APPEND COMPLETED SUCCESSFULLY 🎉 ")
             self.report.info(
                 " 🎉 UPDATE/APPEND COMPLETED SUCCESSFULLY 🎉 ",
@@ -428,9 +534,14 @@ class DataAppender:
                 report=False,
             )
 
+            self.mtl_output_name = output_file_path.name
             self.report.info(f"MTL Saved to a new file at: ../{output_file_path.name}")
 
         except Exception as e:
+            self._add_issue(
+                "MTL export",
+                "The appended data could not be written to the MTL workbook.",
+            )
             self.report.error(
                 "Failed to export the data to the MTL. Check the general log and report "
                 "to an admin if necessary.",
@@ -443,3 +554,39 @@ class DataAppender:
                 workbook.close()
             if excel is not None:
                 excel.quit()
+
+    def build_append_report(
+        self,
+        status: PDFReportStatus,
+        mtl_worksheet_name: str,
+        mtl_file_path: str,
+        input_file_path: str,
+        filter_string: str | None = None,
+    ) -> MTLAppendReportData:
+        """Snapshot the appender's outcome as a PDF report model."""
+        appender = self
+        return MTLAppendReportData(
+            title="MTL Append Report",
+            subtitle=f"{self.metadata.get_mtl_doc_num()} / {mtl_worksheet_name}",
+            report_id=self.report.report_name,
+            user=self.report.user,
+            created_date=datetime.now(UTC),
+            status=status,
+            mtl_source=Path(mtl_file_path),
+            pib_source=Path(input_file_path),
+            worksheet_name=mtl_worksheet_name,
+            filter_string=filter_string,
+            rows_in_mtl_before=appender.rows_in_mtl_before,
+            rows_in_pib=appender.rows_in_pib,
+            rows_in_mtl_after=appender.rows_in_mtl_after,
+            rows_updated=len(appender.updated_keys),
+            rows_appended=len(appender.appended_keys),
+            updated_keys=appender.updated_keys,
+            appended_keys=appender.appended_keys,
+            issues=appender.issues,
+            key_columns=appender.key_columns,
+            artifacts=appender.artifacts,
+            filter_action=appender.filter_action,
+            written_to_mtl=appender.written_to_mtl,
+            mtl_output_name=appender.mtl_output_name,
+        )
