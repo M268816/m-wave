@@ -5,9 +5,9 @@
 
 
 # stdio
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 # third-party
 import pandas as pd
@@ -19,8 +19,8 @@ from m_wave.core.utils import DATETIME_FORMAT_MERCK, USER
 # local wave pack
 from m_wave.wave_packs.tag_doc_gen.metadata import Metadata
 from m_wave.wave_packs.tag_doc_gen.utils import (
-    ProcessRequest,
     DocGeneratorType,
+    ProcessRequest,
     TagFileType,
 )
 
@@ -64,7 +64,7 @@ class Process:
 
         new_data = []
         for item in kepware_export:
-            self.report.info(f'Processing:\t{item["Tag Name"]}')
+            self.report.info(f"Processing:\t{item['Tag Name']}")
             new_row = {}
             for header in self.metadata.get_filter_file_headers():
                 if header == "NodeId":
@@ -78,7 +78,7 @@ class Process:
 
         self.filter_file_df = self.append_dict_to_df(self.filter_file_df, new_data)
 
-        file_name = self.report.report_folder / (
+        file_name = self.report.report_dir / (
             f"{self.req.kepware_device.get()}" + "-Filter_File.csv"
         )
         self.filter_file_df.to_csv(
@@ -96,13 +96,13 @@ class Process:
         tag_prefix = self.set_tag_prefix()
         for item in kepware_export:
             new_row = {}
-            self.report.info(f'Processing:\t{item["Tag Name"]}')
+            self.report.info(f"Processing:\t{item['Tag Name']}")
             for header in self.metadata.get_tag_to_attribute_headers():
                 match header:
                     case "Prefix":
                         new_row[header] = tag_prefix
                     case "Tags":
-                        new_row[header] = f'{tag_prefix}{item["Tag Name"]}'
+                        new_row[header] = f"{tag_prefix}{item['Tag Name']}"
                     case "Attributes":
                         new_row[header] = item["Tag Name"]
                     case "Config String":
@@ -114,7 +114,7 @@ class Process:
 
         self.attribute_df = self.append_dict_to_df(self.attribute_df, new_data)
 
-        file_name = self.report.report_folder / (
+        file_name = self.report.report_dir / (
             f"{self.req.kepware_device.get()}-PI_Attributes.csv"
         )
         self.attribute_df.to_csv(
@@ -130,7 +130,7 @@ class Process:
         self.report.simple_title("Creating Instrument Tags")
         new_data = []
         for item in kepware_export:
-            self.report.info(f'Processing:\t{item["Tag Name"]}')
+            self.report.info(f"Processing:\t{item['Tag Name']}")
             new_row = {}
             node_id = self.create_node_id(item["Tag Name"])
             new_row["Instrument Tag"] = self.create_instrument_tag(node_id)
@@ -141,7 +141,7 @@ class Process:
             self.instrument_tag_df, new_data
         )
 
-        file_name = self.report.report_folder / (
+        file_name = self.report.report_dir / (
             f"{self.req.kepware_device.get()}-Instrument_Tags.csv"
         )
         self.instrument_tag_df.to_csv(
@@ -164,7 +164,7 @@ class Process:
         self.report.simple_title("Creating PI Tags (20701076)")
         pi_data = []
         for item in kepware_data:
-            self.report.info(f'Processing:\t{item["Tag Name"]}')
+            self.report.info(f"Processing:\t{item['Tag Name']}")
             new_row = dict(self.metadata.get_kepware_to_pi_defaults())
             for header in self.metadata.get_kepware_to_pi_auto_inputs():
                 match header:
@@ -173,7 +173,8 @@ class Process:
                     case "pointtype":
                         new_row[header] = self.pi_datatype_conversion(item["Data Type"])
                     case "instrumenttag":
-                        new_row[header] = item["Address"]
+                        node_id = self.create_node_id(item["Tag Name"])
+                        new_row[header] = self.create_instrument_tag(node_id)
                     case _:
                         try:
                             new_row[header] = item[header]
@@ -197,7 +198,7 @@ class Process:
         df = df.sort_values(by="instrumenttag")
 
         file_name = (
-            self.report.report_folder / f"{self.req.kepware_device.get()}-Pi_Tags.csv"
+            self.report.report_dir / f"{self.req.kepware_device.get()}-Pi_Tags.csv"
         )
         df.to_csv(
             file_name,
@@ -213,7 +214,7 @@ class Process:
         """
         kepware_data = []
         for item in pi_data:
-            self.report.info(f'Processing:\t{item["Name"]}')
+            self.report.info(f"Processing:\t{item['Name']}")
             new_row = {}
             for header in self.metadata.get_kepware_export_headers():
                 match header:
@@ -245,8 +246,7 @@ class Process:
         df = df.sort_values(by="Address")
 
         file_name = (
-            self.report.report_folder
-            / f"{self.req.kepware_device.get()}-Kepware_Tags.csv"
+            self.report.report_dir / f"{self.req.kepware_device.get()}-Kepware_Tags.csv"
         )
         df.to_csv(
             file_name,
@@ -329,7 +329,7 @@ class Process:
 
     def document_original_input(self, input_path: Path) -> None:
         df = pd.read_csv(input_path)
-        file_name = self.report.report_folder / (
+        file_name = self.report.report_dir / (
             f"{self.req.kepware_device.get()}-Original.csv"
         )
         df.to_csv(
