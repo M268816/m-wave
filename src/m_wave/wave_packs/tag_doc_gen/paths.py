@@ -17,19 +17,17 @@ _config_doc = "tdg_config.json"
 BUNDLED_INSTRUCTIONS_PATH = PATHS.bundled_instructions_dir / _instructions_doc
 BUNDLED_CONFIG_TEMPLATE_PATH = PATHS.bundled_configs_dir / _config_doc
 
-# Core Writeable Folders
-USER_CONFIG_DIR = PATHS.create_sub_folder(PATHS.user_config_dir, "pi_tag_doc_generator")
-
 # Extra folder
 # EXTRA_DIR = PATHS.extra_dir
 # EXAMPLE_EXTRA_FILE = EXTRA_DIR / "16k_panorama.png"
 
-# WavePack writable folders
-TDG_WRITABLE_DIR = PATHS.create_generated_folder("tag_doc_gen")
-TDG_CONFIG_DIR = PATHS.create_sub_folder(TDG_WRITABLE_DIR, "configurations")
+# Core Writeable Folders
+TDG_USER_CONFIG_DIR = PATHS.create_sub_folder(
+    PATHS.user_config_dir, "pi_tag_doc_generator"
+)
 
 # Writable resources
-TDG_CONFIG_PATH = TDG_CONFIG_DIR / _config_doc
+TDG_CONFIG_PATH = TDG_USER_CONFIG_DIR / _config_doc
 
 
 def get_config_path() -> Path:
@@ -54,10 +52,10 @@ def get_config_path() -> Path:
         return TDG_CONFIG_PATH
 
     try:
-        TDG_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        TDG_USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         shutil.copy(BUNDLED_CONFIG_TEMPLATE_PATH, TDG_CONFIG_PATH)
         return TDG_CONFIG_PATH
-    except Exception as e:
+    except FileNotFoundError as e:
         warnings.warn(
             f"Could not initialize writable TDG config at: {TDG_CONFIG_PATH}. "
             f"Error occurred while initializing '{_config_doc}': {e}",
