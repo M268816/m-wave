@@ -25,13 +25,16 @@ from m_wave.core.utils import (
     set_config_value,
 )
 
-# local
+# local core
 from m_wave.core.wavepack_frame import WavePackFrame
+
+# local wave_packs
 from m_wave.wave_packs.example.gui import ExampleFrame
 from m_wave.wave_packs.mtl.gui import MTLFrame
+from m_wave.wave_packs.tag_doc_gen.gui import TDGFrame
 
 # CONSTANTS
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 THEMES = (
     # Light themes
@@ -158,6 +161,12 @@ class App(tkb.Window):
             "Example Package",
             ExampleFrame,  # type: ignore
             "This is just an example of an additional WavePack!",
+        )
+
+        self.add_wavepack(
+            "PI Tag Document Generator",
+            TDGFrame,  # type: ignore
+            "Generate Tag Documents for filter files and PI connectors.",
         )
 
     def start_launcher(self) -> None:
