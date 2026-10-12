@@ -132,7 +132,7 @@ class Process:
         for item in kepware_export:
             self.report.info(f"Processing:\t{item['Tag Name']}")
             new_row = {}
-            node_id = self.create_node_id(item["Address"])
+            node_id = self.create_node_id(item["Tag Name"])
             new_row["Instrument Tag"] = self.create_instrument_tag(node_id)
             new_data.append(new_row)
         self.report.info("All kepware records processed to Instrument Tags.")
@@ -169,11 +169,11 @@ class Process:
             for header in self.metadata.get_kepware_to_pi_auto_inputs():
                 match header:
                     case "Name":
-                        new_row[header] = item["Tag Name"]
+                        new_row[header] = f"{self.tag_prefix}{item['Tag Name']}"
                     case "pointtype":
                         new_row[header] = self.pi_datatype_conversion(item["Data Type"])
                     case "instrumenttag":
-                        node_id = self.create_node_id(item["Address"])
+                        node_id = self.create_node_id(item["Tag Name"])
                         new_row[header] = self.create_instrument_tag(node_id)
                     case _:
                         try:
@@ -229,7 +229,7 @@ class Process:
                     case "Respect Data Type":
                         new_row[header] = 1
                     case "Client Access":
-                        new_row[header] = "R/W"
+                        new_row[header] = "<R/W or RO>"
                     case "Scan Rate":
                         new_row[header] = 100
                     case _:
