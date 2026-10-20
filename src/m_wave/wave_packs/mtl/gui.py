@@ -30,6 +30,7 @@ from ttkbootstrap.constants import (
     SUCCESS,
     TOP,
     YES,
+    E,
     N,
     S,
     X,
@@ -49,6 +50,7 @@ from m_wave.core.wavepack_frame import WavePackFrame
 # local wave pack
 from m_wave.wave_packs.mtl.controller import (
     MTLController,
+    MTLEnvironmentTypes,
     MTLProcessorType,
     MTLRequest,
     MTLUi,
@@ -94,6 +96,7 @@ class MTLFrame(WavePackFrame):
         self.opt_input_path = tkb.StringVar(value="Select a file.")
         self.opt_filter = tkb.StringVar()
         self.opt_process = tkb.StringVar(value=MTLProcessorType.NONE)
+        self.opt_env_types = tkb.StringVar(value=MTLEnvironmentTypes.NONE)
         self.mtl_version = tkb.StringVar(value="Import needed.")
         self._mtl_is_selected = tkb.BooleanVar(value=False)
         self._input_is_selected = tkb.BooleanVar(value=False)
@@ -299,7 +302,7 @@ class MTLFrame(WavePackFrame):
             string_variable.set("Cancelled")
             is_selected.set(False)
 
-    def _build_config_options(self) -> None:
+    def _build_config_options(self, width: int = 30) -> None:
         """
         Builds the processing configuration option widgets for the UI.
         """
@@ -310,20 +313,27 @@ class MTLFrame(WavePackFrame):
         )
         frame.pack(side=TOP, fill=X)
 
-        row = ttk.Frame(frame, padding=PAD)
-        row.pack(fill=X, expand=YES)
+        top_row = ttk.Frame(frame, padding=PAD)
+        top_row.pack(fill=X, expand=YES)
 
-        label = tkb.Label(row, text="Filter:", padding=PAD)
+        bottom_row = ttk.Frame(frame, padding=PAD)
+        bottom_row.pack(fill=X, expand=True)
+
+        label = tkb.Label(top_row, text="Filter:", padding=PAD, width=width, anchor=E)
         label.pack(side=LEFT, padx=PAD_X)
 
-        entry = tkb.Entry(row, textvariable=self.opt_filter)
+        entry = tkb.Entry(top_row, textvariable=self.opt_filter)
         entry.pack(side=LEFT, padx=PAD_X)
 
-        cbox_label = tkb.Label(row, text="MTL/CMD Table:", padding=PAD)
+        cbox_label = tkb.Label(
+            top_row,
+            text="MTL/CMD Table:",
+            padding=PAD,
+        )
         cbox_label.pack(side=LEFT, padx=PAD_X)
 
         keys = list(self.metadata.worksheet_metadata.keys())
-        self.mtl_table_cbox = tkb.Combobox(row, values=keys)
+        self.mtl_table_cbox = tkb.Combobox(top_row, values=keys)
         self.mtl_table_cbox.pack(side=LEFT, fill=X, expand=YES, padx=PAD_X)
         self.mtl_table_cbox.current(0)
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self._on_mtl_table_selected)
@@ -331,14 +341,38 @@ class MTLFrame(WavePackFrame):
         default_value = self.mtl_table_cbox.get()
         self.opt_data_table.set(default_value)
 
+        env_type_label = tkb.Label(
+            bottom_row, text="Environment Types:", padding=PAD, width=width, anchor=E
+        )
+        env_type_label.pack(side=LEFT, padx=PAD_X)
+
+        env_types = {
+            "Please select the environments": MTLEnvironmentTypes.NONE,
+            "Processing the same environment": MTLEnvironmentTypes.SAME,
+            "Processing different environments": MTLEnvironmentTypes.DIFF,
+        }
+        self.comparison_type_cbox = tkb.Combobox(
+            bottom_row, values=list(env_types.keys())
+        )
+        self.comparison_type_cbox.pack(side=LEFT, fill=X, expand=YES, padx=PAD_X)
+        self.comparison_type_cbox.current(0)
+        self.comparison_type_cbox.bind(
+            "<<ComboboxSelected>>",
+            lambda e: self._on_compare_type_selected(e, env_map=env_types),
+        )
+        default_type = self.comparison_type_cbox.get()
+        self.opt_env_types.set(
+            env_types[default_type]
+        )  # returns the enum value (default: "none")
+
         self.version_entry = tkb.Entry(
-            row,
+            bottom_row,
             textvariable=self.mtl_version,
         )
         self.version_entry.pack(side=RIGHT, padx=PAD_X)
 
         version_key_label = tkb.Label(
-            row,
+            bottom_row,
             text="MTL Revision:",
             padding=PAD,
         )
@@ -352,6 +386,17 @@ class MTLFrame(WavePackFrame):
         _ = event
         val = self.mtl_table_cbox.get()
         self.opt_data_table.set(val)
+
+    def _on_compare_type_selected(self, event, env_map: dict) -> None:
+        """
+        Changes the comparison type when its combobox is changed.
+        Gets the new table selection and sets the data_table option when its combobox
+        is changed.
+        """
+        _ = event
+        val = self.comparison_type_cbox.get()
+        self.report.info(f"Changed selection to: {env_map[val]}")
+        self.opt_env_types.set(env_map[val])
 
     def _build_text_display(self) -> None:
         """
@@ -407,7 +452,8 @@ class MTLFrame(WavePackFrame):
         """
 
         req = MTLRequest(
-            MTLProcessorType(MTLProcessorType.DOWNLOAD.value),
+            MTLProcessorType.DOWNLOAD,
+            MTLEnvironmentTypes.NONE,
             self.opt_filter.get(),
             self.opt_data_table.get(),
             Path(self.opt_mtl_path.get()),
@@ -436,6 +482,7 @@ class MTLFrame(WavePackFrame):
 
         req = MTLRequest(
             MTLProcessorType(self.opt_process.get()),
+            MTLEnvironmentTypes(self.opt_env_types.get()),
             self.opt_filter.get(),
             self.opt_data_table.get(),
             Path(self.opt_mtl_path.get()),

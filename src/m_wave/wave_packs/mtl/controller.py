@@ -26,6 +26,20 @@ from m_wave.wave_packs.mtl.paths import get_mtl_config_path
 from m_wave.wave_packs.mtl.process import Process
 
 
+class MTLEnvironmentTypes(str, Enum):
+    """
+    Enum for the MTL process type selection.
+    Processes should determine if they should exclude special keys when comparing
+    like or differing environments. Like environments should check keys like
+    security strings for differences, differing environments will always have artifacts
+    with these types of keys and should be updated manually by the user.
+    """
+
+    NONE = "none"
+    SAME = "same"
+    DIFF = "different"
+
+
 class MTLProcessorType(str, Enum):
     """
     Enum for the MTL process type selection.
@@ -44,6 +58,7 @@ class MTLRequest:
     """
 
     process_type: MTLProcessorType
+    env_types: MTLEnvironmentTypes
     filter: str
     data_table: str
     mtl_file_path: Path
