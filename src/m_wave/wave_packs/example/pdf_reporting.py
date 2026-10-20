@@ -22,6 +22,12 @@ from m_wave.core.pdf_reporting import (
 
 @dataclass
 class ExampleReportData(PDFReportData):
+    """
+    This extends the base PDFReportData class. The example attributes below can be
+    passed through while building the widget elements. You must create your own
+    build_elements() function for a report to display custom content and data.
+    """
+
     example_int: int = 0
     example_str: str = "Hello Example"
     example_list: list[str] = field(default_factory=list)

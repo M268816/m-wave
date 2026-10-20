@@ -54,16 +54,13 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-# ---------------------------------------------------------------------------
-# Design tokens
-#
-# These are the ReportLab equivalent of the CSS custom properties in the
-# original HTML template. Change a value here and every report changes.
-# ---------------------------------------------------------------------------
-
 
 class Palette:
-    """Report color tokens based on the supplied Merck color palette."""
+    """
+    Report color tokens based on the supplied Merck color palette.
+    These are the ReportLab equivalent of custom CSS properties.
+    Change a value here and it affects every report.
+    """
 
     # Core brand colors
     BRAND = colors.HexColor("#503291")  # rich purple: headings and table headers
@@ -365,7 +362,7 @@ def format_datetime(moment: datetime | None) -> str:
     return moment.strftime("%d-%b-%Y %H:%M:%S")
 
 
-def shorten_path(path: Path | str | None, max_length: int = 64) -> str:
+def shorten_path(path: Path | str | None, max_length: int = 256) -> str:
     """
     Render a file path compactly: keep the file name and enough of the tail of
     the parent folders to stay recognizable.
@@ -453,7 +450,7 @@ def report_header(
             block.append(Paragraph(f"{label}: {value}", styles.metadata))
 
     if logo_path is not None and Path(logo_path).exists():
-        logo = _scaled_image(Path(logo_path), target_width=26 * mm)
+        logo = _scaled_image(Path(logo_path), target_width=32 * mm)
         header = Table(
             [[block, logo]],
             colWidths=[width - 30 * mm, 30 * mm],

@@ -37,19 +37,19 @@ class ExampleProcess:
         self.report.info("Here is that file you requested!")
         self.report.info(f"File Path: {self.file_path_1}")
 
-        self.report.info("Now to make you a fancy PDF!")
+        self.report.info("Now, to make a fancy PDF!")
 
         report_data = ExampleReportData(
-            "Example Report",
-            "Example ID 01-1",
-            "M268816",
-            datetime.now(UTC),
-            PDFReportStatus.PASS,
-            "Just a little subtitle",
-            {"no": Path()},
-            100,
-            "Hello new Example",
-            ["this", "is", "a", "example", "list"],
+            "Example Report",  # A generic report title
+            "Example ID 01-1",  # A generated report ID
+            "M268816",  # User passthough
+            datetime.now(UTC),  # Created Date passthough
+            PDFReportStatus.PASS,  # Pass a PDFReportStatus here
+            "Just a little subtitle",  # Subtitle
+            {"None": Path()},  # Chart images (if they exist), dict[title:str, path]
+            100,  # Custom example int
+            "Hello new Example",  # Custom example string
+            ["this", "is", "a", "example", "list"],  # Custom example list
         )
 
         self.report.create_pdf_report(report_data)
