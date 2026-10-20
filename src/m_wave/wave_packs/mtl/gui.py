@@ -50,14 +50,13 @@ from m_wave.core.wavepack_frame import WavePackFrame
 # local wave pack
 from m_wave.wave_packs.mtl.controller import (
     MTLController,
-    MTLEnvironmentTypes,
-    MTLProcessorType,
     MTLRequest,
     MTLUi,
 )
 from m_wave.wave_packs.mtl.extraction import DataExtractor
 from m_wave.wave_packs.mtl.metadata import Metadata
 from m_wave.wave_packs.mtl.paths import MTL_DEMO_VIDEO_PATH, MTL_INSTRUCTIONS_PATH
+from m_wave.wave_packs.mtl.utils import MTLEnvironmentTypes, MTLProcessorType
 
 
 class MTLFrame(WavePackFrame):
@@ -141,7 +140,7 @@ class MTLFrame(WavePackFrame):
         menubar.add_cascade(label="Report Options", menu=report_menu)
 
     def _check_for_mtl_document(self) -> None:
-        self.report.info("Checking files for a MTL document.")
+
         mtl_doc_path = self.metadata.get_mtl_document_path()
         if mtl_doc_path.exists():
             self.report.info("Found an MTL document in your files.")
@@ -295,7 +294,6 @@ class MTLFrame(WavePackFrame):
         file_path = askopenfilename(title="Select a file.", filetypes=types)
 
         if file_path:
-            file_path = file_path.replace("/", "\\")
             string_variable.set(file_path)
             is_selected.set(True)
         else:

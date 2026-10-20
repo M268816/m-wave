@@ -4,12 +4,38 @@
 # This tool was created with the help of AI.
 
 # stdlib
+from enum import Enum
 
 # third party
 import pandas as pd
 
 # local core
 from m_wave.core.reporting import Reporting
+
+
+class MTLEnvironmentTypes(str, Enum):
+    """
+    Enum for the MTL process type selection.
+    Processes should determine if they should exclude special keys when comparing
+    like or differing environments. Like environments should check keys like
+    security strings for differences, differing environments will always have artifacts
+    with these types of keys and should be updated manually by the user.
+    """
+
+    NONE = "none"
+    SAME = "same"
+    DIFF = "different"
+
+
+class MTLProcessorType(str, Enum):
+    """
+    Enum for the MTL process type selection.
+    """
+
+    NONE = "none"
+    COMPARE = "compare"
+    APPEND = "append"
+    DOWNLOAD = "download"
 
 
 def report_shape_differences(

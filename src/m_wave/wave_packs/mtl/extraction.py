@@ -44,42 +44,32 @@ class DataExtractor:
 
     def _get_browser_download_dir(self) -> Path:
         """
-        Reads the configured download directory from
+        Reads the configured download directory from the user's machine.
         """
-        home = os.path.expanduser("~")
-        downloads_folder = os.path.join(home, "Downloads")
+        downloads_folder = Path.home() / "Downloads"
+        local_app_data = Path(os.environ.get("LOCALAPPDATA", Path.home()))
 
         candidates = [
-            os.path.join(
-                os.environ.get("LOCALAPPDATA", ""),
-                "Google",
-                "Chrome",
-                "User Data",
-                "Preferences",
-            ),
-            os.path.join(
-                os.environ.get("LOCALAPPDATA", ""),
-                "Microsoft",
-                "Edge",
-                "User Data",
-                "Preferences",
-            ),
+            local_app_data / "Google" / "Chrome" / "User Data" / "Preferences",
+            local_app_data / "Microsoft" / "Edge" / "User Data" / "Preferences",
         ]
 
         self.report.info("Attempting to locate Downloads Directory...")
 
         for prefs_path in candidates:
-            if os.path.exists(prefs_path):
+            if prefs_path.is_file():
                 try:
-                    with open(prefs_path, "r", encoding="utf-8") as f:
+                    with prefs_path.open("r", encoding="utf-8") as f:
                         prefs = json.load(f)
                     custom_dir = prefs.get("download", {}).get("default_directory")
-                    if custom_dir and os.path.isdir(custom_dir):
-                        self.report.info(
-                            "Detected custom download directory successfully."
-                        )
-                        self.report.info(f"Download dir: {custom_dir}")
-                        return Path(custom_dir)
+                    if custom_dir:
+                        custom_path = Path(custom_dir).expanduser()
+                        if custom_path.is_dir():
+                            self.report.info(
+                                "Detected custom download directory successfully."
+                            )
+                            self.report.info(f"Download dir: {custom_dir}")
+                            return Path(custom_dir)
                 except Exception as e:
                     self.report.exception(
                         "Could not detect a custom directory."
@@ -87,28 +77,26 @@ class DataExtractor:
                         + f"Execption caught: {e}"
                     )
         self.report.info("No custom download directory found. Using defaults.")
-        return Path(downloads_folder)
+        return downloads_folder
 
     def _get_dl_dir_snapshot(self, dl_folder: Path) -> set:
         """
         Return a set of (filename, size) tuples for all Excel files in the given dl folder.
         """
-        result = set()
+        result: set[tuple[str, int]] = set()
         try:
-            with os.scandir(dl_folder) as entries:
-                for entry in entries:
-                    if entry.is_file() and entry.name.endswith(FILE_EXTENSION):
-                        if not entry.name.endswith((".crdownload", ".part", ".tmp")):
-                            result.add((entry.name, entry.stat().st_size))
+            for file_path in dl_folder.iterdir():
+                if file_path.is_file() and file_path.suffix.lower() == FILE_EXTENSION:
+                    result.add((file_path.name, file_path.stat().st_size))
         except PermissionError:
-            pass
+            self.report.critical("Permission Error when searching DL folder")
         return result
 
     def _wait_until_stable(self, filepath: Path, stable_sec: int = 2) -> None:
         prev = -1
         while True:
             try:
-                curr = os.path.getsize(filepath)
+                curr = filepath.stat().st_size
             except FileNotFoundError:
                 time.sleep(0.5)
                 continue
@@ -139,7 +127,7 @@ class DataExtractor:
             new_files = dl_snapshot_after - dl_snapshot_before
             if new_files:
                 filename = sorted(new_files, key=lambda x: x[1], reverse=True)[0][0]
-                found = os.path.join(download_dir, filename)
+                found = download_dir / filename
                 break
             if elapsed % 10 == 0:
                 self.report.info(f"\t... waiting({elapsed}s / {timeout_sec}s)")
@@ -150,16 +138,14 @@ class DataExtractor:
 
         self._wait_until_stable(Path(found))
 
-        name, ext = os.path.splitext(os.path.basename(found))
-        destination = os.path.join(MTL_DOC_DIR, f"{name}{ext}")
-
+        destination = MTL_DOC_DIR / found.name
         shutil.move(found, destination)
         self.report.info(
-            f"{Path(found).name} moved from {Path(found).parent}"
-            + f" to {Path(destination).parent} as {Path(destination).name}"
+            f"{found.name} moved from {found.parent}"
+            + f" to {destination.parent} as {destination.name}"
         )
 
-        return Path(destination)
+        return destination
 
     def get_last_revision(
         self, filepath: Path, worksheet_name: str = "Revision History"
@@ -294,7 +280,7 @@ class DataExtractor:
                 _df[col] = self._normalize_datetime_column(_df[col], datetime_format)
         return _df
 
-    def extract_mtl_table(self, mtl_file_path: str) -> pd.DataFrame:
+    def extract_mtl_table(self, mtl_file_path: Path) -> pd.DataFrame:
         """
         Returns a data frame from a named excel table in the MTL.
         Will raise an exception if it fails.
@@ -327,9 +313,9 @@ class DataExtractor:
             if excel is not None:
                 excel.quit()
 
-    def extract_input_csv(
+    def extract_pib_csv(
         self,
-        file_path: str,
+        file_path: Path,
         filter_str: str,
     ) -> pd.DataFrame:
         """
@@ -341,19 +327,18 @@ class DataExtractor:
         df = pd.DataFrame()
         datetime_columns = self.metadata.dataframe_formatting["datetime_columns"]
 
-        def read(_df: pd.DataFrame, encoding: str = "utf-8") -> pd.DataFrame:
-            _df = pd.read_csv(
-                file_path,
-                # na_values=["None", "none", "NULL", "null", ""],
+        def read(path: Path, encoding: str = "utf-8") -> pd.DataFrame:
+            parsed = pd.read_csv(
+                path,
                 na_values=[""],
                 keep_default_na=False,
                 encoding=encoding,
             )
-            return self._normalize_datetime_columns(_df, datetime_columns)
+            return self._normalize_datetime_columns(parsed, datetime_columns)
 
         try:
             self.report.info("Extracting the Input file.")
-            df = read(df)
+            df = read(file_path)
             self.report.info("Input extraction was successful!")
             return df
         except UnicodeDecodeError as e:
@@ -361,15 +346,13 @@ class DataExtractor:
             self.report.exception(f"\n{e}")
             self.report.warning("Will attempt to convert known problem symbols...")
             try:
-                df = read(df, encoding="latin-1")
+                df = read(file_path, encoding="latin-1")
                 df = df.replace("�C", "°C", regex=False)
                 df = df.replace("�F", "°F", regex=False)
                 fixed_name = f"{filter_str}_fixed.csv"
                 fixed_file = self.report.report_dir / fixed_name
                 df.to_csv(fixed_file, encoding="utf-8-sig", index=False)
-                df = read(
-                    df
-                )  # may need to set encoding to none here, or not use the parameter
+                df = read(fixed_file)
                 self.report.info("Conversion completed!")
                 self.report.info(f"Converted input saved to: {fixed_name}")
                 return df
@@ -392,14 +375,14 @@ class DataExtractor:
             return df
 
     def could_extract(
-        self, mtl_dataframe: pd.DataFrame, input_dataframe: pd.DataFrame
+        self, mtl_dataframe: pd.DataFrame, pib_dataframe: pd.DataFrame
     ) -> bool:
         if mtl_dataframe.empty:
             self.report.highlight_titled_error(
                 " MTL data could not be extracted. Check your selected MTL table."
             )
             return False
-        if input_dataframe.empty:
+        if pib_dataframe.empty:
             self.report.highlight_titled_error(
                 " Input CSV could not be extracted. Check your selected input table"
             )
@@ -411,9 +394,9 @@ class DataExtractor:
             f"✓ The MTL has {mtl_row_count} rows and {mtl_col_count} columns."
         )
         self.report.info("✓ Input csv extracted successfully!")
-        input_row_count = input_dataframe.shape[0]
-        input_col_count = input_dataframe.shape[1]
+        pib_row_count = pib_dataframe.shape[0]
+        pib_col_count = pib_dataframe.shape[1]
         self.report.info(
-            f"✓ The Input csv has {input_row_count} rows and {input_col_count} columns."
+            f"✓ The Input csv has {pib_row_count} rows and {pib_col_count} columns."
         )
         return True

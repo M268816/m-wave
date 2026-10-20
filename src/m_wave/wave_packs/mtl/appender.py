@@ -40,10 +40,10 @@ class DataAppender:
         self.updated_keys: list[str] = []
         self.appeneded_keys: list[str] = []
         self.key_columns: list[str] = []
-        self.artifacts: list[tuple[str, str]] = []
+        self.artifacts: list[tuple[Path, str]] = []
         self.filter_action: str | None = None
         self.written_to_mtl: bool = False
-        self.mtl_output_name: str | None = None
+        self.mtl_output_path: Path | None = None
 
     def _reset_report_state(self) -> None:
         """Clear the previous run so a second upsert cannot inherit its state."""
@@ -193,20 +193,16 @@ class DataAppender:
                 return output
 
             # Save each data frame to keep record of the changes.
-            mtl_dataframe.to_csv(
-                self.report.report_dir / "mtl_dataframe_before.csv", index=False
-            )
+            mtl_before_path = self.report.report_dir / "mtl_dataframe_before.csv"
+            mtl_dataframe.to_csv(mtl_before_path, index=False)
             self.artifacts.append(
-                (
-                    "mtl_dataframe_before.csv",
-                    "The MTL table as extracted, before any changes.",
-                )
+                (mtl_before_path, "The MTL table as extracted, before any changes.")
             )
-            input_dataframe.to_csv(
-                self.report.report_dir / "pi_dataframe.csv", index=False
-            )
+
+            pib_dataframe_path = self.report.report_dir / "pi_dataframe.csv"
+            input_dataframe.to_csv(pib_dataframe_path, index=False)
             self.artifacts.append(
-                ("pi_dataframe.csv", "The PI Builder rows used as the upsert source.")
+                (pib_dataframe_path, "The PI Builder rows used as the upsert source.")
             )
 
             updated_keys = keyed_mtl.index.intersection(keyed_input.index)
@@ -263,15 +259,14 @@ class DataAppender:
         """
         Used to export the new appended data frame to csv format.
         """
-        appended_filename = "mtl_dataframe_after.csv"
-        appended_filepath = self.report.report_dir / appended_filename
+        appended_filepath = self.report.report_dir / "mtl_dataframe_after.csv"
         self.report.info(f"Exporting the appended data to:  {appended_filepath}")
         self.report.info("This data is supplied as the complete mtl table.")
         self.report.info("This includes all appended rows, and updated rows,")
         self.report.info("along with the full data within the supplied MTL file.")
         appended_dataframe.to_csv(appended_filepath, encoding="utf-8", index=False)
         self.artifacts.append(
-            (appended_filename, "The complete MTL table after the upsert.")
+            (appended_filepath, "The complete MTL table after the upsert.")
         )
 
     def _table_has_filter(self, worksheet, table) -> bool:
@@ -446,7 +441,7 @@ class DataAppender:
     def export_to_mtl(
         self,
         appended_dataframe: pd.DataFrame,
-        mtl_file_path: str,
+        mtl_file_path: Path,
         output_file_path: Path | None = None,
         retries: int = 3,
         delay: float = 3.0,
@@ -492,7 +487,7 @@ class DataAppender:
             self.report.info("Saved...")
 
             self.report.info("Opening working copy...")
-            workbook = excel.books.open(output_file_path, read_only=False)
+            workbook = excel.books.open(str(output_file_path), read_only=False)
 
             worksheet: xl.Sheet = workbook.sheets[worksheet_name]
             self.report.info("Worksheet accessed.")
@@ -524,7 +519,7 @@ class DataAppender:
             workbook.save()
             self.written_to_mtl = True
             self.artifacts.append(
-                (output_file_path.name, "A copy of the MTL with the table replaced.")
+                (output_file_path, "A copy of the MTL with the table replaced.")
             )
             self.report.subtitle(" 🎉 UPDATE/APPEND COMPLETED SUCCESSFULLY 🎉 ")
             self.report.info(
@@ -534,7 +529,7 @@ class DataAppender:
                 report=False,
             )
 
-            self.mtl_output_name = output_file_path.name
+            self.mtl_output_path = output_file_path
             self.report.info(f"MTL Saved to a new file at: ../{output_file_path.name}")
 
         except Exception as e:
@@ -559,8 +554,8 @@ class DataAppender:
         self,
         status: PDFReportStatus,
         mtl_worksheet_name: str,
-        mtl_file_path: str,
-        input_file_path: str,
+        mtl_file_path: Path,
+        input_file_path: Path,
         filter_string: str | None = None,
     ) -> MTLAppendReportData:
         """Snapshot the appender's outcome as a PDF report model."""
@@ -572,8 +567,8 @@ class DataAppender:
             user=self.report.user,
             created_date=datetime.now(UTC),
             status=status,
-            mtl_source=Path(mtl_file_path),
-            pib_source=Path(input_file_path),
+            mtl_source=mtl_file_path,
+            pib_source=input_file_path,
             worksheet_name=mtl_worksheet_name,
             filter_string=filter_string,
             rows_in_mtl_before=appender.rows_in_mtl_before,
@@ -588,5 +583,5 @@ class DataAppender:
             artifacts=appender.artifacts,
             filter_action=appender.filter_action,
             written_to_mtl=appender.written_to_mtl,
-            mtl_output_name=appender.mtl_output_name,
+            mtl_output_path=appender.mtl_output_path,
         )

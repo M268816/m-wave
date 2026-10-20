@@ -58,7 +58,7 @@ class UpsertIssue:
     """
 
     check: str
-    detai: str
+    detail: str
     severity: str = "error"
 
 
@@ -71,8 +71,8 @@ class MTLAppendReportData(PDFReportData):
     ``subtitle``, and ``chart_paths`` from ``PDFReportData``.
     """
 
-    mtl_source: Path = Path()
-    pib_source: Path = Path()
+    mtl_source: Path | None = None
+    pib_source: Path | None = None
     worksheet_name: str | None = None
     filter_string: str | None = None
 
@@ -87,11 +87,11 @@ class MTLAppendReportData(PDFReportData):
     issues: list[UpsertIssue] = field(default_factory=list)
 
     key_columns: list[str] = field(default_factory=list)
-    artifacts: list[tuple[str, str]] = field(default_factory=list)
+    artifacts: list[tuple[Path, str]] = field(default_factory=list)
 
     filter_action: str | None = None
     written_to_mtl: bool = False
-    mtl_output_name: str | None = None
+    mtl_output_path: Path | None = None
 
     # -- derived values -----------------------------------------------------
 
@@ -357,7 +357,7 @@ class MTLAppendReportData(PDFReportData):
         styles: ReportStyles,
         width: float,
     ) -> list[Flowable]:
-        rows = [[name, description] for name, description in self.artifacts]
+        rows = [[path.name, description] for path, description in self.artifacts]
 
         if self.filter_action:
             rows.append(["Table filter", self.filter_action])
@@ -388,10 +388,10 @@ class MTLAppendReportData(PDFReportData):
                 "findings above and run the append again."
             )
 
-        if self.written_to_mtl and self.mtl_output_name:
+        if self.written_to_mtl and self.mtl_output_path:
             return (
                 "The appended MTL was saved as a new file, "
-                f"{self.mtl_output_name}. The original MTL was opened "
+                f"{self.mtl_output_path.name}. The original MTL was opened "
                 "read-only and is unchanged. Review the appended workbook, "
                 "then update the change log manually."
             )
@@ -451,8 +451,8 @@ class MTLReportData(PDFReportData):
     ``subtitle``, and ``chart_paths`` from ``PDFReportData``.
     """
 
-    mtl_source: Path = Path()
-    pib_source: Path = Path()
+    mtl_source: Path | None = None
+    pib_source: Path | None = None
     records_compared: int = 0
     matching_records: int = 0
     non_matching_records: int = 0
@@ -460,7 +460,7 @@ class MTLReportData(PDFReportData):
     missing_from_pib: int = 0
     column_summaries: list[ColumnDifferenceSummary] = field(default_factory=list)
     difference_samples: list[ComparisonRecord] = field(default_factory=list)
-    csv_export_name: str | None = None
+    csv_export_name: Path | None = None
 
     # -- derived values -----------------------------------------------------
 
@@ -551,14 +551,14 @@ class MTLReportData(PDFReportData):
         width: float,
     ) -> list[Flowable]:
         path = self.chart_paths.get("differences_by_column")
-        if path is None or not Path(path).exists():
+        if path is None or not path.exists():
             return []
 
         return [
             Spacer(1, Metrics.GAP_HEADING),
             section_heading(styles, "Differences by column"),
             Spacer(1, Metrics.GAP_SECTION),
-            chart_image(Path(path), width),
+            chart_image(path, width),
             Spacer(1, Metrics.GAP),
         ]
 
@@ -697,7 +697,7 @@ class MTLReportData(PDFReportData):
             "CSV export"
         )
         if self.csv_export_name:
-            return f"{note}: {self.csv_export_name}."
+            return f"{note}: {self.csv_export_name.name}."
         return f"{note}."
 
 

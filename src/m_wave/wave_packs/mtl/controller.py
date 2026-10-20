@@ -6,7 +6,6 @@
 # stdlib
 import time
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from threading import Thread
 
@@ -24,31 +23,7 @@ from m_wave.core.wavepack_controller import WavePackController
 # local wave pack
 from m_wave.wave_packs.mtl.paths import get_mtl_config_path
 from m_wave.wave_packs.mtl.process import Process
-
-
-class MTLEnvironmentTypes(str, Enum):
-    """
-    Enum for the MTL process type selection.
-    Processes should determine if they should exclude special keys when comparing
-    like or differing environments. Like environments should check keys like
-    security strings for differences, differing environments will always have artifacts
-    with these types of keys and should be updated manually by the user.
-    """
-
-    NONE = "none"
-    SAME = "same"
-    DIFF = "different"
-
-
-class MTLProcessorType(str, Enum):
-    """
-    Enum for the MTL process type selection.
-    """
-
-    NONE = "none"
-    COMPARE = "compare"
-    APPEND = "append"
-    DOWNLOAD = "download"
+from m_wave.wave_packs.mtl.utils import MTLEnvironmentTypes, MTLProcessorType
 
 
 @dataclass(frozen=True)
@@ -119,8 +94,9 @@ class MTLController(WavePackController):
                     self.report,
                     req.filter,
                     req.data_table,
-                    str(req.mtl_file_path),
-                    str(req.input_file_path),
+                    req.env_types,
+                    req.mtl_file_path,
+                    req.input_file_path,
                 )
 
                 if req.process_type == MTLProcessorType.APPEND:
@@ -184,11 +160,15 @@ class MTLController(WavePackController):
                 "Report was never set, cannot start the processing functions."
             )
 
-        if req.process_type == MTLProcessorType.NONE:
+        if (
+            req.process_type == MTLProcessorType.NONE
+            or req.env_types == MTLEnvironmentTypes.NONE
+        ):
             self.app.after(
                 0,
                 lambda r=self.report: r.error(
-                    "Please select either the Compare or Append radio button.",
+                    "Please make sure your environment types are selected and to select"
+                    " either the Compare or Append radio button.",
                     popup=True,
                 ),
             )

@@ -362,7 +362,7 @@ def format_datetime(moment: datetime | None) -> str:
     return moment.strftime("%d-%b-%Y %H:%M:%S")
 
 
-def shorten_path(path: Path | str | None, max_length: int = 256) -> str:
+def shorten_path(path: Path | None, max_length: int = 128) -> str:
     """
     Render a file path compactly: keep the file name and enough of the tail of
     the parent folders to stay recognizable.
@@ -449,8 +449,8 @@ def report_header(
         for label, value in metadata:
             block.append(Paragraph(f"{label}: {value}", styles.metadata))
 
-    if logo_path is not None and Path(logo_path).exists():
-        logo = _scaled_image(Path(logo_path), target_width=32 * mm)
+    if logo_path is not None and logo_path.exists():
+        logo = _scaled_image(logo_path, target_width=32 * mm)
         header = Table(
             [[block, logo]],
             colWidths=[width - 30 * mm, 30 * mm],
@@ -718,7 +718,7 @@ def _scaled_image(path: Path, target_width: float) -> Image:
 
 def chart_image(path: Path, width: float) -> Flowable:
     """Embed a generated chart, scaled to the frame width."""
-    return _scaled_image(Path(path), target_width=width)
+    return _scaled_image(path, target_width=width)
 
 
 # ---------------------------------------------------------------------------
@@ -867,7 +867,6 @@ class PDFReportBuilder:
 
         Raises whatever ReportLab raises; the caller decides how to report it.
         """
-        output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         document = BaseDocTemplate(
