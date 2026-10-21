@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from threading import Thread
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -140,30 +141,125 @@ class MTLFrame(WavePackFrame):
         menubar.add_cascade(label="Report Options", menu=report_menu)
 
     def _check_for_mtl_document(self) -> None:
-
+        """
+        Looks for a local MTL document. If found, reads its last revision on a
+        worker thread so the UI stays responsive, then finishes on the main thread.
+        """
+        self.report.info("Checking files for a MTL document.")
         mtl_doc_path = self.metadata.get_mtl_document_path()
-        if mtl_doc_path.exists():
-            self.report.info("Found an MTL document in your files.")
-            self.opt_mtl_path.set(str(mtl_doc_path))
-            extractor = DataExtractor(self.report, self.metadata)
-            last_rev = extractor.get_last_revision(mtl_doc_path)
-            self.metadata.set_mtl_version(str(last_rev))
-            self.mtl_version.set(str(last_rev))
-            self.report.warning(
-                f"Local MTL document is revision: {last_rev}. "
-                + "If this revision is incorrect. Please use the Import button "
-                + "and the app will automatically download the "
-                + "latest revision.",
-                popup=True,
-            )
-            self._mtl_is_selected.set(True)
-        else:
+
+        if not mtl_doc_path.exists():
             self.report.warning(
                 "Local version of the MTL not found. "
-                + "Use the Import button to automatically "
-                + "download a current effective version of the MTL.",
+                "Use the Import button to automatically "
+                "download a current effective version of the MTL.",
                 popup=True,
             )
+            return
+
+        self.report.info("MTL file found.")
+        self.opt_mtl_path.set(str(mtl_doc_path))
+        self._show_busy("Reading the MTL revision.\nThis may take a moment...")
+
+        result: dict = {}
+
+        def work() -> None:
+            try:
+                extractor = DataExtractor(self.report, self.metadata)
+                result["revision"] = extractor.get_last_revision(mtl_doc_path)
+            except Exception as e:
+                result["error"] = e
+
+        thread = Thread(target=work, daemon=True)
+        thread.start()
+        self._poll_mtl_version(thread, result)
+
+    def _poll_mtl_version(self, thread: Thread, result: dict) -> None:
+        """
+        Main-thread poll. Checks the worker every 100ms and finishes the UI updates
+        once its done.
+        """
+
+        if not self.winfo_exists():
+            return
+
+        if thread.is_alive():
+            self.after(100, self._poll_mtl_version, thread, result)
+            return
+
+        self._hide_busy()
+
+        if "error" in result:
+            self.report.exception(
+                f"Could not read the revision of the local MTL: {result['error']}",
+                popup=True,
+            )
+            return
+
+        last_rev = result.get("revision")
+        if last_rev is None:
+            self.report.warning(
+                "Could not determine the revision of the local MTL. "
+                "Use the Import button to download the latest revision.",
+                popup=True,
+            )
+            return
+
+        self.metadata.set_mtl_version(str(last_rev))
+        self.mtl_version.set(str(last_rev))
+        self._mtl_is_selected.set(True)
+        self.report.warning(
+            f"Local MTL document is revision: {last_rev}. "
+            "If this revision is incorrect. Please use the Import button "
+            "and the app will automatically download the latest revision.",
+            popup=True,
+        )
+
+    def _show_busy(self, message: str) -> None:
+        """
+        Shows a small modal loading window over the app. Safe to call twice.
+        """
+        if getattr(self, "_busy_window", None) is not None:
+            return
+
+        parent = self.winfo_toplevel()
+        win = tkb.Toplevel(parent)
+        win.title("Please wait")
+        win.resizable(False, False)
+        win.transient(parent)
+        win.protocol("WM_DELETE_WINDOW", lambda: None)  # block the close button
+
+        body = ttk.Frame(win, padding=20)
+        body.pack(fill=BOTH, expand=YES)
+        ttk.Label(body, text=message, justify="center").pack(pady=(0, 12))
+        bar = tkb.Progressbar(body, mode="indeterminate", length=260)
+        bar.pack()
+        bar.start(12)
+
+        # Center over the parent window.
+        win.update_idletasks()
+        x = parent.winfo_rootx() + (parent.winfo_width() - win.winfo_width()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - win.winfo_height()) // 2
+        win.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+
+        win.grab_set()
+        self._busy_window = win
+        self._busy_bar = bar
+
+    def _hide_busy(self) -> None:
+        """
+        Closes the loading window if it is open.
+        """
+        win = getattr(self, "_busy_window", None)
+        if win is None:
+            return
+        try:
+            self._busy_bar.stop()
+            win.grab_release()
+            win.destroy()
+        finally:
+            self._busy_window = None
+            self._busy_bar = None
 
     def load_mtl_instructions(self) -> str:
         try:
@@ -393,7 +489,6 @@ class MTLFrame(WavePackFrame):
         """
         _ = event
         val = self.comparison_type_cbox.get()
-        self.report.info(f"Changed selection to: {env_map[val]}")
         self.opt_env_types.set(env_map[val])
 
     def _build_text_display(self) -> None:
