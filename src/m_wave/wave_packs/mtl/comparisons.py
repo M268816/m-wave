@@ -94,9 +94,14 @@ class Comparisons:
         mtl = mtl_dataframe.rename(columns=str.lower)
         inp = pib_dataframe.rename(columns=str.lower)
 
+        # TODO: Push this to the external json config.
+        always_excluded = ["Asset Details"]
+        ###
+
         excluded = sorted(
             {c for c in mtl.columns if c in self.manual_review_columns}
             | {c for c in inp.columns if c in self.manual_review_columns}
+            | {c for c in always_excluded}
         )
 
         if excluded and exclude_manual_columns:
@@ -203,14 +208,8 @@ class Comparisons:
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
 
-        differences_path = (
-            self.report.report_dir
-            / f"{self.report.cleaned_name}_comparison_by_column.csv"
-        )
-        comparison_path = (
-            self.report.report_dir
-            / f"{self.report.cleaned_name}_comparison_by_record.csv"
-        )
+        differences_path = self.report.report_dir / "comparison_by_column.csv"
+        comparison_path = self.report.report_dir / "comparison_by_record.csv"
         long_form.to_csv(differences_path, index=False)
         comparison.all_mismatch(ignore_matching_cols=True).to_csv(
             comparison_path, index=False
@@ -236,6 +235,15 @@ class Comparisons:
             for number, (keys, group) in enumerate(
                 long_form.groupby(key_columns, dropna=False, sort=False), start=1
             ):
+                print(f"long_form len: {len(long_form)}")
+                if len(long_form) > 256:
+                    self.report.warning("There are more than 256 errors.")
+                    self.report.warning("Verbose logging forcefully stopped.")
+                    self.report.warning(
+                        "Review the generated comparison files for a full review of the data."
+                    )
+                    break
+
                 keys = keys if isinstance(keys, tuple) else (keys,)
                 self.report.error_divider()
                 self.report.error(f"Record {number}:")
