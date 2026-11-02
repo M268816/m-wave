@@ -28,10 +28,10 @@ from m_wave.core.utils import (
 )
 
 # local
-from m_wave.core.wavepack_frame import WavePackFrame
+from m_wave.core.wavepacks.gui_frame import WavePackGUI
 
 
-class LauncherFrame(WavePackFrame):
+class LauncherGUI(WavePackGUI):
     """
     WavePack selection screen shown at startup.
     """
@@ -119,7 +119,7 @@ class LauncherFrame(WavePackFrame):
         for col in range(self.grid_width):
             self.scroll_frame.columnconfigure(col, weight=1)
 
-    def _confirm_and_launch(self, name: str, frame_cls: WavePackFrame) -> None:
+    def _confirm_and_launch(self, name: str, frame_cls: WavePackGUI) -> None:
         """
         Ask the user to confirm the WavePack before locking in.
         """

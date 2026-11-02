@@ -9,10 +9,10 @@
 import ttkbootstrap as tkb
 
 # local
-from m_wave.core.wavepack_controller import WavePackController
+from m_wave.core.wavepacks.controller import WavePackController
 
 
-class WavePackFrame(tkb.Frame):
+class WavePackGUI(tkb.Frame):
     """
     Base class for WavePack GUI Frames.
 
@@ -46,7 +46,7 @@ class WavePackFrame(tkb.Frame):
         Returns True if this frame has overridden show_help.
         AppWindow uses this to decide whether to show the help menu item at all.
         """
-        return type(self).show_help is not WavePackFrame.show_help
+        return type(self).show_help is not WavePackGUI.show_help
 
     def show_help(self) -> None:
         """
@@ -61,7 +61,7 @@ class WavePackFrame(tkb.Frame):
         AppWindow uses this to decide whether to update the report for any
         report configuration changes.
         """
-        return type(self).build_menus is not WavePackFrame.build_menus
+        return type(self).build_menus is not WavePackGUI.build_menus
 
     def build_menus(self, menubar: tkb.Menu) -> None:
         """
@@ -75,7 +75,7 @@ class WavePackFrame(tkb.Frame):
         Returns true if this frame has overridden on_teardown. AppWindow uses this to
         decide whether to run the teardown logic for WavePackFrames.
         """
-        return type(self).on_teardown is not WavePackFrame.on_teardown
+        return type(self).on_teardown is not WavePackGUI.on_teardown
 
     def on_teardown(self) -> None:
         """

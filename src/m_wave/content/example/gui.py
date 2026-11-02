@@ -38,20 +38,18 @@ from ttkbootstrap.constants import (
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
-# local core
-from m_wave.core.utils import FONT_MONO, PAD, PAD_X, PAD_Y
-from m_wave.core.wavepack_frame import WavePackFrame
-
-# local wave-pack
-from m_wave.wave_packs.example.controller import (
+# local
+from m_wave.content.example.controller import (
     ExampleController,
     ExampleRequest,
     ExampleUi,
 )
-from m_wave.wave_packs.example.paths import BUNDLED_INSTRUCTIONS_PATH
+from m_wave.content.example.paths import BUNDLED_INSTRUCTIONS_PATH
+from m_wave.core.utils import FONT_MONO, PAD, PAD_X, PAD_Y
+from m_wave.core.wavepacks.gui_frame import WavePackGUI
 
 
-class ExampleFrame(WavePackFrame):
+class ExampleFrame(WavePackGUI):
     def __init__(self, parent: tkb.Frame, app: App) -> None:
         super().__init__(
             parent,
@@ -81,22 +79,12 @@ class ExampleFrame(WavePackFrame):
         self._build_file_select()
         self._build_text_display()
 
-    @property
-    def report(self):
-        if self.controller.report:
-            return self.controller.report
-        else:
-            raise RuntimeError("Report not set. Cannot use WaveFrame report property")
-
     def show_help(self) -> None:
         # Do no call show help, this is called from the App object when the help menu
         # is rebuilt with WavePack specific help menus.
-        self.report.info(
-            "Instructions will be displayed.", log=False, verbose=False, popup=True
-        )
         with open(BUNDLED_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
             instructions = f.read()
-        self.report.info(instructions, log=False, verbose=False, popup=True)
+        self.controller.notifier.info(instructions, title="Instructions")
 
     def build_menus(self, menubar: tkb.Menu) -> None:
         # Do not call build menus, this is called from the App object to rebuild the
@@ -233,7 +221,7 @@ class ExampleFrame(WavePackFrame):
         frame.pack(side=TOP, fill=BOTH, expand=YES)
         self.stext = ScrolledText(frame, height=24, font=FONT_MONO)
         self.stext.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=YES)
-        self.report.attach_text_display(self.stext)
+        self.controller.attach_display(self.stext)
 
     def _build_footer(self) -> None:
         """
@@ -262,7 +250,7 @@ class ExampleFrame(WavePackFrame):
         process button is clicked.
         """
         if not self.input_is_selected.get():
-            self.report.error("Please select a file to start processing.")
+            self.controller.notifier.error("Please select a file to start processing.")
             return
 
         request = ExampleRequest(

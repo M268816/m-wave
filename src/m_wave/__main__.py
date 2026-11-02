@@ -5,35 +5,9 @@
 
 # stdlib
 import logging
-from datetime import datetime
 
-# third party
 # local
-from m_wave.core.paths import PATHS
-from m_wave.core.utils import DATETIME_FORMAT
-
-# Logging initialization
-LOG_FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
-
-
-def configure_logging():
-    """
-    Configures application wide logging settings.
-    Development:
-    m-wave/generated/logs/<timestamp>_general_error.log
-
-    Production:
-    exe-folder/logs/<timestamp>_general_error.log
-    """
-    log_datetime = datetime.now().strftime(DATETIME_FORMAT)
-    log_filename = PATHS.logs_dir / f"{log_datetime}_general_error.log"
-    logging.basicConfig(
-        filename=log_filename,
-        filemode="w",
-        format=LOG_FORMAT,
-        encoding="utf-8",
-        level=logging.DEBUG,
-    )
+from m_wave.core.reporting.log_setup import configure_logging
 
 
 class Main:
@@ -45,8 +19,10 @@ class Main:
 
     def __init__(self):
         from m_wave.core.gui import App
+        from m_wave.core.reporting.log_setup import install_tk_exception_hook
 
         self.app: App = App()
+        install_tk_exception_hook(self.app)
 
     def run(self):
         self.app.run()
@@ -64,7 +40,7 @@ def main():
         app = Main()
         app.run()
     except Exception:
-        logger.exception("Unhandled fatal error occurrerd.")
+        logger.exception("Unhandled fatal error occurred.")
         raise
 
 

@@ -4,11 +4,14 @@
 # This tool was created with the help of AI.
 
 # stdlib
+import getpass
+from datetime import datetime
 
 # third party
-
 # local
 from m_wave.core.utils import get_user_prefs_path, load_configs
+
+USER = getpass.getuser()
 
 
 class AppContext:
@@ -17,7 +20,10 @@ class AppContext:
     """
 
     def __init__(self) -> None:
+        self.app_version: str = "1.2.0"
         self.user_preferences: dict = load_configs(get_user_prefs_path())
+        self.user_id: str = USER
+        self.session_id = self.user_id + "_" + str(datetime.now())
 
         # -------------------------------------------------------------------------
         # Possible future context variables #

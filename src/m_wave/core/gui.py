@@ -12,8 +12,9 @@ from PIL import Image, ImageTk
 from ttkbootstrap.constants import BOTH, CENTER, NSEW, PRIMARY, TOP, X
 from ttkbootstrap.dialogs import Messagebox
 
+# local core
+from m_wave.content.example.gui import ExampleFrame
 from m_wave.core.context import AppContext
-from m_wave.core.launcher import LauncherFrame
 from m_wave.core.paths import PATHS
 from m_wave.core.utils import (
     FONT_SMALL,
@@ -24,17 +25,11 @@ from m_wave.core.utils import (
     get_user_prefs_path,
     set_config_value,
 )
+from m_wave.core.wavepacks.gui_frame import WavePackGUI
+from m_wave.launcher.gui import LauncherGUI
 
-# local core
-from m_wave.core.wavepack_frame import WavePackFrame
-
-# local wave_packs
-from m_wave.wave_packs.example.gui import ExampleFrame
-from m_wave.wave_packs.mtl.gui import MTLFrame
-from m_wave.wave_packs.tag_doc_gen.gui import TDGFrame
-
-# CONSTANTS
-VERSION = "1.1.5"
+# from m_wave.wave_packs.mtl.gui import MTLFrame
+# from m_wave.wave_packs.tag_doc_gen.gui import TDGFrame
 
 THEMES = (
     # Light themes
@@ -88,9 +83,9 @@ class App(tkb.Window):
         self.context: AppContext = AppContext()
 
         # Usage, { Key: (WavePack, Description) }
-        self.wavepacks: dict[str, tuple[WavePackFrame, str]] = {}
+        self.wavepacks: dict[str, tuple[WavePackGUI, str]] = {}
 
-        self.active_app: WavePackFrame | None = None
+        self.active_app: WavePackGUI | None = None
 
         self.logo = PhotoImage(file=PATHS.logo_path)
         self.iconphoto(False, self.logo)
@@ -140,7 +135,7 @@ class App(tkb.Window):
 
         self.config(menu=self.menubar)
 
-    def add_wavepack(self, key: str, frame_cls: WavePackFrame, desc: str) -> None:
+    def add_wavepack(self, key: str, frame_cls: WavePackGUI, desc: str) -> None:
         """
         Register a new WavePack frame class under a named key.
         """
@@ -151,11 +146,11 @@ class App(tkb.Window):
         Registers WavePacks to the applicaiton. Only registered packs can be loaded
         and initialized by the Launcher frame.
         """
-        self.add_wavepack(
-            "Master Tag List Processor",
-            MTLFrame,  # type: ignore
-            "Compare or append new PI records to the MTL/CMD.",
-        )
+        # self.add_wavepack(
+        #     "Master Tag List Processor",
+        #     MTLFrame,  # type: ignore
+        #     "Compare or append new PI records to the MTL/CMD.",
+        # )
 
         self.add_wavepack(
             "Example Package",
@@ -163,17 +158,17 @@ class App(tkb.Window):
             "This is just an example of an additional WavePack!",
         )
 
-        self.add_wavepack(
-            "PI Tag Document Generator",
-            TDGFrame,  # type: ignore
-            "Generate Tag Documents for filter files and PI connectors.",
-        )
+        # self.add_wavepack(
+        #     "PI Tag Document Generator",
+        #     TDGFrame,  # type: ignore
+        #     "Generate Tag Documents for filter files and PI connectors.",
+        # )
 
     def start_launcher(self) -> None:
         """
         Creates the WavePack launcher frame and attaches it to the root application.
         """
-        self.launcher = LauncherFrame(self.container, self, grid_width=1)
+        self.launcher = LauncherGUI(self.container, self, grid_width=1)
         self.launcher.grid(row=0, column=0, sticky=NSEW)
         self.launcher.tkraise()
         self.active_app = self.launcher
@@ -181,7 +176,7 @@ class App(tkb.Window):
         self.resizable(self.launcher.resizable[0], self.launcher.resizable[1])
         self._rebuild_menu_for(self.launcher)
 
-    def lock_wavepack(self, name: str, frame_cls: WavePackFrame) -> None:
+    def lock_wavepack(self, name: str, frame_cls: WavePackGUI) -> None:
         """
         Build the chosen WavePack, destroy the launcher screen, and update the
         window title to reflect the locked session.
@@ -198,7 +193,7 @@ class App(tkb.Window):
         self.resizable(app_frame.resizable[0], app_frame.resizable[1])
         self._rebuild_menu_for(self.active_app)  # type: ignore
 
-    def _rebuild_menu_for(self, frame: WavePackFrame) -> None:
+    def _rebuild_menu_for(self, frame: WavePackGUI) -> None:
         """
         Teardown all non-fixes menus and ask the new frame to rebuild its own.
         Call on lock_wavepack() and could be called again if configs get reset.
@@ -214,7 +209,7 @@ class App(tkb.Window):
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
         self._update_help_menu(frame)
 
-    def _update_help_menu(self, frame: WavePackFrame | None = None) -> None:
+    def _update_help_menu(self, frame: WavePackGUI | None = None) -> None:
         """
         Rebuild the help menu for the active frame.
         """
@@ -297,7 +292,7 @@ class App(tkb.Window):
         ver = tkb.Label(
             container,
             font=FONT_SMALL,
-            text=f"Workbook Automation & Verification Engine\nVersion: {VERSION}",
+            text=f"Workbook Automation & Verification Engine\nVersion: {self.context.app_version}",
             padding=PAD,
         )
         ver.pack(fill=X)

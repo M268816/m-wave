@@ -4,7 +4,6 @@
 # This tool was created with the help of AI.
 
 # stdlib
-import getpass
 import json
 import tkinter as tk
 import warnings
@@ -36,7 +35,8 @@ PAD_X = 4
 PAD_Y = 4
 PAD = 4
 
-USER = getpass.getuser()
+LOG_FORMAT = "%(asctime)s:%(levelname)s:%(filename)s:%(name)s::%(message)s"
+
 DATETIME_FORMAT = "%Y-%m-%dT%H_%M_%SZ"
 DATETIME_FORMAT_MERCK = "%d-%b-%Y %H:%M:%S"
 
