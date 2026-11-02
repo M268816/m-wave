@@ -215,11 +215,11 @@ class Reporting:
             self.report_dir.mkdir(parents=True, exist_ok=True)
         # NOTE: "BASE_DIR\(TIMESTAMP)_my_report_name"
 
-        n = self.report_dir / self.cleaned_name
-        # NOTE: "BASE_DIR\(TIMESTAMP)_my_report_name\my_report_name"
+        n = self.report_dir / "final_report"
+        # NOTE: "BASE_DIR\(TIMESTAMP)_my_report_name\report"
 
         self.report_path = n.with_suffix(".log")
-        # NOTE: "BASE_DIR\(TIMESTAMP)_(my_report_name)\my_report_name.log"
+        # NOTE: "BASE_DIR\(TIMESTAMP)_my_report_name\report.log"
 
     def _emit(
         self,
@@ -599,7 +599,7 @@ class Reporting:
             self.error("create_report() must be called before create_pdf_report().")
             return None
 
-        pdf_output_path = output_dir / f"{self.cleaned_name}.pdf"
+        pdf_output_path = output_dir / "final_report.pdf"
 
         try:
             builder = PDFReportBuilder(

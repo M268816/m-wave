@@ -173,7 +173,7 @@ class Process:
                     case "pointtype":
                         new_row[header] = self.pi_datatype_conversion(item["Data Type"])
                     case "instrumenttag":
-                        node_id = self.create_node_id(item["Tag Name"])
+                        node_id = self.create_node_id(item["Address"])
                         new_row[header] = self.create_instrument_tag(node_id)
                     case _:
                         try:

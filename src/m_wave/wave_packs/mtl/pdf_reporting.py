@@ -41,8 +41,8 @@ from m_wave.core.pdf_reporting import (
 
 # How many individual differences are listed in the PDF. The full set belongs
 # in the CSV export; a PDF with ten thousand mismatch rows helps nobody.
-DIFFERENCE_SAMPLE_LIMIT = 25
-KEY_SAMPLE_LIMIT = 25
+DIFFERENCE_SAMPLE_LIMIT = 128
+KEY_SAMPLE_LIMIT = 128
 
 
 # APPENDING
