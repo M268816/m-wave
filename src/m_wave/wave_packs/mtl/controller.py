@@ -163,6 +163,7 @@ class MTLController(WavePackController):
         if (
             req.process_type == MTLProcessorType.NONE
             or req.env_types == MTLEnvironmentTypes.NONE
+            and req.process_type != MTLProcessorType.DOWNLOAD
         ):
             self.app.after(
                 0,
