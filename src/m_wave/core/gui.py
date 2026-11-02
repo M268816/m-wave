@@ -34,7 +34,7 @@ from m_wave.wave_packs.mtl.gui import MTLFrame
 from m_wave.wave_packs.tag_doc_gen.gui import TDGFrame
 
 # CONSTANTS
-VERSION = "1.1.2"
+VERSION = "1.1.5"
 
 THEMES = (
     # Light themes
