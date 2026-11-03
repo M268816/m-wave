@@ -106,15 +106,15 @@
     "instrumenttag"
   ],
   "PI_DATA_CONVERSION_MAP": {
-    "DEFAULT": "STRING",
-    "STRING": "STRING",
-    "CHAR": "STRING",
-    "LONG": "INT32",
-    "SHORT": "INT16",
-    "DOUBLE": "FLOAT64",
-    "FLOAT": "FLOAT32",
-    "DATE": "TIMESTAMP",
-    "BOOLEAN": "<BOOLEAN or DIGITAL>"
+    "DEFAULT": "String",
+    "STRING": "String",
+    "CHAR": "String",
+    "LONG": "Int32",
+    "SHORT": "Int16",
+    "DOUBLE": "Float64",
+    "FLOAT": "Float32",
+    "DATE": "Timestamp",
+    "BOOLEAN": "Digital"
   },
   "KEPWARE_DATA_CONVERSION_MAP": {
     "STRING": "STRING",
