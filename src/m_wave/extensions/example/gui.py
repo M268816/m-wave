@@ -39,14 +39,11 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local
-from m_wave.content.example.controller import (
-    ExampleController,
-    ExampleRequest,
-    ExampleUi,
-)
-from m_wave.content.example.paths import BUNDLED_INSTRUCTIONS_PATH
 from m_wave.core.utils import FONT_MONO, PAD, PAD_X, PAD_Y
 from m_wave.core.wavepacks.gui_frame import WavePackGUI
+from m_wave.extensions.example.controller import ExampleController, ExampleUiPayload
+from m_wave.extensions.example.paths import BUNDLED_INSTRUCTIONS_PATH
+from m_wave.extensions.example.processor import ProcessorRequest
 
 
 class ExampleFrame(WavePackGUI):
@@ -84,7 +81,7 @@ class ExampleFrame(WavePackGUI):
         # is rebuilt with WavePack specific help menus.
         with open(BUNDLED_INSTRUCTIONS_PATH, "r", encoding="utf-8") as f:
             instructions = f.read()
-        self.controller.notifier.info(instructions, title="Instructions")
+        self.controller.reporter.notifier.info(instructions, title="Instructions")
 
     def build_menus(self, menubar: tkb.Menu) -> None:
         # Do not call build menus, this is called from the App object to rebuild the
@@ -221,7 +218,7 @@ class ExampleFrame(WavePackGUI):
         frame.pack(side=TOP, fill=BOTH, expand=YES)
         self.stext = ScrolledText(frame, height=24, font=FONT_MONO)
         self.stext.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=YES)
-        self.controller.attach_display(self.stext)
+        self.controller.display_journal_to(self.stext)
 
     def _build_footer(self) -> None:
         """
@@ -250,15 +247,17 @@ class ExampleFrame(WavePackGUI):
         process button is clicked.
         """
         if not self.input_is_selected.get():
-            self.controller.notifier.error("Please select a file to start processing.")
+            self.controller.reporter.notifier.error(
+                "Please select a file to start processing."
+            )
             return
 
-        request = ExampleRequest(
+        request = ProcessorRequest(
             "Example Report",
             Path(self.opt_input_path.get()),
         )
 
-        ui = ExampleUi(
+        ui = ExampleUiPayload(
             self.progress_bar,
             self.process_button,
             self.stext,

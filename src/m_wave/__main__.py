@@ -3,11 +3,8 @@
 # Author: Raymond Comeau, MilliporeSigma Data Systems Technician, Jaffrey NH
 # This tool was created with the help of AI.
 
-# stdlib
-import logging
-
 # local
-from m_wave.core.reporting.log_setup import configure_logging
+from m_wave.core.reporting.debug_log import DebugLog
 
 
 class Main:
@@ -19,10 +16,9 @@ class Main:
 
     def __init__(self):
         from m_wave.core.gui import App
-        from m_wave.core.reporting.log_setup import install_tk_exception_hook
 
         self.app: App = App()
-        install_tk_exception_hook(self.app)
+        DebugLog.catch_tk_errors(self.app)
 
     def run(self):
         self.app.run()
@@ -32,15 +28,16 @@ def main():
     """
     Main callable for development, packaging, and console entry points.
     """
-    configure_logging()
-    logger = logging.getLogger(__name__)
+    # First thing: start the debug log, so even a crash during startup is recorded.
+    DebugLog.setup()
+    debug = DebugLog()
 
     try:
-        logger.info("Starting M-WAVE.")
+        debug.info("Starting M-WAVE.")
         app = Main()
         app.run()
-    except Exception:
-        logger.exception("Unhandled fatal error occurred.")
+    except Exception as error:
+        debug.error("Unhandled fatal error occurred.", error=error)
         raise
 
 

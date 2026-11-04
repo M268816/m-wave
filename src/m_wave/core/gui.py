@@ -12,8 +12,7 @@ from PIL import Image, ImageTk
 from ttkbootstrap.constants import BOTH, CENTER, NSEW, PRIMARY, TOP, X
 from ttkbootstrap.dialogs import Messagebox
 
-# local core
-from m_wave.content.example.gui import ExampleFrame
+# local
 from m_wave.core.context import AppContext
 from m_wave.core.paths import PATHS
 from m_wave.core.utils import (
@@ -26,6 +25,7 @@ from m_wave.core.utils import (
     set_config_value,
 )
 from m_wave.core.wavepacks.gui_frame import WavePackGUI
+from m_wave.extensions.example.gui import ExampleFrame
 from m_wave.launcher.gui import LauncherGUI
 
 # from m_wave.wave_packs.mtl.gui import MTLFrame
