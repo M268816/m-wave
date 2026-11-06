@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from threading import Thread
 from typing import TYPE_CHECKING
 
@@ -40,27 +41,25 @@ from ttkbootstrap.constants import (
 from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local core
-from m_wave.core.utils import (
-    FONT_MONO,
-    PAD,
-    PAD_X,
-    PAD_Y,
-)
-from m_wave.core.wavepack_frame import WavePackFrame
+from m_wave.core.utils import FONT_MONO, PAD, PAD_X, PAD_Y
+from m_wave.core.wavepacks.gui_frame import WavePackGUI
 
-# local wave pack
-from m_wave.wave_packs.mtl.controller import (
+# local extension
+from m_wave.extensions.mtl.controller import (
     MTLController,
-    MTLRequest,
-    MTLUi,
 )
-from m_wave.wave_packs.mtl.extraction import DataExtractor
-from m_wave.wave_packs.mtl.metadata import Metadata
-from m_wave.wave_packs.mtl.paths import MTL_DEMO_VIDEO_PATH, MTL_INSTRUCTIONS_PATH
-from m_wave.wave_packs.mtl.utils import MTLEnvironmentTypes, MTLProcessorType
+from m_wave.extensions.mtl.function.extract import DataExtractor
+from m_wave.extensions.mtl.utils.metadata import Metadata
+from m_wave.extensions.mtl.utils.paths import MTL_DEMO_VIDEO_PATH, MTL_INSTRUCTIONS_PATH
+from m_wave.extensions.mtl.utils.utils import (
+    MTLEnvironmentTypes,
+    MTLProcessorRequest,
+    MTLProcessorType,
+    MTLUiPayload,
+)
 
 
-class MTLFrame(WavePackFrame):
+class MTLFrame(WavePackGUI):
     """
     MTL/CMD WavePack GUI and object variables.
     """
@@ -79,8 +78,8 @@ class MTLFrame(WavePackFrame):
         self.controller: MTLController = MTLController(self.app, self.context)
         self.help_label = "MTL/CMD"
 
-        if self.report is not None:
-            self.metadata = Metadata(self.report)
+        if self.reporter is not None:
+            self.metadata = Metadata(self.reporter)
         else:
             raise RuntimeError("Cannot set metadata without an initialized Report.")
 
@@ -91,9 +90,9 @@ class MTLFrame(WavePackFrame):
         self.opt_use_msg_types = tkb.BooleanVar(
             value=self.context.user_preferences.get("use_msg_types")
         )
-        self.opt_data_table = tkb.StringVar()
+        self.opt_mtl_table_name = tkb.StringVar()
         self.opt_mtl_path = tkb.StringVar(value="Select a file or import from ManGo.")
-        self.opt_input_path = tkb.StringVar(value="Select a file.")
+        self.opt_pib_path = tkb.StringVar(value="Select a file.")
         self.opt_filter = tkb.StringVar()
         self.opt_process = tkb.StringVar(value=MTLProcessorType.NONE)
         self.opt_env_types = tkb.StringVar(value=MTLEnvironmentTypes.NONE)
@@ -112,17 +111,42 @@ class MTLFrame(WavePackFrame):
 
         self.app.after(0, self._check_for_mtl_document)
 
-        self.report.info(
-            "Welcome to the WAVE. Start the process by choosing your files.", log=False
+        self.journal.info(
+            "Welcome to the WAVE. Start the process by choosing your files."
         )
-        self.report.info("For more information please use the Help Menu.", log=False)
+        self.journal.info("For more information please use the Help Menu.")
 
     @property
-    def report(self):
-        if self.controller.report:
-            return self.controller.report
+    def reporter(self):
+        if self.controller.reporter:
+            return self.controller.reporter
         else:
-            raise RuntimeError("Report not set. Cannot use WaveFrame report property")
+            raise RuntimeError("Report not set. cannot use GUI reporter property.")
+
+    @property
+    def journal(self):
+        if self.controller.reporter:
+            return self.controller.reporter.journal
+        else:
+            raise RuntimeError("Report not set. Cannot use GUI journal property.")
+
+    @property
+    def notify(self):
+        if self.controller.reporter:
+            return self.controller.reporter.notifier
+        else:
+            raise RuntimeError("Report not set. Cannot use GUI notify property.")
+
+    def write(self, msg: str) -> None:
+        """Write a line to the text box without initializing a report."""
+        try:
+            widget = self.stext.text  # the tk.Text inside the ScrolledText
+            widget.configure(state="normal")
+            widget.insert("end", "\n".join(msg) + "\n")
+            widget.configure(state="disabled")
+            widget.see("end")
+        except Exception as e:
+            raise RuntimeError(f"Could not write to the gui text box: {e}")
 
     def get_scrolled_text(self) -> ScrolledText:
         return self.stext
@@ -145,19 +169,21 @@ class MTLFrame(WavePackFrame):
         Looks for a local MTL document. If found, reads its last revision on a
         worker thread so the UI stays responsive, then finishes on the main thread.
         """
-        self.report.info("Checking files for a MTL document.")
+        self.journal.info("Checking files for a MTL document.")
         mtl_doc_path = self.metadata.get_mtl_document_path()
 
         if not mtl_doc_path.exists():
-            self.report.warning(
+            warn = (
                 "Local version of the MTL not found. "
                 "Use the Import button to automatically "
-                "download a current effective version of the MTL.",
-                popup=True,
+                "download a current effective version of the MTL."
             )
+            self.journal.warning(warn)
+            self.notify.warning(warn)
+
             return
 
-        self.report.info("MTL file found.")
+        self.journal.info("MTL file found.")
         self.opt_mtl_path.set(str(mtl_doc_path))
         self._show_busy("Reading the MTL revision.\nThis may take a moment...")
 
@@ -165,7 +191,7 @@ class MTLFrame(WavePackFrame):
 
         def work() -> None:
             try:
-                extractor = DataExtractor(self.report, self.metadata)
+                extractor = DataExtractor(self.reporter, self.metadata)
                 result["revision"] = extractor.get_last_revision(mtl_doc_path)
             except Exception as e:
                 result["error"] = e
@@ -190,30 +216,31 @@ class MTLFrame(WavePackFrame):
         self._hide_busy()
 
         if "error" in result:
-            self.report.exception(
-                f"Could not read the revision of the local MTL: {result['error']}",
-                popup=True,
-            )
+            msg = f"Could not read the revision of the local MTL: {result['error']}"
+            self.journal.error(msg)
+            self.notify.error(msg)
             return
 
         last_rev = result.get("revision")
         if last_rev is None:
-            self.report.warning(
+            msg = (
                 "Could not determine the revision of the local MTL. "
-                "Use the Import button to download the latest revision.",
-                popup=True,
+                "Use the Import button to download the latest revision."
             )
+            self.journal.warning(msg)
+            self.notify.warning(msg)
             return
 
         self.metadata.set_mtl_version(str(last_rev))
         self.mtl_version.set(str(last_rev))
         self._mtl_is_selected.set(True)
-        self.report.warning(
+        msg = (
             f"Local MTL document is revision: {last_rev}. "
             "If this revision is incorrect. Please use the Import button "
-            "and the app will automatically download the latest revision.",
-            popup=True,
+            "and the app will automatically download the latest revision."
         )
+        self.journal.warning(msg)
+        self.notify.warning(msg)
 
     def _show_busy(self, message: str) -> None:
         """
@@ -269,13 +296,10 @@ class MTLFrame(WavePackFrame):
             return f"Could not load MTL instructions:\n\n{e}"
 
     def show_help(self):
-        self.report.info(
-            "Instructional Video will now open.\nText instructions sent to display.",
-            log=False,
-            verbose=False,
-            popup=True,
-        )
-        self.report.info(self.load_mtl_instructions(), log=False, verbose=False)
+        msg = "Instructional Video will now open.\nText instructions sent to display."
+        self.journal.info(msg)
+        self.notify.info(msg)
+        self.journal.info(self.load_mtl_instructions())
         os.startfile(MTL_DEMO_VIDEO_PATH)
         # vid_link = self.controller.configs["mtl_help_vid_url"]
         # webbrowser.open(vid_link, new=1)
@@ -329,7 +353,7 @@ class MTLFrame(WavePackFrame):
         self._build_file_row(
             frame,
             "Select your Pi Builder export CSV:",
-            self.opt_input_path,
+            self.opt_pib_path,
             self._input_is_selected,
             30,
             ("*.csv",),
@@ -433,7 +457,7 @@ class MTLFrame(WavePackFrame):
         self.mtl_table_cbox.bind("<<ComboboxSelected>>", self._on_mtl_table_selected)
 
         default_value = self.mtl_table_cbox.get()
-        self.opt_data_table.set(default_value)
+        self.opt_mtl_table_name.set(default_value)
 
         env_type_label = tkb.Label(
             bottom_row, text="Environment Types:", padding=PAD, width=width, anchor=E
@@ -479,7 +503,7 @@ class MTLFrame(WavePackFrame):
         """
         _ = event
         val = self.mtl_table_cbox.get()
-        self.opt_data_table.set(val)
+        self.opt_mtl_table_name.set(val)
 
     def _on_compare_type_selected(self, event, env_map: dict) -> None:
         """
@@ -499,7 +523,7 @@ class MTLFrame(WavePackFrame):
         frame.pack(side=TOP, fill=BOTH, expand=YES)
         self.stext = ScrolledText(frame, height=24, font=FONT_MONO)
         self.stext.pack(side=TOP, fill=BOTH, padx=PAD_X, pady=PAD_Y, expand=YES)
-        self.report.attach_text_display(self.stext)
+        self.controller.display_journal_to(self.stext)
 
     def _build_process_row(self) -> None:
         """
@@ -544,22 +568,43 @@ class MTLFrame(WavePackFrame):
         objects to the process thread.
         """
 
-        req = MTLRequest(
-            MTLProcessorType.DOWNLOAD,
-            MTLEnvironmentTypes.NONE,
-            self.opt_filter.get(),
-            self.opt_data_table.get(),
-            Path(self.opt_mtl_path.get()),
-            Path(self.opt_input_path.get()),
+        req = MTLProcessorRequest(
+            process_type=MTLProcessorType.DOWNLOAD,
+            user=self.context.user_id,
+            start_datetime=datetime.now(),
+            env_types=MTLEnvironmentTypes.NONE,
+            filter=self.opt_filter.get(),
+            mtl_table_name=self.opt_mtl_table_name.get(),
+            mtl_file_path=Path(self.opt_mtl_path.get()),
+            pib_file_path=Path(self.opt_pib_path.get()),
         )
-        ui = MTLUi(
-            self.progress_bar,
-            self.process_button,
-            self.opt_process,
-            self.stext,
-            self.mtl_version,
-            self.opt_mtl_path,
+
+        ui = MTLUiPayload(
+            progress_bar=self.progress_bar,
+            process_button=self.process_button,
+            opt_process=self.opt_process,
+            text_box=self.stext,
+            mtl_version=self.mtl_version,
+            mtl_path=self.opt_mtl_path,
+            pib_path=self.opt_pib_path,
         )
+
+        # req = MTLRequest(
+        #     MTLProcessorType.DOWNLOAD,
+        #     MTLEnvironmentTypes.NONE,
+        #     self.opt_filter.get(),
+        #     self.opt_data_table.get(),
+        #     Path(self.opt_mtl_path.get()),
+        #     Path(self.opt_pib_path.get()),
+        # )
+        # ui = MTLUi(
+        #     self.progress_bar,
+        #     self.process_button,
+        #     self.opt_process,
+        #     self.stext,
+        #     self.mtl_version,
+        #     self.opt_mtl_path,
+        # )
 
         self.controller.start_process(req, ui)
         self._mtl_is_selected.set(True)
@@ -570,25 +615,28 @@ class MTLFrame(WavePackFrame):
         process button is clicked.
         """
         if not (self._mtl_is_selected.get() and self._input_is_selected.get()):
-            self.report.error("Please select both files to start process.")
+            self.journal.error("Please select both files to start process.")
             return
 
-        req = MTLRequest(
+        req = MTLProcessorRequest(
             MTLProcessorType(self.opt_process.get()),
+            self.context.user_id,
+            datetime.now(),
             MTLEnvironmentTypes(self.opt_env_types.get()),
             self.opt_filter.get(),
-            self.opt_data_table.get(),
+            self.opt_mtl_table_name.get(),
             Path(self.opt_mtl_path.get()),
-            Path(self.opt_input_path.get()),
+            Path(self.opt_pib_path.get()),
         )
 
-        ui = MTLUi(
+        ui = MTLUiPayload(
             self.progress_bar,
             self.process_button,
             self.opt_process,
             self.stext,
             self.mtl_version,
             self.opt_mtl_path,
+            self.opt_pib_path,
         )
 
         self.controller.start_process(req, ui)

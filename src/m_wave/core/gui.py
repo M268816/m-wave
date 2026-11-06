@@ -26,6 +26,7 @@ from m_wave.core.utils import (
 )
 from m_wave.core.wavepacks.gui_frame import WavePackGUI
 from m_wave.extensions.example.gui import ExampleFrame
+from m_wave.extensions.mtl.gui import MTLFrame
 from m_wave.launcher.gui import LauncherGUI
 
 # from m_wave.wave_packs.mtl.gui import MTLFrame
@@ -146,11 +147,11 @@ class App(tkb.Window):
         Registers WavePacks to the applicaiton. Only registered packs can be loaded
         and initialized by the Launcher frame.
         """
-        # self.add_wavepack(
-        #     "Master Tag List Processor",
-        #     MTLFrame,  # type: ignore
-        #     "Compare or append new PI records to the MTL/CMD.",
-        # )
+        self.add_wavepack(
+            "Master Tag List Processor",
+            MTLFrame,  # type: ignore
+            "Compare or append new PI records to the MTL/CMD.",
+        )
 
         self.add_wavepack(
             "Example Package",

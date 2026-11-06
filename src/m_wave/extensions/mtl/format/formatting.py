@@ -7,18 +7,17 @@
 import math
 import re
 
-import numpy as np
-
 # third party
+import numpy as np
 import pandas as pd
 
 # local core
 from m_wave.core.reporting import Reporting
-
-# local wave pack
 from m_wave.core.utils import DATETIME_FORMAT_MERCK
-from m_wave.wave_packs.mtl.metadata import Metadata, TableType
-from m_wave.wave_packs.mtl.utils import report_shape_differences
+
+# local extension
+from m_wave.extensions.mtl.utils.metadata import Metadata, TableType
+from m_wave.extensions.mtl.utils.utils import report_shape_differences
 
 _VALUE_NORMALIZATION_MAP: dict = {
     "TRUE": "True",

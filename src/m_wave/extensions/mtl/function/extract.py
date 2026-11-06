@@ -18,12 +18,13 @@ import pandas as pd
 import xlwings as xl
 
 # local core
-from m_wave.core.reporting import Reporting
+from m_wave.core.reporting.reporter import Reporter
 
-# local wave pack
+# local extension
 from m_wave.core.utils import DATETIME_FORMAT_MERCK
-from m_wave.wave_packs.mtl.metadata import Metadata
-from m_wave.wave_packs.mtl.paths import MTL_DOC_DIR
+from m_wave.extensions.mtl.pdf_template import ReportIssue
+from m_wave.extensions.mtl.utils.metadata import Metadata
+from m_wave.extensions.mtl.utils.paths import MTL_DOC_DIR
 
 MTL_URL = (
     "https://mango.merckgroup.com/cara/lnk/content/mango_document/2261639/Effective"
@@ -38,9 +39,17 @@ class DataExtractor:
     within the WAVE tool.
     """
 
-    def __init__(self, report: Reporting, metadata: Metadata) -> None:
-        self.report = report
+    def __init__(self, reporter: Reporter, metadata: Metadata) -> None:
+        self.reporter = reporter
+        self.journal = reporter.journal
+        self.debug = reporter.debug
+
+        self.report_issues: list[ReportIssue] = []
+
         self.metadata = metadata
+
+    def reset_report_issues(self) -> None:
+        self.report_issues = []
 
     def _get_browser_download_dir(self) -> Path:
         """
@@ -54,7 +63,7 @@ class DataExtractor:
             local_app_data / "Microsoft" / "Edge" / "User Data" / "Preferences",
         ]
 
-        self.report.info("Attempting to locate Downloads Directory...")
+        self.journal.info("Attempting to locate Downloads Directory...")
 
         for prefs_path in candidates:
             if prefs_path.is_file():
@@ -65,18 +74,25 @@ class DataExtractor:
                     if custom_dir:
                         custom_path = Path(custom_dir).expanduser()
                         if custom_path.is_dir():
-                            self.report.info(
+                            self.journal.info(
                                 "Detected custom download directory successfully."
                             )
-                            self.report.info(f"Download dir: {custom_dir}")
+                            self.journal.info(f"Download dir: {custom_dir}")
                             return Path(custom_dir)
                 except Exception as e:
-                    self.report.exception(
-                        "Could not detect a custom directory."
-                        + "This is not an issue, just an observation."
-                        + f"Execption caught: {e}"
+                    e_text = (
+                        "Could not detect a custom directory. "
+                        "This is not an issue, but an observation. Will use the "
+                        "default download directory instead."
                     )
-        self.report.info("No custom download directory found. Using defaults.")
+                    self.journal.error(e_text)
+                    self.debug.debug(
+                        "Exception caught wile attempting to detect "
+                        "a custom download directory: %s",
+                        e,
+                    )
+
+        self.journal.info("No custom download directory found. Using defaults.")
         return downloads_folder
 
     def _get_dl_dir_snapshot(self, dl_folder: Path) -> set:
@@ -88,8 +104,14 @@ class DataExtractor:
             for file_path in dl_folder.iterdir():
                 if file_path.is_file() and file_path.suffix.lower() == FILE_EXTENSION:
                     result.add((file_path.name, file_path.stat().st_size))
-        except PermissionError:
-            self.report.critical("Permission Error when searching DL folder")
+        except PermissionError as e:
+            self.journal.error("Permission Error when searching DL folder")
+            self.debug.error(
+                "Permissions error while attempting to return the file "
+                "name and size for excel files in the given folder: %s",
+                e,
+            )
+
         return result
 
     def _wait_until_stable(self, filepath: Path, stable_sec: int = 2) -> None:
@@ -125,22 +147,29 @@ class DataExtractor:
             elapsed += timeout_interval_sec
             dl_snapshot_after = self._get_dl_dir_snapshot(download_dir)
             new_files = dl_snapshot_after - dl_snapshot_before
+
             if new_files:
                 filename = sorted(new_files, key=lambda x: x[1], reverse=True)[0][0]
                 found = download_dir / filename
                 break
             if elapsed % 10 == 0:
-                self.report.info(f"\t... waiting({elapsed}s / {timeout_sec}s)")
+                self.journal.info(f"\t... waiting({elapsed}s / {timeout_sec}s)")
 
         if not found:
-            self.report.warning("Process timed out, no excel file detected.")
+            self.journal.warning("Process timed out, no excel file detected.")
+            issue = ReportIssue(
+                "Process Timeout",
+                "Process timeed out while downloading MTL/CMD",
+                "error",
+            )
+            self.report_issues.append(issue)
             return None
 
         self._wait_until_stable(Path(found))
 
         destination = MTL_DOC_DIR / found.name
         shutil.move(found, destination)
-        self.report.info(
+        self.journal.info(
             f"{found.name} moved from {found.parent}"
             + f" to {destination.parent} as {destination.name}"
         )
@@ -167,8 +196,8 @@ class DataExtractor:
                 None,
             )
             if sheet is None:
-                self.report.warning("No 'revision history' sheet found.")
-                self.report.warning(f"Available worksheets: {wb.sheetnames}")
+                self.journal.warning("No 'revision history' sheet found.")
+                self.journal.warning(f"Available worksheets: {wb.sheetnames}")
                 return None
 
             # Build a map of merged cell ranges so we can resolve
@@ -202,7 +231,7 @@ class DataExtractor:
                     last_row = row
 
             if last_row is None:
-                self.report.warning("No revision entries found in column A.")
+                self.journal.warning("No revision entries found in column A.")
                 return None
 
             # Collect the full row of data at last_row
@@ -212,7 +241,12 @@ class DataExtractor:
                 return str(int(version_value))
             return str(version_value)
         except Exception as e:
-            self.report.exception(f"{e}")
+            e_text = (
+                "Exception caught while attempting to retrive the latest revision "
+                "number from the MTL/CMD"
+            )
+            self.journal.error(e_text)
+            self.debug.error(e_text + ": %s", e)
         finally:
             if wb is not None:
                 wb.close()
@@ -240,7 +274,7 @@ class DataExtractor:
 
         is_missing = pd.isna(values) | values.eq("")
 
-        numeric_values: pd.Series = pd.to_numeric(values, errors="coerce")
+        numeric_values: pd.Series = pd.to_numeric(values, errors="coerce")  # type: ignore
 
         is_numeric = pd.notna(numeric_values) & ~is_missing
 
@@ -277,7 +311,7 @@ class DataExtractor:
         _df = df.copy()
         for col in datetime_columns:
             if col in _df.columns:
-                _df[col] = self._normalize_datetime_column(_df[col], datetime_format)
+                _df[col] = self._normalize_datetime_column(_df[col], datetime_format)  # type: ignore
         return _df
 
     def extract_mtl_table(self, mtl_file_path: Path) -> pd.DataFrame:
@@ -301,11 +335,17 @@ class DataExtractor:
                 pd.DataFrame, header=True, index=False
             ).value
             dataframe = self._normalize_datetime_columns(dataframe, datetime_columns)
-            self.report.info("MTL Data extracted successfully.")
+            self.journal.info("MTL Data extracted successfully.")
             return dataframe
         except Exception as e:
-            self.report.error("MTL extraction with xlwings failed.")
-            self.report.exception(f"{e}")
+            e_text = (
+                "An unexpected error occurred while attempting MTL extraction "
+                "with xlwings."
+            )
+            self.journal.error(e_text)
+            self.debug.error(e_text + ": %s", e)
+            issue = ReportIssue("Extracting MTL with xlwings.", e_text, "error")
+            self.report_issues.append(issue)
             return dataframe
         finally:
             if workbook is not None:
@@ -319,7 +359,7 @@ class DataExtractor:
         filter_str: str,
     ) -> pd.DataFrame:
         """
-        Returns a data frame from an input csv file.
+        Returns a data frame from a pi builder csv file.
         The filter string is only used for file naming in this function.
         Will raise an exception if it fails.
         """
@@ -337,24 +377,28 @@ class DataExtractor:
             return self._normalize_datetime_columns(parsed, datetime_columns)
 
         try:
-            self.report.info("Extracting the Input file.")
+            self.journal.info("Extracting the Input file.")
             df = read(file_path)
-            self.report.info("Input extraction was successful!")
+            self.journal.info("Input extraction was successful!")
             return df
         except UnicodeDecodeError as e:
-            self.report.warning("Could not read supplied CSV file!")
-            self.report.exception(f"\n{e}")
-            self.report.warning("Will attempt to convert known problem symbols...")
+            warning = "Could not read the PI Builder CSV file"
+            self.journal.warning(warning)
+            self.debug.warning(warning + ": %s", e)
+            self.journal.warning("Will attempt to convert known problem symbols...")
             try:
                 df = read(file_path, encoding="latin-1")
                 df = df.replace("�C", "°C", regex=False)
                 df = df.replace("�F", "°F", regex=False)
                 fixed_name = f"{filter_str}_fixed.csv"
-                fixed_file = self.report.report_dir / fixed_name
-                df.to_csv(fixed_file, encoding="utf-8-sig", index=False)
-                df = read(fixed_file)
-                self.report.info("Conversion completed!")
-                self.report.info(f"Converted input saved to: {fixed_name}")
+                # fixed_file = self.reporter.report_dir / fixed_name
+                # df.to_csv(fixed_file, encoding="utf-8-sig", index=False)
+                # df = read(fixed_file)
+                self.reporter.artifacts.save_csv(
+                    fixed_name, df, "PI Builder csv with fixed symbols"
+                )
+                self.journal.info("Conversion completed!")
+                self.journal.info(f"Converted input saved to: {fixed_name}")
                 return df
             except Exception as e:
                 error_msg = (
@@ -363,40 +407,48 @@ class DataExtractor:
                     + " yourself by opening the input CSV in excel and saving to the format:"
                     + " 'UTF-8 CSV'. Please report this error to your WAVE admin."
                 )
-                self.report.highlight_error("Could not convert bad input data.")
-                self.report.critical(error_msg, popup=True)
+                self.reporter.notifier.error(
+                    "Could not extract PI Builder CSV.", error_msg
+                )
+                self.journal.error_banner("Could not convert bad input data.")
+                self.journal.error(error_msg)
+                self.debug.error("Bad symbol in CSV file: %s", e)
+                issue = ReportIssue("Bad symbol in CSV file", error_msg, "critical")
+                self.report_issues.append(issue)
                 return df
         except Exception as e:
             error_msg = (
                 f"Input extraction unknown exception. Please report this error.\n{e}"
             )
-            self.report.highlight_error("Could not convert bad input data.")
-            self.report.critical(error_msg, popup=True)
+            self.journal.error_banner("Could not convert bad input data.")
+            self.journal.error(error_msg)
+            self.debug.error(error_msg)
+            self.reporter.notifier.error(error_msg, "PI Builder CSV Extraction Error.")
             return df
 
     def could_extract(
         self, mtl_dataframe: pd.DataFrame, pib_dataframe: pd.DataFrame
     ) -> bool:
         if mtl_dataframe.empty:
-            self.report.highlight_titled_error(
+            self.journal.error(
                 " MTL data could not be extracted. Check your selected MTL table."
             )
             return False
         if pib_dataframe.empty:
-            self.report.highlight_titled_error(
-                " Input CSV could not be extracted. Check your selected input table"
+            self.journal.error(
+                " PI Builder CSV could not be extracted. Check your selected input table."
             )
             return False
-        self.report.info("✓ MTL extracted successfully!")
+        self.journal.info("✓ MTL extracted successfully!")
         mtl_row_count = mtl_dataframe.shape[0]
         mtl_col_count = mtl_dataframe.shape[1]
-        self.report.info(
+        self.journal.info(
             f"✓ The MTL has {mtl_row_count} rows and {mtl_col_count} columns."
         )
-        self.report.info("✓ Input csv extracted successfully!")
+        self.journal.info("✓ Input csv extracted successfully!")
         pib_row_count = pib_dataframe.shape[0]
         pib_col_count = pib_dataframe.shape[1]
-        self.report.info(
-            f"✓ The Input csv has {pib_row_count} rows and {pib_col_count} columns."
+        self.journal.info(
+            f"✓ The PI Builder csv has {pib_row_count} rows and {pib_col_count} columns."
         )
         return True

@@ -4,13 +4,34 @@
 # This tool was created with the help of AI.
 
 # stdlib
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
 
 # third party
 import pandas as pd
+import ttkbootstrap as tkb
+from ttkbootstrap import ScrolledText
+
+from m_wave.core.reporting.reporter import Reporter
 
 # local core
-from m_wave.core.reporting import Reporting
+
+
+@dataclass
+class MTLUiPayload:
+    """
+    Data class that captures the extension's UI for manipulation during processing.
+    """
+
+    progress_bar: tkb.Progressbar
+    process_button: tkb.Button
+    opt_process: tkb.StringVar
+    text_box: ScrolledText
+    mtl_version: tkb.StringVar
+    mtl_path: tkb.StringVar
+    pib_path: tkb.StringVar
 
 
 class MTLEnvironmentTypes(str, Enum):
@@ -38,8 +59,28 @@ class MTLProcessorType(str, Enum):
     DOWNLOAD = "download"
 
 
+@dataclass(frozen=True)
+class MTLProcessorRequest:
+    """
+    Data class that captures a user request for the MTL process.
+    """
+
+    process_type: MTLProcessorType
+    user: str
+    start_datetime: datetime
+    env_types: MTLEnvironmentTypes
+    filter: str
+    mtl_table_name: str
+    mtl_file_path: Path
+    pib_file_path: Path
+
+    @property
+    def report_name(self) -> str | None:
+        return self.filter or None
+
+
 def report_shape_differences(
-    report: Reporting, mtl_df: pd.DataFrame, input_df: pd.DataFrame
+    report: Reporter, mtl_df: pd.DataFrame, input_df: pd.DataFrame
 ) -> tuple:
     """
     Reports the dimensions of the input data frames and returns that info in a tuple by:
@@ -64,17 +105,17 @@ def report_shape_differences(
     def _emit(mtl_dim, input_dim, dimension):
         plural = f"{dimension}s"
         if mtl_dim == input_dim:
-            report.info(f"{dimension} counts match!")
+            report.journal.info(f"{dimension} counts match!")
         else:
             diff = abs(mtl_dim - input_dim)
             larger, smaller = (
                 ("MTL", "PI Builder") if mtl_dim > input_dim else ("PI Builder", "MTL")
             )
-            report.warning(f"{larger} has {diff} more {plural} than {smaller}.")
+            report.journal.warning(f"{larger} has {diff} more {plural} than {smaller}.")
 
-    report.info("Tables shape comparison:")
+    report.journal.info("Tables shape comparison:")
     for key, value in comparison.items():
-        report.info(f"{key:>19}:\t{value}")
+        report.journal.info(f"{key:>19}:\t{value}")
 
     _emit(mtl_cols, input_cols, "column")
     _emit(mtl_rows, input_rows, "row")

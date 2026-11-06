@@ -10,10 +10,10 @@ from enum import Enum
 from pathlib import Path
 
 # local core
-from m_wave.core.reporting import Reporting
+from m_wave.core.reporting.reporter import Reporter
 
-# local wave pack
-from m_wave.wave_packs.mtl.paths import MTL_DOC_DIR, get_mtl_config_path
+# local extension
+from m_wave.extensions.mtl.utils.paths import MTL_DOC_DIR, get_mtl_config_path
 
 
 class TableType(str, Enum):
@@ -41,8 +41,11 @@ class TableInfo:
 
 
 class Metadata:
-    def __init__(self, report: Reporting, ws_name: str | None = None) -> None:
-        self.report: Reporting = report
+    def __init__(self, reporter: Reporter, ws_name: str | None = None) -> None:
+        self.report: Reporter = reporter
+        self.journal = reporter.journal
+        self.debug = reporter.debug
+        self.notify = reporter.notifier
         self.worksheet_name = ws_name
         self.mtl_configs = self.get_mtl_configs()
         self.worksheet_metadata = self.get_worksheet_metadata()
@@ -63,7 +66,8 @@ class Metadata:
         if self.worksheet_name:
             return True
 
-        self.report.critical("Worksheet name was never set!")
+        self.journal.error("Worksheet name was never set!")
+        self.debug.debug("metadata.worksheet_name_is_set: name never set.")
         return False
 
     def get_mtl_configs(self) -> dict:
@@ -104,16 +108,18 @@ class Metadata:
     def get_table_type(self) -> TableType:
         if self.worksheet_name_is_set():
             return self.worksheet_metadata[self.worksheet_name].type
-        self.report.critical("Table type could not be set.")
+        self.journal.error("Table type could not be set.")
+        self.debug.debug("metadata.get_table_type: table type could not be set")
         return TableType.UNKNOWN
 
     def table_type_is_set(self) -> bool:
         if self.table_type is not None and self.table_type != TableType.UNKNOWN:
             return True
 
-        self.report.critical(
-            "Table type was not set before trying to return table data.", popup=True
-        )
+        msg = "Table type was not set before trying to return table data."
+        self.journal.error(msg)
+        self.notify.info(msg)
+
         return False
 
     def get_mtl_version(self) -> str:
@@ -128,8 +134,9 @@ class Metadata:
                 json.dump(config, f, indent=4)
             self.mtl_configs["mtl_version"] = new_version
         except Exception as e:
-            self.report.critical("MTL configuration could not be written.", popup=True)
-            self.report.exception(f"{e}")
+            self.journal.error("MTL configuration could not be written.")
+            self.notify.error("MTL configuration could not be written.")
+            self.debug.error("MTL configuration could not be written: %s", e)
 
     def get_mtl_doc_num(self) -> str:
         return self.mtl_configs["mtl_doc_num"]

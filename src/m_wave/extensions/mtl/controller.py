@@ -4,194 +4,209 @@
 # This tool was created with the help of AI.
 
 # stdlib
-import time
-from dataclasses import dataclass
-from pathlib import Path
 from threading import Thread
 
 # third-party
 import ttkbootstrap as tkb
 from ttkbootstrap.constants import DISABLED, NORMAL
-from ttkbootstrap.widgets.scrolled import ScrolledText
 
 # local core
 from m_wave.core.context import AppContext
-from m_wave.core.paths import PATHS
 from m_wave.core.utils import load_configs
-from m_wave.core.wavepack_controller import WavePackController
+from m_wave.core.wavepacks.controller import WavePackController
 
 # local wave pack
-from m_wave.wave_packs.mtl.paths import get_mtl_config_path
-from m_wave.wave_packs.mtl.process import Process
-from m_wave.wave_packs.mtl.utils import MTLEnvironmentTypes, MTLProcessorType
-
-
-@dataclass(frozen=True)
-class MTLRequest:
-    """
-    Data class that captures a user request for the MTL process.
-    """
-
-    process_type: MTLProcessorType
-    env_types: MTLEnvironmentTypes
-    filter: str
-    data_table: str
-    mtl_file_path: Path
-    input_file_path: Path
-
-    @property
-    def report_name(self) -> str | None:
-        return self.filter or None
-
-
-@dataclass
-class MTLUi:
-    """
-    Data class that captures a processes UI for manipulation.
-    """
-
-    progress_bar: tkb.Progressbar
-    process_button: tkb.Button
-    opt_process: tkb.StringVar
-    stext: ScrolledText
-    version_var: tkb.StringVar
-    mtl_path: tkb.StringVar
+from m_wave.extensions.mtl.processor import MTLProcessor
+from m_wave.extensions.mtl.utils.paths import get_mtl_config_path
+from m_wave.extensions.mtl.utils.utils import (
+    MTLProcessorRequest,
+    MTLProcessorType,
+    MTLUiPayload,
+)
 
 
 class MTLController(WavePackController):
     """
-    Master controller of the reporting, processing and configuration parsing.
+    Master thread controller of the reporting, processing and configuration parsing.
     """
 
     def __init__(self, app: tkb.Window, context: AppContext):
         super().__init__(app, context)
-        self.app = app
+        self.processor = MTLProcessor(self.reporter)
+        self.journal = self.reporter.journal
+        self.debug = self.reporter.debug
+        self.notify = self.reporter.notifier
         self.context: AppContext = context
-
-        self.report = self.set_report(
-            PATHS.reports_dir,
-            self.context.user_preferences,
-        )
 
         try:
             self.configs = load_configs(get_mtl_config_path())
         except Exception as e:
             msg = f"Could not load configurations, check the general log file: {e}"
-            self.report.exception(msg, popup=True)
+            self.journal.error(msg)
+            self.notify.error(msg)
 
-    def _start_thread(
-        self,
-        req: MTLRequest,
-        ui: MTLUi,
-    ) -> None:
+    def start_process(self, request: MTLProcessorRequest, ui: MTLUiPayload) -> None:
         """
-        Opens a new thread and starts the subroutine.
+        Called on the main thread when the user clicks the proces button.
         """
-        _started = time.perf_counter()
-        if self.report is not None:
-            try:
-                process = Process(
-                    self.report,
-                    req.filter,
-                    req.data_table,
-                    req.env_types,
-                    req.mtl_file_path,
-                    req.input_file_path,
-                )
-
-                if req.process_type == MTLProcessorType.APPEND:
-                    process.run_append()
-                elif req.process_type == MTLProcessorType.COMPARE:
-                    process.run_comparison()
-                elif req.process_type == MTLProcessorType.DOWNLOAD:
-                    process.get_mtl_from_web(ui.version_var, ui.mtl_path)
-                else:
-                    self.report.critical(
-                        "Process request failed. MTLProcessorType does not exist",
-                        popup=True,
-                    )
-
-            except Exception as e:
-                self.report.exception(
-                    f"Subroutine process error:\n{e}",
-                    popup=True,
-                )
-            finally:
-                _ended = time.perf_counter()
-
-                def _finish_ui():
-                    ui.progress_bar.stop()
-                    ui.opt_process.set(MTLProcessorType.NONE)
-                    ui.process_button.config(state=NORMAL)
-
-                self.app.after(
-                    0, lambda r=self.report: r.info("Subroutine ended.", popup=True)
-                )
-                self.app.after_idle(_finish_ui)
-
-                completion_time = _ended - _started
-                self.report.simple_title(f"Processing took: {completion_time:.4f}s")
-        else:
-            raise RuntimeError("Report never set. Cannot init processing thread.")
-
-    def start_process(
-        self,
-        req: MTLRequest,
-        ui: MTLUi,
-    ):
-        """
-        Starts the data processing functions.
-        """
-        if self.report is not None:
-            self.reset_report(ui.stext)
-
-            if req.process_type == MTLProcessorType.DOWNLOAD:
-                report_name = "downloading_mtl_from_mango"
-            else:
-                report_name = (
-                    f"{req.process_type.value}_{req.data_table.lower()}_by_{req.report_name}"
-                    if req.report_name is not None
-                    else f"{req.process_type.value}_{req.data_table.lower()}"
-                )
-
-            self.report.create_report(report_name)
-        else:
-            raise RuntimeError(
-                "Report was never set, cannot start the processing functions."
-            )
-
-        if (
-            req.process_type == MTLProcessorType.NONE
-            or req.env_types == MTLEnvironmentTypes.NONE
-            and req.process_type != MTLProcessorType.DOWNLOAD
-        ):
-            self.app.after(
-                0,
-                lambda r=self.report: r.error(
-                    "Please make sure your environment types are selected and to select"
-                    " either the Compare or Append radio button.",
-                    popup=True,
-                ),
-            )
+        if self.is_running:
+            self.notify.warning("Process already running!")
             return
 
-        if self.process_thread and self.process_thread.is_alive():
-            self.app.after(
-                0,
-                lambda r=self.report: r.warning(
-                    "Process already running!",
-                    popup=True,
-                ),
-            )
-            return
+        self.display_journal_to(ui.text_box)
 
         ui.process_button.config(state=DISABLED)
-
         ui.progress_bar.start()
 
         self.process_thread = Thread(
-            target=lambda: self._start_thread(req, ui),
+            target=self._worker_thread,
+            args=(request, ui),
+            name="MTLProcess",
             daemon=True,
         )
-
         self.process_thread.start()
+
+    def _worker_thread(self, request: MTLProcessorRequest, ui: MTLUiPayload) -> None:
+        """
+        Worker thread for one complted process run.
+            start_process -> processor.run -> report.finish (or report.finish_with_error)
+        """
+        reporter = self.reporter
+        try:
+            report = reporter.start_report(str(request.report_name))
+            if request.process_type == MTLProcessorType.DOWNLOAD:
+                pdf_template = self.processor.download_mtl(request, ui)
+                reporter.finish_report(pdf_template)
+                reporter.notifier.info(
+                    f"Process finished: {pdf_template.status.label}\n"
+                    f"Results saved to: {report.folder.name}"
+                )
+            else:
+                self.notify.info("Other processes are disabled at this time.")
+                return
+        except Exception as error:
+            reporter.finish_report_with_error(error)
+            self.notify.error(
+                f"The process stopped with an error:\n{error}\n\n"
+                "See journal.log in the report folder for more details."
+            )
+        finally:
+            self.app.after(0, ui.progress_bar.stop)
+            self.app.after(0, lambda: ui.process_button.config(state=NORMAL))
+
+    # def _start_thread(
+    #     self,
+    #     req: MTLRequest,
+    #     ui: MTLUi,
+    # ) -> None:
+    #     """
+    #     Opens a new thread and starts the subroutine.
+    #     """
+    #     _started = time.perf_counter()
+    #     if self.report is not None:
+    #         try:
+    #             process = Process(
+    #                 self.report,
+    #                 req.filter,
+    #                 req.data_table,
+    #                 req.env_types,
+    #                 req.mtl_file_path,
+    #                 req.input_file_path,
+    #             )
+    #
+    #             if req.process_type == MTLProcessorType.APPEND:
+    #                 process.run_append()
+    #             elif req.process_type == MTLProcessorType.COMPARE:
+    #                 process.run_comparison()
+    #             elif req.process_type == MTLProcessorType.DOWNLOAD:
+    #                 process.get_mtl_from_web(ui.version_var, ui.mtl_path)
+    #             else:
+    #                 self.report.critical(
+    #                     "Process request failed. MTLProcessorType does not exist",
+    #                     popup=True,
+    #                 )
+    #
+    #         except Exception as e:
+    #             self.report.exception(
+    #                 f"Subroutine process error:\n{e}",
+    #                 popup=True,
+    #             )
+    #         finally:
+    #             _ended = time.perf_counter()
+    #
+    #             def _finish_ui():
+    #                 ui.progress_bar.stop()
+    #                 ui.opt_process.set(MTLProcessorType.NONE)
+    #                 ui.process_button.config(state=NORMAL)
+    #
+    #             self.app.after(
+    #                 0, lambda r=self.report: r.info("Subroutine ended.", popup=True)
+    #             )
+    #             self.app.after_idle(_finish_ui)
+    #
+    #             completion_time = _ended - _started
+    #             self.report.simple_title(f"Processing took: {completion_time:.4f}s")
+    #     else:
+    #         raise RuntimeError("Report never set. Cannot init processing thread.")
+    #
+    # def start_process(
+    #     self,
+    #     req: MTLRequest,
+    #     ui: MTLUi,
+    # ):
+    #     """
+    #     Starts the data processing functions.
+    #     """
+    #     if self.report is not None:
+    #         self.reset_report(ui.stext)
+    #
+    #         if req.process_type == MTLProcessorType.DOWNLOAD:
+    #             report_name = "downloading_mtl_from_mango"
+    #         else:
+    #             report_name = (
+    #                 f"{req.process_type.value}_{req.data_table.lower()}_by_{req.report_name}"
+    #                 if req.report_name is not None
+    #                 else f"{req.process_type.value}_{req.data_table.lower()}"
+    #             )
+    #
+    #         self.report.create_report(report_name)
+    #     else:
+    #         raise RuntimeError(
+    #             "Report was never set, cannot start the processing functions."
+    #         )
+    #
+    #     if (
+    #         req.process_type == MTLProcessorType.NONE
+    #         or req.env_types == MTLEnvironmentTypes.NONE
+    #         and req.process_type != MTLProcessorType.DOWNLOAD
+    #     ):
+    #         self.app.after(
+    #             0,
+    #             lambda r=self.report: r.error(
+    #                 "Please make sure your environment types are selected and to select"
+    #                 " either the Compare or Append radio button.",
+    #                 popup=True,
+    #             ),
+    #         )
+    #         return
+    #
+    #     if self.process_thread and self.process_thread.is_alive():
+    #         self.app.after(
+    #             0,
+    #             lambda r=self.report: r.warning(
+    #                 "Process already running!",
+    #                 popup=True,
+    #             ),
+    #         )
+    #         return
+    #
+    #     ui.process_button.config(state=DISABLED)
+    #
+    #     ui.progress_bar.start()
+    #
+    #     self.process_thread = Thread(
+    #         target=lambda: self._start_thread(req, ui),
+    #         daemon=True,
+    #     )
+    #
+    #     self.process_thread.start()

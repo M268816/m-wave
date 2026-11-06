@@ -14,12 +14,12 @@ import pywintypes
 import xlwings as xl
 
 # local core
-from m_wave.core.pdf_reporting import PDFReportStatus
-from m_wave.core.reporting import Reporting
+from m_wave.core.reporting.pdf_reporting import PDFReportStatus
+from m_wave.core.reporting.reporting import Reporting
 
-# local wave pack
-from m_wave.wave_packs.mtl.metadata import Metadata
-from m_wave.wave_packs.mtl.pdf_reporting import MTLAppendReportData, UpsertIssue
+# local extension
+from m_wave.extensions.mtl.pdf_template import AppendPDFTemplate, UpsertIssue
+from m_wave.extensions.mtl.utils.metadata import Metadata
 
 
 class DataAppender:
@@ -557,10 +557,10 @@ class DataAppender:
         mtl_file_path: Path,
         input_file_path: Path,
         filter_string: str | None = None,
-    ) -> MTLAppendReportData:
+    ) -> AppendPDFTemplate:
         """Snapshot the appender's outcome as a PDF report model."""
         appender = self
-        return MTLAppendReportData(
+        return AppendPDFTemplate(
             title="MTL Append Report",
             subtitle=f"{self.metadata.get_mtl_doc_num()} / {mtl_worksheet_name}",
             report_id=self.report.report_name,

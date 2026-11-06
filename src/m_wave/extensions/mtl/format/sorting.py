@@ -12,8 +12,8 @@ import pandas as pd
 # local core
 from m_wave.core.reporting import Reporting
 
-# local wave pack
-from m_wave.wave_packs.mtl.metadata import Metadata, TableType
+# local extension
+from m_wave.extensions.mtl.utils.metadata import Metadata, TableType
 
 
 class Sorting:

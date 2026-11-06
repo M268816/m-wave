@@ -13,17 +13,17 @@ import datacompy
 import pandas as pd
 
 # local core
-from m_wave.core.pdf_reporting import PDFReportStatus
 from m_wave.core.reporting import Reporting
+from m_wave.core.reporting.pdf_utils import PDFReportStatus
 
-# local wave pack
-from m_wave.wave_packs.mtl.metadata import Metadata
-from m_wave.wave_packs.mtl.pdf_reporting import (
+# local extension
+from m_wave.extensions.mtl.pdf_template import (
     ColumnDifferenceSummary,
+    ComparisonPDFTemplate,
     ComparisonRecord,
-    MTLReportData,
 )
-from m_wave.wave_packs.mtl.utils import report_shape_differences
+from m_wave.extensions.mtl.utils.metadata import Metadata
+from m_wave.extensions.mtl.utils.utils import report_shape_differences
 
 
 class Comparisons:
@@ -293,7 +293,7 @@ class Comparisons:
             long_form, comparison, key_columns, df1_name, df2_name
         )
 
-        pdf_report_data = MTLReportData(
+        pdf_report_data = ComparisonPDFTemplate(
             title="MTL vs PI Builder Comparison Report",
             report_id=self.report.report_name,
             user=self.report.user,

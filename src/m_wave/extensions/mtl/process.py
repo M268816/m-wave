@@ -12,18 +12,22 @@ import pandas as pd
 # third party
 import ttkbootstrap as tkb
 
-# local core
-from m_wave.core.pdf_reporting import PDFReportStatus
 from m_wave.core.reporting import Reporting
-from m_wave.wave_packs.mtl.appender import DataAppender
-from m_wave.wave_packs.mtl.comparisons import Comparisons
 
-# local wave pack
-from m_wave.wave_packs.mtl.extraction import DataExtractor
-from m_wave.wave_packs.mtl.formatting import Formatting
-from m_wave.wave_packs.mtl.metadata import Metadata
-from m_wave.wave_packs.mtl.sorting import Sorting
-from m_wave.wave_packs.mtl.utils import MTLEnvironmentTypes, report_shape_differences
+# local core
+from m_wave.core.reporting.pdf_utils import PDFReportStatus
+
+# local extension
+from m_wave.extensions.mtl.format.formatting import Formatting
+from m_wave.extensions.mtl.format.sorting import Sorting
+from m_wave.extensions.mtl.function.append import DataAppender
+from m_wave.extensions.mtl.function.compare import Comparisons
+from m_wave.extensions.mtl.function.extract import DataExtractor
+from m_wave.extensions.mtl.utils.metadata import Metadata
+from m_wave.extensions.mtl.utils.utils import (
+    MTLEnvironmentTypes,
+    report_shape_differences,
+)
 
 logger = logging.getLogger(__name__)
 

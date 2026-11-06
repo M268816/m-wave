@@ -67,7 +67,7 @@ class PDFReportTemplate:
 
     def build_components(
         self,
-        styles: TextStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         """

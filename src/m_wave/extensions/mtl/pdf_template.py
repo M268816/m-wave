@@ -21,23 +21,26 @@ from typing import Any
 # third party
 from reportlab.platypus import Flowable, KeepTogether, Paragraph, Spacer
 
-# local
-from m_wave.core.pdf_reporting import (
-    Metrics,
-    PDFReportData,
-    PDFReportStatus,
-    ReportStyles,
+from m_wave.core.reporting.pdf_builder import PDFReportTemplate
+from m_wave.core.reporting.pdf_components import (
     chart_image,
+    data_metric_grid,
     data_table,
     empty_state,
-    format_datetime,
-    metric_grid,
     note_box,
     section_heading,
-    shorten_path,
     status_banner,
+)
+from m_wave.core.reporting.pdf_styles import Sizing, TextStyles
+from m_wave.core.reporting.pdf_utils import (
+    PDFReportStatus,
+    format_datetime,
+    shorten_path,
     thousands,
 )
+
+# local
+
 
 # How many individual differences are listed in the PDF. The full set belongs
 # in the CSV export; a PDF with ten thousand mismatch rows helps nobody.
@@ -49,12 +52,15 @@ KEY_SAMPLE_LIMIT = 15
 
 
 @dataclass
-class UpsertIssue:
+class ReportIssue:
     """
     A validation problem that stopped ot qualified the upsert.
 
     ''check'' names the guard that fired, ''detail'' is what the user needs to
     fix, ''severity'' drives the color in the findings table.
+
+    severities as described in pdf_syles:
+    critical, error, fail, warning, warn, review
     """
 
     check: str
@@ -63,7 +69,94 @@ class UpsertIssue:
 
 
 @dataclass
-class MTLAppendReportData(PDFReportData):
+class DownloadPDFTemplate(PDFReportTemplate):
+    """
+    The MTL Download report. A simple pass/fail PDF for the download attempt of the
+    MTL/CMD.
+    """
+
+    issues: list[ReportIssue] = field(default_factory=list)
+
+    def build_components(
+        self,
+        text_styles: TextStyles,
+        width: float,
+    ) -> list[Flowable]:
+        """Assemble the append report body."""
+
+        status_message = {
+            PDFReportStatus.PASS: "The process completed downloading the MTL/CMD.",
+            PDFReportStatus.FAIL: "Could not download the MTL/CMD. Review issues.",
+            PDFReportStatus.ERRORED: "The process did not complete successfully.",
+            PDFReportStatus.NONE: "No result was recorded for this run.",
+        }[self.status]
+
+        elements: list[Flowable] = [
+            status_banner(text_styles, self.status, status_message, width),
+            Spacer(1, Sizing.GAP_SECTION),
+        ]
+
+        elements.extend(self._issue_section(text_styles, width))
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
+
+        return elements
+
+    def _issue_section(
+        self,
+        text_styles: TextStyles,
+        width: float,
+    ) -> list[Flowable]:
+        """
+        Builds an issue seciton if issues are present within self.issues
+        """
+
+        heading = section_heading(text_styles, "Download Issues")
+
+        if not self.issues:
+            return [
+                Spacer(1, Sizing.GAP_HEADING),
+                KeepTogether(
+                    [
+                        heading,
+                        Spacer(1, 10),
+                        empty_state(
+                            text_styles,
+                            "No problems were found.",
+                        ),
+                    ]
+                ),
+            ]
+
+        rows = [
+            [
+                issue.check,
+                issue.detail,
+                Paragraph(
+                    issue.severity.capitalize(),
+                    text_styles.severity_style(issue.severity),
+                ),
+            ]
+            for issue in self.issues
+        ]
+
+        table = data_table(
+            text_styles,
+            headers=["Check Performed", "What was found", "Severity"],
+            rows=rows,
+            width=width,
+            column_ratios=[1.8, 4.2, 1.0],
+        )
+
+        return [
+            Spacer(1, Sizing.GAP_HEADING),
+            heading,
+            Spacer(1, 10),
+            table,
+        ]
+
+
+@dataclass
+class AppendPDFTemplate(PDFReportTemplate):
     """
     MTL append / upsert report.
 
@@ -84,7 +177,7 @@ class MTLAppendReportData(PDFReportData):
 
     updated_keys: list[str] = field(default_factory=list)
     appended_keys: list[str] = field(default_factory=list)
-    issues: list[UpsertIssue] = field(default_factory=list)
+    issues: list[ReportIssue] = field(default_factory=list)
 
     key_columns: list[str] = field(default_factory=list)
     artifacts: list[tuple[Path, str]] = field(default_factory=list)
@@ -167,25 +260,25 @@ class MTLAppendReportData(PDFReportData):
 
     # -- layout -------------------------------------------------------------
 
-    def build_elements(
+    def build_components(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         """Assemble the append report body."""
         elements: list[Flowable] = [
-            status_banner(styles, self.status, self.status_message, width),
-            Spacer(1, Metrics.GAP_SECTION),
+            status_banner(text_styles, self.status, self.status_message, width),
+            Spacer(1, Sizing.GAP_SECTION),
         ]
 
-        elements.extend(self._summary_section(styles, width))
-        elements.extend(self._issue_section(styles, width))
-        elements.extend(self._row_accounting_section(styles, width))
-        elements.extend(self._key_section(styles, width))
-        elements.extend(self._artifact_section(styles, width))
+        elements.extend(self._summary_section(text_styles, width))
+        elements.extend(self._issue_section(text_styles, width))
+        elements.extend(self._row_accounting_section(text_styles, width))
+        elements.extend(self._key_section(text_styles, width))
+        elements.extend(self._artifact_section(text_styles, width))
 
-        elements.append(Spacer(1, Metrics.GAP_SECTION))
-        elements.append(note_box(styles, self._closing_note(), width))
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
+        elements.append(note_box(text_styles, self._closing_note(), width))
 
         return elements
 
@@ -193,7 +286,7 @@ class MTLAppendReportData(PDFReportData):
 
     def _summary_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         metrics = [
@@ -204,28 +297,28 @@ class MTLAppendReportData(PDFReportData):
         ]
 
         return [
-            section_heading(styles, "Summary"),
-            Spacer(1, Metrics.GAP_SECTION),
-            metric_grid(styles, metrics, width, columns=4),
-            Spacer(1, Metrics.GAP),
+            section_heading(text_styles, "Summary"),
+            Spacer(1, Sizing.GAP_SECTION),
+            data_metric_grid(text_styles, metrics, width, columns=4),
+            Spacer(1, Sizing.GAP),
         ]
 
     def _issue_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
-        heading = section_heading(styles, "Findings")
+        heading = section_heading(text_styles, "Findings")
 
         if not self.issues:
             return [
-                Spacer(1, Metrics.GAP_HEADING),
+                Spacer(1, Sizing.GAP_HEADING),
                 KeepTogether(
                     [
                         heading,
                         Spacer(1, 10),
                         empty_state(
-                            styles,
+                            text_styles,
                             "No problems were found. The column schema, the key "
                             "columns, and key uniqueness all passed, and the "
                             "result contained no duplicate keys.",
@@ -240,14 +333,14 @@ class MTLAppendReportData(PDFReportData):
                 issue.detail,
                 Paragraph(
                     issue.severity.capitalize(),
-                    styles.severity_style(issue.severity),
+                    text_styles.severity_style(issue.severity),
                 ),
             ]
             for issue in self.issues
         ]
 
         table = data_table(
-            styles,
+            text_styles,
             headers=["Check", "What was found", "Severity"],
             rows=rows,
             width=width,
@@ -255,7 +348,7 @@ class MTLAppendReportData(PDFReportData):
         )
 
         return [
-            Spacer(1, Metrics.GAP_HEADING),
+            Spacer(1, Sizing.GAP_HEADING),
             heading,
             Spacer(1, 10),
             table,
@@ -263,7 +356,7 @@ class MTLAppendReportData(PDFReportData):
 
     def _row_accounting_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         rows = [
@@ -276,7 +369,7 @@ class MTLAppendReportData(PDFReportData):
         ]
 
         table = data_table(
-            styles,
+            text_styles,
             headers=["Category", "Rows"],
             rows=rows,
             width=width,
@@ -285,8 +378,8 @@ class MTLAppendReportData(PDFReportData):
         )
 
         elements: list[Flowable] = [
-            Spacer(1, Metrics.GAP_HEADING),
-            section_heading(styles, "Row accounting"),
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Row accounting"),
             Spacer(1, 10),
             table,
         ]
@@ -294,13 +387,13 @@ class MTLAppendReportData(PDFReportData):
         # Surface an arithmetic disagreement rather than letting the reader
         # discover it by adding up the table themselves.
         if not self.row_count_reconciles:
-            elements.append(Spacer(1, Metrics.GAP))
+            elements.append(Spacer(1, Sizing.GAP))
             elements.append(
                 Paragraph(
                     f"The table grew by {thousands(self.row_delta)} row(s) but "
                     f"{thousands(self.rows_appended)} row(s) were reported as "
                     "appended. Verify the output file before using it.",
-                    styles.severity_style("error"),
+                    text_styles.severity_style("error"),
                 )
             )
 
@@ -308,7 +401,7 @@ class MTLAppendReportData(PDFReportData):
 
     def _key_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         if not self.updated_keys and not self.appended_keys:
@@ -322,7 +415,7 @@ class MTLAppendReportData(PDFReportData):
             rows.append([key, "Appended"])
 
         table = data_table(
-            styles,
+            text_styles,
             headers=["Record key", "Action"],
             rows=rows,
             width=width,
@@ -330,8 +423,8 @@ class MTLAppendReportData(PDFReportData):
         )
 
         elements: list[Flowable] = [
-            Spacer(1, Metrics.GAP_HEADING),
-            section_heading(styles, "Changed records"),
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Changed records"),
             Spacer(1, 10),
             table,
         ]
@@ -340,13 +433,13 @@ class MTLAppendReportData(PDFReportData):
         hidden_appended = max(len(self.appended_keys) - KEY_SAMPLE_LIMIT, 0)
 
         if hidden_updated or hidden_appended:
-            elements.append(Spacer(1, Metrics.GAP))
+            elements.append(Spacer(1, Sizing.GAP))
             elements.append(
                 Paragraph(
                     f"{thousands(hidden_updated)} further updated row(s) and "
                     f"{thousands(hidden_appended)} further appended row(s) are "
                     "not listed here. The complete set is in the CSV exports.",
-                    styles.metadata,
+                    text_styles.metadata,
                 )
             )
 
@@ -354,7 +447,7 @@ class MTLAppendReportData(PDFReportData):
 
     def _artifact_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         rows = [[path.name, description] for path, description in self.artifacts]
@@ -366,7 +459,7 @@ class MTLAppendReportData(PDFReportData):
             return []
 
         table = data_table(
-            styles,
+            text_styles,
             headers=["File", "What it contains"],
             rows=rows,
             width=width,
@@ -374,8 +467,8 @@ class MTLAppendReportData(PDFReportData):
         )
 
         return [
-            Spacer(1, Metrics.GAP_HEADING),
-            section_heading(styles, "Generated files"),
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Generated files"),
             Spacer(1, 10),
             table,
         ]
@@ -401,13 +494,6 @@ class MTLAppendReportData(PDFReportData):
             "original MTL was opened read-only and is unchanged. Review the "
             "CSV exports, then update the change log manually."
         )
-
-
-__all__ = [
-    "KEY_SAMPLE_LIMIT",
-    "MTLAppendReportData",
-    "UpsertIssue",
-]
 
 
 # COMPARING
@@ -443,7 +529,7 @@ class ColumnDifferenceSummary:
 
 
 @dataclass
-class MTLReportData(PDFReportData):
+class ComparisonPDFTemplate(PDFReportTemplate):
     """
     MTL vs PIB comparison report.
 
@@ -504,23 +590,25 @@ class MTLReportData(PDFReportData):
 
     def build_elements(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         """Assemble the MTL report body."""
         elements: list[Flowable] = []
 
-        elements.append(status_banner(styles, self.status, self.status_message, width))
-        elements.append(Spacer(1, Metrics.GAP_SECTION))
+        elements.append(
+            status_banner(text_styles, self.status, self.status_message, width)
+        )
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
 
-        elements.extend(self._summary_section(styles, width))
-        elements.extend(self._chart_section(styles, width))
-        elements.extend(self._column_section(styles, width))
-        elements.extend(self._difference_section(styles, width))
-        elements.extend(self._record_count_section(styles, width))
+        elements.extend(self._summary_section(text_styles, width))
+        elements.extend(self._chart_section(text_styles, width))
+        elements.extend(self._column_section(text_styles, width))
+        elements.extend(self._difference_section(text_styles, width))
+        elements.extend(self._record_count_section(text_styles, width))
 
-        elements.append(Spacer(1, Metrics.GAP_SECTION))
-        elements.append(note_box(styles, self._closing_note(), width))
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
+        elements.append(note_box(text_styles, self._closing_note(), width))
 
         return elements
 
@@ -528,7 +616,7 @@ class MTLReportData(PDFReportData):
 
     def _summary_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         metrics = [
@@ -539,15 +627,15 @@ class MTLReportData(PDFReportData):
         ]
 
         return [
-            section_heading(styles, "Summary"),
-            Spacer(1, Metrics.GAP_SECTION),
-            metric_grid(styles, metrics, width, columns=4),
-            Spacer(1, Metrics.GAP),
+            section_heading(text_styles, "Summary"),
+            Spacer(1, Sizing.GAP_SECTION),
+            data_metric_grid(text_styles, metrics, width, columns=4),
+            Spacer(1, Sizing.GAP),
         ]
 
     def _chart_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         path = self.chart_paths.get("differences_by_column")
@@ -555,16 +643,16 @@ class MTLReportData(PDFReportData):
             return []
 
         return [
-            Spacer(1, Metrics.GAP_HEADING),
-            section_heading(styles, "Differences by column"),
-            Spacer(1, Metrics.GAP_SECTION),
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Differences by column"),
+            Spacer(1, Sizing.GAP_SECTION),
             chart_image(path, width),
-            Spacer(1, Metrics.GAP),
+            Spacer(1, Sizing.GAP),
         ]
 
     def _column_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         if not self.column_summaries:
@@ -581,7 +669,7 @@ class MTLReportData(PDFReportData):
         ]
 
         table = data_table(
-            styles,
+            text_styles,
             headers=["Column", "Differences", "Missing from MTL", "Missing from PIB"],
             rows=rows,
             width=width,
@@ -590,27 +678,27 @@ class MTLReportData(PDFReportData):
         )
 
         return [
-            Spacer(1, Metrics.GAP_HEADING),
-            section_heading(styles, "Column breakdown"),
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Column breakdown"),
             Spacer(1, 10),
             table,
         ]
 
     def _difference_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
-        heading = section_heading(styles, "Difference sample")
+        heading = section_heading(text_styles, "Difference sample")
 
         if not self.difference_samples:
             return [
-                Spacer(1, Metrics.GAP_HEADING),
+                Spacer(1, Sizing.GAP_HEADING),
                 KeepTogether(
                     [
                         heading,
                         Spacer(1, 10),
-                        empty_state(styles, "No differences were found."),
+                        empty_state(text_styles, "No differences were found."),
                     ]
                 ),
             ]
@@ -625,14 +713,14 @@ class MTLReportData(PDFReportData):
                 record.pib_display,
                 Paragraph(
                     record.severity.capitalize(),
-                    styles.severity_style(record.severity),
+                    text_styles.severity_style(record.severity),
                 ),
             ]
             for record in shown
         ]
 
         table = data_table(
-            styles,
+            text_styles,
             headers=["Record key", "Column", "MTL value", "PIB value", "Severity"],
             rows=rows,
             width=width,
@@ -640,7 +728,7 @@ class MTLReportData(PDFReportData):
         )
 
         elements: list[Flowable] = [
-            Spacer(1, Metrics.GAP_HEADING),
+            Spacer(1, Sizing.GAP_HEADING),
             heading,
             Spacer(1, 10),
             table,
@@ -648,14 +736,14 @@ class MTLReportData(PDFReportData):
 
         remaining = len(self.difference_samples) - len(shown)
         if remaining > 0:
-            elements.append(Spacer(1, Metrics.GAP))
+            elements.append(Spacer(1, Sizing.GAP))
             elements.append(
                 Paragraph(
                     f"Showing the first {thousands(len(shown))} of "
                     f"{thousands(len(self.difference_samples))} differences. "
                     f"{thousands(remaining)} further differences are in the "
                     "CSV export.",
-                    styles.metadata,
+                    text_styles.metadata,
                 )
             )
 
@@ -663,7 +751,7 @@ class MTLReportData(PDFReportData):
 
     def _record_count_section(
         self,
-        styles: ReportStyles,
+        text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
         rows = [
@@ -675,7 +763,7 @@ class MTLReportData(PDFReportData):
         ]
 
         table = data_table(
-            styles,
+            text_styles,
             headers=["Category", "Count"],
             rows=rows,
             width=width,
@@ -684,8 +772,8 @@ class MTLReportData(PDFReportData):
         )
 
         return [
-            Spacer(1, Metrics.GAP_HEADING),
-            section_heading(styles, "Record counts"),
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Record counts"),
             Spacer(1, 10),
             table,
         ]
@@ -699,11 +787,3 @@ class MTLReportData(PDFReportData):
         if self.csv_export_name:
             return f"{note}: {self.csv_export_name.name}."
         return f"{note}."
-
-
-__all__ = [
-    "DIFFERENCE_SAMPLE_LIMIT",
-    "ColumnDifferenceSummary",
-    "ComparisonRecord",
-    "MTLReportData",
-]
