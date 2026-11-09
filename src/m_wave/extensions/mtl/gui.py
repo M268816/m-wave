@@ -111,10 +111,8 @@ class MTLFrame(WavePackGUI):
 
         self.app.after(0, self._check_for_mtl_document)
 
-        self.journal.info(
-            "Welcome to the WAVE. Start the process by choosing your files."
-        )
-        self.journal.info("For more information please use the Help Menu.")
+        self.write("Welcome to the WAVE. Start the process by choosing your files.")
+        self.write("For more information please use the Help Menu.")
 
     @property
     def reporter(self):
@@ -123,26 +121,12 @@ class MTLFrame(WavePackGUI):
         else:
             raise RuntimeError("Report not set. cannot use GUI reporter property.")
 
-    @property
-    def journal(self):
-        if self.controller.reporter:
-            return self.controller.reporter.journal
-        else:
-            raise RuntimeError("Report not set. Cannot use GUI journal property.")
-
-    @property
-    def notify(self):
-        if self.controller.reporter:
-            return self.controller.reporter.notifier
-        else:
-            raise RuntimeError("Report not set. Cannot use GUI notify property.")
-
     def write(self, msg: str) -> None:
         """Write a line to the text box without initializing a report."""
         try:
             widget = self.stext.text  # the tk.Text inside the ScrolledText
             widget.configure(state="normal")
-            widget.insert("end", "\n".join(msg) + "\n")
+            widget.insert("end", f"{msg}\n")
             widget.configure(state="disabled")
             widget.see("end")
         except Exception as e:
@@ -169,7 +153,7 @@ class MTLFrame(WavePackGUI):
         Looks for a local MTL document. If found, reads its last revision on a
         worker thread so the UI stays responsive, then finishes on the main thread.
         """
-        self.journal.info("Checking files for a MTL document.")
+        self.write("Checking files for a MTL document.")
         mtl_doc_path = self.metadata.get_mtl_document_path()
 
         if not mtl_doc_path.exists():
@@ -178,12 +162,11 @@ class MTLFrame(WavePackGUI):
                 "Use the Import button to automatically "
                 "download a current effective version of the MTL."
             )
-            self.journal.warning(warn)
-            self.notify.warning(warn)
+            self.write(warn)
 
             return
 
-        self.journal.info("MTL file found.")
+        self.write("MTL file found.")
         self.opt_mtl_path.set(str(mtl_doc_path))
         self._show_busy("Reading the MTL revision.\nThis may take a moment...")
 
@@ -217,30 +200,27 @@ class MTLFrame(WavePackGUI):
 
         if "error" in result:
             msg = f"Could not read the revision of the local MTL: {result['error']}"
-            self.journal.error(msg)
-            self.notify.error(msg)
+            self.write(msg)
             return
 
         last_rev = result.get("revision")
         if last_rev is None:
             msg = (
-                "Could not determine the revision of the local MTL. "
+                "Could not determine the revision of the local MTL.\n"
                 "Use the Import button to download the latest revision."
             )
-            self.journal.warning(msg)
-            self.notify.warning(msg)
+            self.write(msg)
             return
 
         self.metadata.set_mtl_version(str(last_rev))
         self.mtl_version.set(str(last_rev))
         self._mtl_is_selected.set(True)
         msg = (
-            f"Local MTL document is revision: {last_rev}. "
-            "If this revision is incorrect. Please use the Import button "
+            f"Local MTL document is revision: {last_rev}.\n"
+            "If this revision is incorrect. Please use the Import button\n"
             "and the app will automatically download the latest revision."
         )
-        self.journal.warning(msg)
-        self.notify.warning(msg)
+        self.write(msg)
 
     def _show_busy(self, message: str) -> None:
         """
@@ -297,9 +277,8 @@ class MTLFrame(WavePackGUI):
 
     def show_help(self):
         msg = "Instructional Video will now open.\nText instructions sent to display."
-        self.journal.info(msg)
-        self.notify.info(msg)
-        self.journal.info(self.load_mtl_instructions())
+        self.write(msg)
+        self.write(self.load_mtl_instructions())
         os.startfile(MTL_DEMO_VIDEO_PATH)
         # vid_link = self.controller.configs["mtl_help_vid_url"]
         # webbrowser.open(vid_link, new=1)
@@ -573,7 +552,7 @@ class MTLFrame(WavePackGUI):
             user=self.context.user_id,
             start_datetime=datetime.now(),
             env_types=MTLEnvironmentTypes.NONE,
-            filter=self.opt_filter.get(),
+            filter="MTL_CMD Download",  # ignore the filer here and use "MTL/CMD Download"
             mtl_table_name=self.opt_mtl_table_name.get(),
             mtl_file_path=Path(self.opt_mtl_path.get()),
             pib_file_path=Path(self.opt_pib_path.get()),
@@ -615,7 +594,7 @@ class MTLFrame(WavePackGUI):
         process button is clicked.
         """
         if not (self._mtl_is_selected.get() and self._input_is_selected.get()):
-            self.journal.error("Please select both files to start process.")
+            self.write("Please select both files to start process.")
             return
 
         req = MTLProcessorRequest(
