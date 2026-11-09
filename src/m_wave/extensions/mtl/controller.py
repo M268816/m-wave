@@ -73,7 +73,12 @@ class MTLController(WavePackController):
         """
         reporter = self.reporter
         try:
-            report = reporter.start_report(str(request.report_name))
+            report_name = str(
+                request.report_name
+                if request.report_name is not None
+                else "Not Filtered"
+            )
+            report = reporter.start_report(report_name)
             if request.process_type == MTLProcessorType.DOWNLOAD:
                 pdf_template = self.processor.download_mtl(request, ui)
                 reporter.finish_report(pdf_template)
