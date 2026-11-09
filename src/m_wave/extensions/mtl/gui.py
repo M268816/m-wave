@@ -90,7 +90,7 @@ class MTLFrame(WavePackGUI):
         self.opt_use_msg_types = tkb.BooleanVar(
             value=self.context.user_preferences.get("use_msg_types")
         )
-        self.opt_mtl_table_name = tkb.StringVar()
+        self.opt_mtl_worksheet_name = tkb.StringVar()
         self.opt_mtl_path = tkb.StringVar(value="Select a file or import from ManGo.")
         self.opt_pib_path = tkb.StringVar(value="Select a file.")
         self.opt_filter = tkb.StringVar()
@@ -430,13 +430,15 @@ class MTLFrame(WavePackGUI):
         cbox_label.pack(side=LEFT, padx=PAD_X)
 
         keys = list(self.metadata.worksheet_metadata.keys())
-        self.mtl_table_cbox = tkb.Combobox(top_row, values=keys)
-        self.mtl_table_cbox.pack(side=LEFT, fill=X, expand=YES, padx=PAD_X)
-        self.mtl_table_cbox.current(0)
-        self.mtl_table_cbox.bind("<<ComboboxSelected>>", self._on_mtl_table_selected)
+        self.mtl_worksheet_cbox = tkb.Combobox(top_row, values=keys)
+        self.mtl_worksheet_cbox.pack(side=LEFT, fill=X, expand=YES, padx=PAD_X)
+        self.mtl_worksheet_cbox.current(0)
+        self.mtl_worksheet_cbox.bind(
+            "<<ComboboxSelected>>", self._on_mtl_worksheet_selected
+        )
 
-        default_value = self.mtl_table_cbox.get()
-        self.opt_mtl_table_name.set(default_value)
+        default_value = self.mtl_worksheet_cbox.get()
+        self.opt_mtl_worksheet_name.set(default_value)
 
         env_type_label = tkb.Label(
             bottom_row, text="Environment Types:", padding=PAD, width=width, anchor=E
@@ -475,14 +477,14 @@ class MTLFrame(WavePackGUI):
         )
         version_key_label.pack(side=RIGHT, padx=PAD_X)
 
-    def _on_mtl_table_selected(self, event) -> None:
+    def _on_mtl_worksheet_selected(self, event) -> None:
         """
         Gets the new table selection and sets the data_table option when its combobox
         is changed.
         """
         _ = event
-        val = self.mtl_table_cbox.get()
-        self.opt_mtl_table_name.set(val)
+        val = self.mtl_worksheet_cbox.get()
+        self.opt_mtl_worksheet_name.set(val)
 
     def _on_compare_type_selected(self, event, env_map: dict) -> None:
         """
@@ -553,7 +555,7 @@ class MTLFrame(WavePackGUI):
             start_datetime=datetime.now(),
             env_types=MTLEnvironmentTypes.NONE,
             filter="MTL_CMD Download",  # ignore the filer here and use "MTL/CMD Download"
-            mtl_table_name=self.opt_mtl_table_name.get(),
+            mtl_worksheet_name=self.opt_mtl_worksheet_name.get(),
             mtl_file_path=Path(self.opt_mtl_path.get()),
             pib_file_path=Path(self.opt_pib_path.get()),
         )
@@ -603,7 +605,7 @@ class MTLFrame(WavePackGUI):
             datetime.now(),
             MTLEnvironmentTypes(self.opt_env_types.get()),
             self.opt_filter.get(),
-            self.opt_mtl_table_name.get(),
+            self.opt_mtl_worksheet_name.get(),
             Path(self.opt_mtl_path.get()),
             Path(self.opt_pib_path.get()),
         )

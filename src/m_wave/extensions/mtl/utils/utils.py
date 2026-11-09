@@ -70,7 +70,7 @@ class MTLProcessorRequest:
     start_datetime: datetime
     env_types: MTLEnvironmentTypes
     filter: str
-    mtl_table_name: str
+    mtl_worksheet_name: str
     mtl_file_path: Path
     pib_file_path: Path
 

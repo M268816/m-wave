@@ -133,6 +133,16 @@ class MTLProcessor:
             )
             return pdf
 
+    def run_comparison(self, request: MTLProcessorRequest, ui: MTLUiPayload) -> bool:
+        """
+        Given a ProcessorRequest and UiPayload, this processor will run a comparison
+        of a supplied MTL/CMD, and PI Builder file.
+        """
+        try:
+            self.journal.title(
+                f"COMPARISON STARTED FOR WORKSHEET: {request.mtl_worksheet_name}"
+            )
+
     # def run(self, request: MTLProcessorRequest) -> PDFReportTemplate:
     #     """
     #     Do processing work and return the filled-in PDF template.
