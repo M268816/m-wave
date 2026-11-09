@@ -77,7 +77,7 @@ class MTLProcessor:
 
         try:
             download_path = self.extractor.download_mtl()
-            self.journal.title("MTL/CMD SUCCESSFULLY DOWNLOADED")
+            self.journal.subtitle("MTL/CMD SUCCESSFULLY DOWNLOADED")
 
             if download_path is not None:
                 self.journal.info("Attempting to retrieve the last document revision.")
