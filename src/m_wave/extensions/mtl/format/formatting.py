@@ -12,10 +12,14 @@ import numpy as np
 import pandas as pd
 
 # local core
-from m_wave.core.reporting import Reporting
+from m_wave.core.reporting.debug_log import DebugLog
+from m_wave.core.reporting.journal import Journal
+from m_wave.core.reporting.notifier import Notifier
+from m_wave.core.reporting.reporter import Reporter
 from m_wave.core.utils import DATETIME_FORMAT_MERCK
 
 # local extension
+from m_wave.extensions.mtl.pdf_template import ReportIssue
 from m_wave.extensions.mtl.utils.metadata import Metadata, TableType
 from m_wave.extensions.mtl.utils.utils import report_shape_differences
 
@@ -36,9 +40,15 @@ class Formatting:
     Helper class that handles all MTL and INPUT CSV formatting.
     """
 
-    def __init__(self, report: Reporting, metadata: Metadata) -> None:
-        self.report = report
-        self.metadata = metadata
+    def __init__(self, reporter: Reporter, metadata: Metadata) -> None:
+        self.reporter: Reporter = reporter
+        self.journal: Journal = reporter.journal
+        self.notify: Notifier = reporter.notifier
+        self.debug: DebugLog = reporter.debug
+        self.metadata: Metadata = metadata
+
+        # NOTE: use .clear() to reset issues after each run
+        self.report_issues: list[ReportIssue] = []
 
     def filter_on_keys(
         self, mtl_df: pd.DataFrame, input_df: pd.DataFrame
@@ -75,11 +85,15 @@ class Formatting:
             ].reset_index()[original_columns]
 
             # Save each data frame to keep a record
-            comparable_mtl.to_csv(
-                self.report.report_dir / "comparable_rows.csv", index=False
+            self.reporter.artifacts.save_csv(
+                "comparable_rows",
+                comparable_mtl,
+                "Rows of the MTL/CMD data table that can be compared.",
             )
-            non_comparable.to_csv(
-                self.report.report_dir / "non_comparable_rows.csv", index=False
+            self.reporter.artifacts.save_csv(
+                "non_comparable_rows",
+                non_comparable,
+                "Rows of the MTL/CMS data table that cannot be compared.",
             )
 
             output = (comparable_mtl, comparable_input)
@@ -87,15 +101,18 @@ class Formatting:
 
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
-            self.report.exception(error_msg)
+            self.journal.error(error_msg)
+            self.debug.debug("A key error occurred during upserting.\n %s", e)
             return output
         except ValueError as e:
             error_msg = f"A value error occurred during upserting.\n{e}"
-            self.report.exception(error_msg)
+            self.journal.error(error_msg)
+            self.debug.debug("A value error occurrred during upserting.\n %s", e)
             return output
         except Exception as e:
             error_msg = f"An unexpected error occurred during upserting.\n{e}"
-            self.report.exception(error_msg)
+            self.journal.error(error_msg)
+            self.debug.debug("An unexpected error occurred during upserting.\n %s", e)
             return output
 
     def _mask_to_regex(self, mask: str) -> str:
@@ -124,25 +141,31 @@ class Formatting:
         output = pd.DataFrame()
         try:
             if df.empty:
-                self.report.error(
+                issue = ReportIssue(
+                    "Cannot filter empty data frame.",
+                    "Attempted to filter by a string, but cannot filter with an empty data frame.",
+                    "Warning",
+                )
+                self.report_issues.append(issue)
+                self.journal.error(
                     "The process passed an empty data frame through the filtering process."
                 )
-                self.report.error("Cannot filter empty data frames. Process failed.")
+                self.journal.error("Cannot filter empty data frames. Process failed.")
                 return output
 
             table_type = self.metadata.table_type
 
-            self.report.info(f"Filtering table: {table_type.name}")
+            self.journal.info(f"Filtering table: {table_type.name}")
 
             if not filter_string:
                 return df.copy()
 
-            self.report.info(f"Filtering by: {filter_string}")
+            self.journal.info(f"Filtering by: {filter_string}")
             filter_keys = self.metadata.get_table_filter_keys()
             filter_keys = [key for key in filter_keys if key in df.columns]
 
             if not filter_keys:
-                self.report.warning(
+                self.journal.warning(
                     "No filter keys found in dataframe; returning unfiltered data frame."
                 )
                 return df.copy()
@@ -150,11 +173,10 @@ class Formatting:
             regex_pattern = self._mask_to_regex(filter_string)
             mask = pd.Series(False, index=df.index)
 
-            self.report.debug(
-                f"regex_pattern type: {type(regex_pattern)}", report=False
-            )
-            self.report.debug(
-                f"regex_pattern representation: {regex_pattern!r}", report=False
+            self.debug.debug("regex_pattern type: %s", type(regex_pattern))
+            self.debug.debug(
+                "regex_pattern representation: %s",
+                f"{regex_pattern!r}",
             )
             for key in filter_keys:
                 as_string = df[key].astype("string")
@@ -165,10 +187,10 @@ class Formatting:
                 )
 
             output = df.loc[mask].copy()
-            self.report.info("Filter applied!")
+            self.journal.info("Filter applied!")
             return output
         except Exception as e:
-            self.report.exception(str(e))
+            self.debug.error("Unexpected error while filtering by string:\n %s", e)
             return output
 
     def _drop_na_columns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -190,7 +212,7 @@ class Formatting:
             )
             return _df
         except Exception as e:
-            self.report.exception(f"Could not drop na columns: {e}")
+            self.debug.error("Unexpected error while dropping na columns:\n %s", e)
             return df
 
     def _drop_na_rows(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
@@ -198,7 +220,7 @@ class Formatting:
         Drop rows that do not have proper keys assigned. Most likely picked up from
         bad PI Builder exports or misaligned MTL Tables.
         """
-        self.report.info("Dropping possible empty rows.")
+        self.journal.info("Dropping possible empty rows.")
         _df = df.copy()
         keys = [this_key for this_key in keys if this_key in _df.columns]
 
@@ -231,9 +253,8 @@ class Formatting:
                         col_dtype
                     ) or pd.api.types.is_integer_dtype(col_dtype):
                         # Not a string, cast from date serial to string
-                        self.report.debug(
-                            f"Converting QA date serial in '{column}' to string.",
-                            report=False,
+                        self.debug.debug(
+                            "Converting QA date serial in '%s' to string.", column
                         )
 
                         _df[column] = (
@@ -255,9 +276,9 @@ class Formatting:
                         )
             return _df
         except Exception as e:
-            self.report.error(f"Could not format datetime columns: {e}")
-            self.report.exception(f"Could not format datetime columns: {e}")
-            return pd.DataFrame
+            self.journal.error(f"Could not format datetime columns:\n {e}")
+            self.debug.debug("Could not format datetime columns:\n %s", e)
+            return pd.DataFrame()
 
     def _conform_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -322,7 +343,8 @@ class Formatting:
                 _df[column] = _df[column].map(normalize_cell)
             return _df
         except Exception as e:
-            self.report.exception(f"Could not normalize numeric columns: {e}")
+            self.journal.error(f"Could not normalize numeric columns: {e}")
+            self.debug.error("Could not normalize number columns:\n %s", e)
             return df
 
     def _conform_blank_cells(
@@ -354,7 +376,8 @@ class Formatting:
             return _df
 
         except Exception as e:
-            self.report.exception(f"Could not conform blank cells: {e}")
+            self.journal.error(f"Could not conform blank cells: {e}")
+            self.debug.error("Could not conform blank cells:\n %", e)
             return df
 
     def _normalize_key_columns(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
@@ -368,8 +391,8 @@ class Formatting:
 
             for key in keys:
                 if key not in result.columns:
-                    self.report.debug(f"{key} not found in for key normaliztion.")
-                    self.report.debug(f"Columns: {result.columns.tolist()}")
+                    self.journal.error_banner(f"{key} not found for key normaliztion.")
+                    self.journal.error(f"Columns: {result.columns.tolist()}")
                     continue
 
                 values = (
@@ -384,7 +407,8 @@ class Formatting:
             return result
 
         except Exception as e:
-            self.report.exception(f"Could not normalize key columns: {e}")
+            self.journal.error(f"Could not normalize key columns: {e}")
+            self.debug.error("Could not normalize key columns:\n %s", e)
             return df
 
     def _normalize_whitespace(
@@ -422,12 +446,13 @@ class Formatting:
             return df_copy
         except Exception as e:
             error_msg = f"Could not normalize white space:\n{e}"
-            self.report.exception(error_msg, popup=True)
+            self.journal.error(error_msg)
+            self.debug.error("Could not normalize white space:\n %s", e)
             return df
 
     def format(
         self,
-        df: pd.DataFrame | None,
+        df: pd.DataFrame,
     ) -> pd.DataFrame:
         """
         Universally format cell values to strings for data comparison.
@@ -435,8 +460,14 @@ class Formatting:
         """
         output = pd.DataFrame()
 
-        if df is None:
-            self.report.error("Cannot format empty DataFrame. Formating stopped.")
+        if df.empty:
+            issue = ReportIssue(
+                "Formatting the data frame.",
+                "Attempted to format the given data frame, but the data frame was empty.",
+                "error",
+            )
+            self.report_issues.append(issue)
+            self.journal.error("Cannot format empty DataFrame. Formating stopped.")
             return pd.DataFrame()
 
         try:
@@ -470,7 +501,14 @@ class Formatting:
 
         except Exception as e:
             error_msg = f"Could not format dataframe:\n{e}"
-            self.report.exception(error_msg, popup=True)
+            self.journal.error(error_msg)
+            self.debug.error("An unexpected error occurred during formating:\n %s", e)
+            issue = ReportIssue(
+                "Unexpected Format Error",
+                "An unexpected error occurred during formatting.",
+                "critical",
+            )
+            self.report_issues.append(issue)
             return output
 
     def could_format(
@@ -480,19 +518,19 @@ class Formatting:
         Checks data frames and returns a bool if they could be formatted.
         """
         if mtl_dataframe.empty:
-            self.report.highlight_titled_error("MTL data formatting failed.")
+            self.journal.error_banner("MTL data formatting failed.")
             return False
         if input_dataframe.empty:
-            self.report.highlight_titled_error("Input data formatting failed.")
+            self.journal.error_banner("Input data formatting failed.")
             return False
-        self.report.info("MTL formatted successfully!")
-        self.report.info("MTL shape after formatting:")
-        self.report.info(f"       Rows: {mtl_dataframe.shape[0]}")
-        self.report.info(f"    Columns: {mtl_dataframe.shape[1]}")
-        self.report.info("Input formatted successfully!")
-        self.report.info("Input shape after formatting:")
-        self.report.info(f"       Rows: {input_dataframe.shape[0]}")
-        self.report.info(f"    Columns: {input_dataframe.shape[1]}")
+        self.journal.info("MTL formatted successfully!")
+        self.journal.info("MTL shape after formatting:")
+        self.journal.info(f"       Rows: {mtl_dataframe.shape[0]}")
+        self.journal.info(f"    Columns: {mtl_dataframe.shape[1]}")
+        self.journal.info("Input formatted successfully!")
+        self.journal.info("Input shape after formatting:")
+        self.journal.info(f"       Rows: {input_dataframe.shape[0]}")
+        self.journal.info(f"    Columns: {input_dataframe.shape[1]}")
         return True
 
     def _classic_data_check(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -507,19 +545,19 @@ class Formatting:
 
         if table_type == TableType.GXP:
             if classic_columns.issubset(set(_df.columns)):
-                self.report.info("Classic columns found.")
+                self.journal.info("Classic columns found.")
                 return _df
             else:
                 for col in classic_columns:
                     if col not in _df.columns:
                         _df[col] = None
-                self.report.info("Classic columns applied.")
+                self.journal.info("Classic columns applied.")
         return _df
 
     def conform_columns(
         self,
-        mtl_df: pd.DataFrame | None,
-        input_df: pd.DataFrame | None,
+        mtl_df: pd.DataFrame,
+        input_df: pd.DataFrame,
         use_version: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -528,13 +566,22 @@ class Formatting:
         Returns empty data frames if it fails.
         """
 
-        if mtl_df is None or input_df is None:
-            self.report.error("There was a problem conforming the columns.")
-            self.report.error("Cannot conform empty data frames.")
+        if mtl_df.empty or input_df.empty:
+            issue = ReportIssue(
+                "Empty data frame check",
+                "While conforming columns one or both of the supplied data frames "
+                "were empty.",
+                "error",
+            )
+            self.report_issues.append(issue)
+            self.journal.error("There was a problem conforming the columns.")
+            self.journal.error("Cannot conform empty data frames.")
             return pd.DataFrame(), pd.DataFrame()
+
         _mtl = mtl_df.copy()
         _input = input_df.copy()
         output = (pd.DataFrame(), pd.DataFrame())
+
         try:
             if use_version:
                 if "Version" not in _input.columns:
@@ -548,17 +595,17 @@ class Formatting:
             mtl_cols = _mtl.shape[1]
             input_cols = _input.shape[1]
 
-            self.report.info("Checking input for classic MTL columns.")
+            self.journal.info("Checking input for classic MTL columns.")
             _input = self._classic_data_check(_input)
 
             if mtl_cols != input_cols or (_mtl.dtypes != _input.dtypes).any():
-                self.report.highlight_error("Columns do not align!")
-                report_shape_differences(self.report, mtl_df, input_df)
-                self.report.warning(
+                self.journal.warning("Columns do not align!")
+                self.journal.warning(
                     "Columns or types may not be aligned and will now be tested and changed."
                 )
+                report_shape_differences(self.reporter, mtl_df, input_df)
             else:
-                self.report.info("Columns are aligned correctly. Continuing...")
+                self.journal.info("Columns are aligned correctly. Continuing...")
                 output = (_mtl, _input)
                 return output
 
@@ -566,47 +613,48 @@ class Formatting:
             # by filtering the df columns by the mtl columns
             column_difference = set(_input.columns) ^ set(_mtl.columns)
             if column_difference:
-                self.report.warning("The current difference in columns are:")
+                self.journal.warning("The current difference in columns are:")
                 for i, col in enumerate(column_difference):
-                    self.report.warning(f"    {i}:{col}")
+                    self.journal.warning(f"    {i}:{col}")
 
-            self.report.info("Aligning columns...")
+            self.journal.info("Aligning columns...")
             _input = _input[_mtl.columns]
-            self.report.info("✓ Input data columns have aligned to the MTL columns!")
-            self.report.info(f"✓ {len(_mtl.columns)} columns set.")
-            self.report.info("Columns used within this comparison:")
+            self.journal.info("✓ Input data columns have aligned to the MTL columns!")
+            self.journal.info(f"✓ {len(_mtl.columns)} columns set.")
+            self.journal.info("Columns used within this comparison:")
 
             for index, col in enumerate(_input.columns):
-                self.report.info(f"    {index}:{col}")
+                self.journal.info(f"    {index}:{col}")
 
             # Ensure the column data types are the same by matching the input
             # dtypes to the mtl dtypes
-            self.report.info("Standardizing data types...")
-            self.report.info("Casting Input types to match the MTL columns.")
+            self.journal.info("Standardizing data types...")
+            self.journal.info("Casting Input types to match the MTL columns.")
 
             for col in _input.columns:
-                self.report.debug(f"Casting {col} column.", report=False)
+                self.debug.debug("Casting '%s' column.", col)
                 if col in _mtl.columns:
-                    self.report.debug(
-                        f"Input type: {_input[col].dtype} changed to MTL type: {_mtl[col].dtype}.",
-                        report=False,
-                    )
                     _input[col] = _input[col].astype(  # type: ignore
                         _mtl[col].dtype  # type: ignore
                     )
-            self.report.info("Data types aligned!")
+                    self.debug.debug(
+                        "Input type: '%s' changed to MTL type: '%s'.",
+                        _input[col].dtype,
+                        _mtl[col].dtype,
+                    )
+
+            self.journal.info("Data types aligned!")
 
             output = (_mtl, _input)
             return output  # type: ignore
 
         except KeyError as e:
             error_msg = "Column mismatch: The input file is missing required columns."
-            self.report.highlight_titled_error(error_msg)
-            self.report.exception(f"\n{e}\n")
+            self.journal.error_banner(error_msg)
+            self.journal.error(f"\n{e}\n")
             return output
         except Exception as e:
-            self.report.highlight_titled_error(
-                "Data alignment failed! An unexpected error occurred."
-            )
-            self.report.exception(f"\n{e}\n")
+            msg = "Data alignment failed! An unexpected error occurred."
+            self.journal.error(msg)
+            self.debug.error(msg + ":\n %s", e)
             return output

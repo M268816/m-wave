@@ -19,6 +19,7 @@ from m_wave.core.wavepacks.controller import WavePackController
 from m_wave.extensions.mtl.processor import MTLProcessor
 from m_wave.extensions.mtl.utils.paths import get_mtl_config_path
 from m_wave.extensions.mtl.utils.utils import (
+    MTLEnvironmentTypes,
     MTLProcessorRequest,
     MTLProcessorType,
     MTLUiPayload,
@@ -54,6 +55,21 @@ class MTLController(WavePackController):
             return
 
         self.display_journal_to(ui.text_box)
+
+        if request.process_type == MTLProcessorType.APPEND:
+            self.notify.info("This process is currently diabled.")
+            return
+
+        if (
+            request.process_type == MTLProcessorType.NONE
+            or request.env_types == MTLEnvironmentTypes.NONE
+            and request.process_type != MTLProcessorType.DOWNLOAD
+        ):
+            self.notify.info(
+                "Please make sure you have selected an environment "
+                "type and process option."
+            )
+            return
 
         ui.process_button.config(state=DISABLED)
         ui.progress_bar.start()
@@ -94,8 +110,10 @@ class MTLController(WavePackController):
                     f"Results saved to : {report.folder.name}"
                 )
             else:
-                self.notify.info("Other processes are disabled at this time.")
-                return
+                self.notify.info(
+                    "How... did you get here? No processor type was found, but the app attempted to process something."
+                )
+
         except Exception as error:
             reporter.finish_report_with_error(error)
             self.notify.error(

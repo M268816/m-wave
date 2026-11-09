@@ -69,13 +69,12 @@ class Comparisons:
         pib_source: Path,
         exclude_manual_columns: bool,
         sort_fn=None,
-    ) -> bool:
+    ) -> PDFReportStatus:
         """
-        Compare the MTL against the PI Builder input. Returns datacompy's
-        verdict: True only when every record matched on every compared column.
+        Compare the MTL against the PI Builder input. Returns a DataComPy result via
+        a PDFReportStatus. Either PASS, FAIL, or ERRORED
         """
         df1_name, df2_name = "MTL", "PI Builder"
-        self.pdf_report_status: PDFReportStatus = PDFReportStatus.NONE
         self.mtl_source: Path = mtl_source
         self.pib_source: Path = pib_source
         self.journal.info("Obtaining the table index keys from metadata...")
@@ -93,7 +92,7 @@ class Comparisons:
                 "There was a problem returning the MTL data. Empty table detected. "
                 "Stopping the process."
             )
-            return False
+            return PDFReportStatus.ERRORED
 
         if pib_dataframe.empty:
             issue = ReportIssue(
@@ -107,7 +106,7 @@ class Comparisons:
                 "There was a problem returning the PI Builder data. "
                 "Empty table detected. Stopping the process."
             )
-            return False
+            return PDFReportStatus.ERRORED
 
         report_shape_differences(self.reporter, mtl_dataframe, pib_dataframe)
         self.journal.heading("Comparing...")
@@ -157,7 +156,7 @@ class Comparisons:
                 "Cannot compare. These index key columns are missing from one or "
                 f"both tables: {', '.join(missing)}"
             )
-            return False
+            return PDFReportStatus.ERRORED
 
         comparison = datacompy.PandasCompare(
             mtl,
@@ -175,12 +174,12 @@ class Comparisons:
             "matching comparison record and will require manual fixes."
         )
         self.reporter.artifacts.save_csv(
-            "mtl_non_matching_records",
+            "mtl_non_matching_records.csv",
             comparison.df1_unq_rows,
             "MTL/CMD records without a matching PI Builder record to compare to.",
         )
         self.reporter.artifacts.save_csv(
-            "pi_bilder_non_matching_records",
+            "pi_builder_non_matching_records.csv",
             comparison.df2_unq_rows,
             "PI Builder records without a matching MTL/CMD record to compare to.",
         )
@@ -189,12 +188,12 @@ class Comparisons:
             self.journal.heading(" ✓ No non matching records were recorded!")
 
         if not comparison.df1_unq_rows.empty:
-            self.journal.error(
+            self.journal.warning(
                 f"{len(comparison.df1_unq_rows)} record(s) exist only in the "
                 f"{df1_name}. See mtl_non_matching_records.csv."
             )
         if not comparison.df2_unq_rows.empty:
-            self.journal.error(
+            self.journal.warning(
                 f"{len(comparison.df2_unq_rows)} record(s) exist only in the "
                 f"{df2_name}. See pi_builder_non_matching_records.csv."
             )
@@ -231,7 +230,7 @@ class Comparisons:
                 f"intersect_rows using suffixes {suffix_1!r} and {suffix_2!r}. "
                 f"Columns present: {list(intersect.columns)}"
             )
-            return False
+            return PDFReportStatus.ERRORED
 
         long_rows: list[dict[str, Any]] = []
         for column in compared:
@@ -251,23 +250,15 @@ class Comparisons:
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
 
-        export_file_name = "comparison_by_column"
-        export_file_description = (
-            "A comparison file that displays the comparison differences "
-            "over a single column."
-        )
-
-        self.comparison_export_path = self.reporter.artifacts.path_for(
-            export_file_name, export_file_description
-        )
-
-        self.reporter.artifacts.save_csv(
-            export_file_name,
+        self.comparison_export_path = self.reporter.artifacts.save_csv(
+            "comparison_by_column.csv",
             long_form_comparison,
-            export_file_description,
+            "A comparison file that displays the comparison differences "
+            "over a single column.",
         )
+
         self.reporter.artifacts.save_csv(
-            "comparison_by_record",
+            "comparison_by_record.csv",
             comparison.all_mismatch(ignore_matching_cols=True),
             "A comparison file that displays the comparison differences "
             "over a complete record. (May contain blank values for columns "
@@ -277,7 +268,6 @@ class Comparisons:
         matches = comparison.matches()
 
         if not long_form_comparison.empty:
-            self.pdf_report_status = PDFReportStatus.FAIL
             self.journal.error_banner("COMPARISON FAILED")
             self.notify.error(" ⛔ COMPARISON FAILED ⛔ ", "Comparison Failed")
             self.journal.info(
@@ -318,6 +308,7 @@ class Comparisons:
             width = max(len(str(c)) for c in counts.index)
             for column, count in counts.items():
                 self.journal.error(f"  {column!s:>{width}}: {count}")
+            return PDFReportStatus.FAIL
 
         elif not matches:
             self.pdf_report_status = PDFReportStatus.ERRORED
@@ -332,6 +323,8 @@ class Comparisons:
             for line in comparison.report().splitlines():
                 self.journal.error(line)
 
+            return PDFReportStatus.ERRORED
+
         else:
             self.journal.subtitle("COMPARISON IS SOUND")
             self.notify.info(" 🎉 COMPARISON IS SOUND 🎉 ", "Good news!")
@@ -344,7 +337,7 @@ class Comparisons:
             long_form_comparison, comparison, key_columns, df1_name, df2_name
         )
 
-        return matches
+        return PDFReportStatus.PASS
 
     def _build_comparison_fields(
         self,

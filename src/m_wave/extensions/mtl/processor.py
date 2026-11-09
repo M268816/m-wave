@@ -111,7 +111,7 @@ class MTLProcessor:
                     download_issues.append(issue)
             else:
                 self.journal.error(
-                    "The download path couls not be captured while "
+                    "The download path could not be captured while "
                     "attempting to download the MTL/CMD!"
                 )
                 issue = ReportIssue(
@@ -171,6 +171,7 @@ class MTLProcessor:
             csv_export_path=csv_export_path,
             user=request.user,
             issues=issues,
+            artifacts=self.reporter.artifacts.saved,
             **_comparison_fields,
         )
 
@@ -183,6 +184,7 @@ class MTLProcessor:
         """
         comparison_issues: list[ReportIssue] = []
         try:
+            self.metadata.set_worksheet_name(request.mtl_worksheet_name)
             self.journal.title(
                 f"COMPARISON STARTED FOR WORKSHEET: {request.mtl_worksheet_name}"
             )
@@ -229,12 +231,12 @@ class MTLProcessor:
 
             # Capture data frames before formatting
             self.reporter.artifacts.save_csv(
-                "mtl_before_formatting",
+                "mtl_before_formatting.csv",
                 mtl_df,
                 "The MTL/CMD extracted data before formating for comparison.",
             )
             self.reporter.artifacts.save_csv(
-                "pib_before_formatting",
+                "pib_before_formatting.csv",
                 pib_df,
                 "The PI Builder extracted data before formatting for comparison.",
             )
@@ -248,7 +250,7 @@ class MTLProcessor:
             # Conform Columns
             self.journal.heading("Conforming columns.")
             self.journal.info(
-                "Columns will adjust to use the MTL/CMD at the one source of truth"
+                "Columns will adjust to use the MTL/CMD as the one source of truth"
             )
             self.journal.info(
                 "PI Builder columns that do not exist within the MTL/CMD "
@@ -307,19 +309,21 @@ class MTLProcessor:
                 self.journal.error(msg)
                 self.notify.error(msg, "Could not sort data.")
                 return self._build_comparison_pdf(
-                    request, PDFReportStatus.ERRORED, comparison_issues
+                    request=request,
+                    status=PDFReportStatus.ERRORED,
+                    issues=comparison_issues,
                 )
 
             # Snapshots after formatting
             self.journal.info("Formatting Completed!")
             self.journal.heading("Collecting data snapshot after formatting steps.")
             self.reporter.artifacts.save_csv(
-                "mtl_after_formatting",
+                "mtl_after_formatting.csv",
                 mtl_df,
                 "The MTL/CMD extracted data after formatting for comparison.",
             )
             self.reporter.artifacts.save_csv(
-                "pib_after_formatting",
+                "pib_after_formatting.csv",
                 mtl_df,
                 "The PI Builder extracted data after formatting for comparison.",
             )
@@ -327,7 +331,7 @@ class MTLProcessor:
             # Comparison Phase
             self.journal.heading("Comparing MTL and PI Builder tables.")
             use_exclusions = request.env_types == MTLEnvironmentTypes.DIFF
-            self.compare.compare(
+            compare_status = self.compare.compare(
                 mtl_df,
                 pib_df,
                 request.mtl_file_path,
@@ -339,18 +343,20 @@ class MTLProcessor:
             self.compare.comparison_issues.clear()
 
             return self._build_comparison_pdf(
-                request,
-                self.compare.pdf_report_status,
-                comparison_issues,
-                self.compare.comparison_export_path,
-                self.compare.comparison_fields,
+                request=request,
+                status=compare_status,
+                issues=comparison_issues,
+                csv_export_path=self.compare.comparison_export_path,
+                comparison_fields=self.compare.comparison_fields,
             )
 
         except Exception as e:
             self.debug.debug("Could not run comparison: %s", e)
             self.journal.error("Could not run comparson")
             return self._build_comparison_pdf(
-                request, PDFReportStatus.ERRORED, comparison_issues
+                request=request,
+                status=PDFReportStatus.ERRORED,
+                issues=comparison_issues,
             )
 
     # def run(self, request: MTLProcessorRequest) -> PDFReportTemplate:

@@ -10,7 +10,7 @@ import re
 import pandas as pd
 
 # local core
-from m_wave.core.reporting import Reporting
+from m_wave.core.reporting.reporter import Reporter
 
 # local extension
 from m_wave.extensions.mtl.utils.metadata import Metadata, TableType
@@ -21,8 +21,11 @@ class Sorting:
     Helper class that handles all MTL and INPUT CSV sorting methods.
     """
 
-    def __init__(self, report: Reporting, metadata: Metadata) -> None:
-        self.report = report
+    def __init__(self, reporter: Reporter, metadata: Metadata) -> None:
+        self.reporter = reporter
+        self.journal = reporter.journal
+        self.notify = reporter.notifier
+        self.debug = reporter.debug
         self.metadata = metadata
 
     def _handle_element_template_hierarchy(self, df: pd.DataFrame):
@@ -184,24 +187,24 @@ class Sorting:
                 group_key_order is not None
                 and self.metadata.table_type == TableType.ELEMENT_TEMPLATE
             ):
-                self.report.info("Using hierarchical Element Tempalte Sorting.")
+                self.journal.info("Using hierarchical Element Tempalte Sorting.")
                 output = self._handle_element_template_hierarchy(_df)
-                self.report.info("Hierarchical ElementTemplate sorting completed")
+                self.journal.info("Hierarchical ElementTemplate sorting completed")
                 return output
 
             if group_key_order is not None:
-                self.report.info("Special ordering required.")
+                self.journal.info("Special ordering required.")
 
                 uses_path_sort = self.metadata.use_path_sorting()
                 path_sorting_keys = self.metadata.get_path_sorting_keys()
 
                 # Creates a temp numeric ordering column
                 _df["group_key_order"] = _df[group_key].map(group_key_order)  # type: ignore
-                self.report.info("Created temporary sorting column 'group_key_order'.")
+                self.journal.info("Created temporary sorting column 'group_key_order'.")
 
                 if uses_path_sort and path_sorting_keys:
                     # Build a full path string for sorting: \Parent\Name
-                    self.report.info("Path based sorting detected.")
+                    self.journal.info("Path based sorting detected.")
                     _df["group_key"] = _df[path_sorting_keys].apply(
                         lambda row: "\\".join(
                             str(val)
@@ -220,10 +223,10 @@ class Sorting:
                         ),
                         axis=1,
                     )
-                    self.report.info("Created temporary sorting column 'group_key'.")
+                    self.journal.info("Created temporary sorting column 'group_key'.")
 
             # Sort the data frame
-            self.report.info("Sorting...")
+            self.journal.info("Sorting...")
             _df = _df.sort_values(
                 by=sort_order,
                 ascending=sort_ascending,
@@ -233,14 +236,16 @@ class Sorting:
 
             # If we used the custom ordering columns, drop them here
             if group_key_order is not None:
-                self.report.info("Dropping the sorting column.")
+                self.journal.info("Dropping the sorting column.")
                 _df = _df.drop(columns=["group_key_order", "group_key"])
 
             # Reset the index
             output = _df.reset_index(drop=True)
-            self.report.info("Index reset!")
-            self.report.info("Sorting completed.")
+            self.journal.info("Index reset!")
+            self.journal.info("Sorting completed.")
             return output
         except Exception as e:
-            self.report.exception(f"{e}")
+            msg = "An unexpected error occurred during sorting"
+            self.journal.error(msg)
+            self.debug.error(msg + ":\n %s", e)
             return output

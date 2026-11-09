@@ -379,7 +379,7 @@ class AppendPDFTemplate(PDFReportTemplate):
 
         elements: list[Flowable] = [
             Spacer(1, Sizing.GAP_HEADING),
-            section_heading(text_styles, "Row accounting"),
+            section_heading(text_styles, "Row Accounting"),
             Spacer(1, 10),
             table,
         ]
@@ -424,7 +424,7 @@ class AppendPDFTemplate(PDFReportTemplate):
 
         elements: list[Flowable] = [
             Spacer(1, Sizing.GAP_HEADING),
-            section_heading(text_styles, "Changed records"),
+            section_heading(text_styles, "Changed Records"),
             Spacer(1, 10),
             table,
         ]
@@ -468,7 +468,7 @@ class AppendPDFTemplate(PDFReportTemplate):
 
         return [
             Spacer(1, Sizing.GAP_HEADING),
-            section_heading(text_styles, "Generated files"),
+            section_heading(text_styles, "Generated Files"),
             Spacer(1, 10),
             table,
         ]
@@ -547,6 +547,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
     column_summaries: list[ColumnDifferenceSummary] = field(default_factory=list)
     difference_samples: list[ComparisonRecord] = field(default_factory=list)
     csv_export_path: Path | None = None
+    artifacts: list = field(default_factory=list)
     issues: list[ReportIssue] = field(default_factory=list)
 
     # -- derived values -----------------------------------------------------
@@ -589,7 +590,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
 
     # -- layout -------------------------------------------------------------
 
-    def build_elements(
+    def build_components(
         self,
         text_styles: TextStyles,
         width: float,
@@ -603,16 +604,21 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         elements.append(Spacer(1, Sizing.GAP_SECTION))
 
         elements.extend(self._summary_section(text_styles, width))
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
+
+        elements.extend(self._artifact_section(text_styles, width))
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
+
         elements.extend(self._chart_section(text_styles, width))
         elements.extend(self._column_section(text_styles, width))
         elements.extend(self._difference_section(text_styles, width))
         elements.extend(self._record_count_section(text_styles, width))
-
         elements.append(Spacer(1, Sizing.GAP_SECTION))
-        elements.extend(self._issue_section(text_styles, width))
 
-        elements.append(Spacer(1, Sizing.GAP_SECTION))
         elements.append(note_box(text_styles, self._closing_note(), width))
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
+
+        elements.extend(self._issue_section(text_styles, width))
 
         return elements
 
@@ -627,7 +633,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         Builds an issue seciton if issues are present within self.issues
         """
 
-        heading = section_heading(text_styles, "Download Issues")
+        heading = section_heading(text_styles, "Comparison Processor Issues")
 
         if not self.issues:
             return [
@@ -701,7 +707,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
 
         return [
             Spacer(1, Sizing.GAP_HEADING),
-            section_heading(text_styles, "Differences by column"),
+            section_heading(text_styles, "Differences by Column"),
             Spacer(1, Sizing.GAP_SECTION),
             chart_image(path, width),
             Spacer(1, Sizing.GAP),
@@ -736,7 +742,39 @@ class ComparisonPDFTemplate(PDFReportTemplate):
 
         return [
             Spacer(1, Sizing.GAP_HEADING),
-            section_heading(text_styles, "Column breakdown"),
+            section_heading(text_styles, "Column Difference Breakdown"),
+            Spacer(1, 10),
+            table,
+        ]
+
+    def _artifact_section(
+        self,
+        text_styles: TextStyles,
+        width: float,
+    ) -> list[Flowable]:
+        if not self.column_summaries:
+            return []
+
+        rows = [
+            [
+                artifact.name,
+                artifact.description,
+            ]
+            for artifact in self.artifacts
+        ]
+
+        table = data_table(
+            text_styles,
+            headers=["Name", "Description"],
+            rows=rows,
+            width=width,
+            column_ratios=[1.0, 2.0],
+            right_aligned=(),
+        )
+
+        return [
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Collected Artifacts (Generated Files)"),
             Spacer(1, 10),
             table,
         ]
@@ -746,7 +784,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
-        heading = section_heading(text_styles, "Difference sample")
+        heading = section_heading(text_styles, "Record Difference Sample")
 
         if not self.difference_samples:
             return [
@@ -830,7 +868,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
 
         return [
             Spacer(1, Sizing.GAP_HEADING),
-            section_heading(text_styles, "Record counts"),
+            section_heading(text_styles, "Record Counts"),
             Spacer(1, 10),
             table,
         ]
@@ -841,6 +879,6 @@ class ComparisonPDFTemplate(PDFReportTemplate):
             "The complete difference set is available in the accompanying "
             "CSV export"
         )
-        if self.csv_export_name:
-            return f"{note}: {self.csv_export_name.name}."
+        if self.csv_export_path:
+            return f"{note}: {self.csv_export_path.name}."
         return f"{note}."
