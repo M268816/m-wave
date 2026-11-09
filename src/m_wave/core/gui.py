@@ -269,7 +269,9 @@ class App(tkb.Window):
         """
         Creates and displays a toplevel modal window with 'about' information.
         """
-        about = tkb.Toplevel()
+        parent = self.winfo_toplevel()
+        about = tkb.Toplevel(parent)
+
         about.title("About")
         about.iconphoto(False, self.logo)
         about.lift()
@@ -330,6 +332,12 @@ class App(tkb.Window):
 
         close_btn = tkb.Button(container, text="Nice", command=about.destroy)
         close_btn.pack(padx=PAD_X, pady=PAD_Y)
+
+        # Center over the parent window.
+        about.update_idletasks()
+        x = parent.winfo_rootx() + (parent.winfo_width() - about.winfo_width()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - about.winfo_height()) // 2
+        about.geometry(f"+{max(x, 0)}+{max(y, 0)}")
 
         def _on_resize(event):
             cright_label.config(wraplength=event.width)
