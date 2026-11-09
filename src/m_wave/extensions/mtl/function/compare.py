@@ -4,7 +4,6 @@
 # This tool was created with the help of AI.
 
 # stdlib
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,15 +11,16 @@ from typing import Any
 import datacompy
 import pandas as pd
 
-# local core
-from m_wave.core.reporting import Reporting
 from m_wave.core.reporting.pdf_utils import PDFReportStatus
+
+# local core
+from m_wave.core.reporting.reporter import Reporter
 
 # local extension
 from m_wave.extensions.mtl.pdf_template import (
     ColumnDifferenceSummary,
-    ComparisonPDFTemplate,
     ComparisonRecord,
+    ReportIssue,
 )
 from m_wave.extensions.mtl.utils.metadata import Metadata
 from m_wave.extensions.mtl.utils.utils import report_shape_differences
@@ -35,12 +35,20 @@ class Comparisons:
     on the other is a difference and is always reported.
     """
 
-    def __init__(self, report: Reporting, metadata: Metadata) -> None:
-        self.report = report
+    def __init__(self, reporter: Reporter, metadata: Metadata) -> None:
+        self.reporter = reporter
+        self.journal = reporter.journal
+        self.notify = reporter.notifier
+
         self.metadata = metadata
         self.manual_review_columns = self.metadata.dataframe_formatting[
             "manual_review_columns"
         ]
+
+        # NOTE: use .clear() to reset list.
+        self.comparison_issues: list[ReportIssue] = []
+        self.comparison_fields: dict[str, Any] = {}
+        self.comparison_export_path: Path = Path()
 
     @staticmethod
     def _display(value: Any) -> str:
@@ -67,27 +75,42 @@ class Comparisons:
         verdict: True only when every record matched on every compared column.
         """
         df1_name, df2_name = "MTL", "PI Builder"
-        pdf_report_status = PDFReportStatus.NONE
-        self.mtl_source = mtl_source
-        self.pib_source = pib_source
-        self.report.info("Obtaining the table index keys from metadata...")
+        self.pdf_report_status: PDFReportStatus = PDFReportStatus.NONE
+        self.mtl_source: Path = mtl_source
+        self.pib_source: Path = pib_source
+        self.journal.info("Obtaining the table index keys from metadata...")
         key_columns = [c.lower() for c in self.metadata.get_table_index_keys()]
 
         if mtl_dataframe.empty:
-            self.report.error(
+            issue = ReportIssue(
+                "Checking MTL dataframe",
+                "Checking if the MTL dataframe is empty, and it returned true "
+                "stopping the comparison.",
+                "error",
+            )
+            self.comparison_issues.append(issue)
+            self.journal.error(
                 "There was a problem returning the MTL data. Empty table detected. "
                 "Stopping the process."
             )
             return False
+
         if pib_dataframe.empty:
-            self.report.error(
+            issue = ReportIssue(
+                "Checking PI Builder dataframe",
+                "Checking if the PI Builder dataframe is empty, and it returned true "
+                "stopping the comparison.",
+                "error",
+            )
+            self.comparison_issues.append(issue)
+            self.journal.error(
                 "There was a problem returning the PI Builder data. "
                 "Empty table detected. Stopping the process."
             )
             return False
 
-        report_shape_differences(self.report, mtl_dataframe, pib_dataframe)
-        self.report.info("Comparing...")
+        report_shape_differences(self.reporter, mtl_dataframe, pib_dataframe)
+        self.journal.heading("Comparing...")
 
         # Lowercase up front so exclusions and key names line up with the
         # names datacompy uses internally.
@@ -105,12 +128,12 @@ class Comparisons:
         )
 
         if excluded and exclude_manual_columns:
-            self.report.warning(
+            self.journal.warning(
                 "The following columns are EXCLUDED from this comparison."
             )
             for column in excluded:
-                self.report.warning(f"\t- {column}")
-            self.report.warning(
+                self.journal.warning(f"\t- {column}")
+            self.journal.warning(
                 "These columns require a manual check by the reviewer by design. "
                 "They are reconfigured for the master tag list, so differences "
                 "here are expected and are not defects or artifacts."
@@ -123,7 +146,14 @@ class Comparisons:
             k for k in key_columns if k not in mtl.columns or k not in inp.columns
         ]
         if missing:
-            self.report.error(
+            issue = ReportIssue(
+                "Missing Key Columns",
+                "While confirming column index keys, one or both tables are missing "
+                "columns required for comparison.",
+                "error",
+            )
+            self.comparison_issues.append(issue)
+            self.journal.error(
                 "Cannot compare. These index key columns are missing from one or "
                 f"both tables: {', '.join(missing)}"
             )
@@ -137,34 +167,40 @@ class Comparisons:
             df2_name=df2_name,
         )
 
-        # unmatched records
-        self.report.simple_title("Non matching records are now being recorded.")
-        self.report.info(
-            "Any records within either the 'mtl_non_mathcing_records.csv' or "
-            "'pi_builder_non_mathcing_records.csv' file have no matching comparison "
-            "record and manual fixes will be needed."
+        # Collecting unmatched record artifacts.
+        self.journal.heading("Non matching records are now being recorded.")
+        self.journal.info(
+            "Any records within the 'mtl_non_mathcing_records.csv' or "
+            "'pi_builder_non_mathcing_records.csv' file are records that have no "
+            "matching comparison record and will require manual fixes."
         )
-        comparison.df1_unq_rows.to_csv(
-            self.report.report_dir / "mtl_non_matching_records.csv", index=False
+        self.reporter.artifacts.save_csv(
+            "mtl_non_matching_records",
+            comparison.df1_unq_rows,
+            "MTL/CMD records without a matching PI Builder record to compare to.",
         )
-        comparison.df2_unq_rows.to_csv(
-            self.report.report_dir / "pi_builder_non_matching_records.csv", index=False
+        self.reporter.artifacts.save_csv(
+            "pi_bilder_non_matching_records",
+            comparison.df2_unq_rows,
+            "PI Builder records without a matching MTL/CMD record to compare to.",
         )
+
         if comparison.df1_unq_rows.empty and comparison.df1_unq_rows.empty:
-            self.report.info(" ✓ No non matching records were recorded!")
+            self.journal.heading(" ✓ No non matching records were recorded!")
+
         if not comparison.df1_unq_rows.empty:
-            self.report.error(
+            self.journal.error(
                 f"{len(comparison.df1_unq_rows)} record(s) exist only in the "
                 f"{df1_name}. See mtl_non_matching_records.csv."
             )
         if not comparison.df2_unq_rows.empty:
-            self.report.error(
+            self.journal.error(
                 f"{len(comparison.df2_unq_rows)} record(s) exist only in the "
                 f"{df2_name}. See pi_builder_non_matching_records.csv."
             )
 
-        # differing cells
-        self.report.simple_title("Matching records are now being compared.")
+        # Compare matching records
+        self.journal.heading("Matching records will now be compared.")
 
         # datacompy flags every compared column with a <col>_match boolean on
         # intersect_rows, and treats blank vs value as a mismatch. Trust it.
@@ -183,7 +219,14 @@ class Comparisons:
             and f"{column[: -len('_match')]}{suffix_2}" in intersect.columns
         ]
         if not compared:
-            self.report.error(
+            issue = ReportIssue(
+                "No Matching Records",
+                "Could not locate any matching value pairs on "
+                f"intersecting rows using suffixes {suffix_1!r} and {suffix_2!r}.",
+                "error",
+            )
+            self.comparison_issues.append(issue)
+            self.journal.error(
                 "Could not locate any <column>_match / value pairs on "
                 f"intersect_rows using suffixes {suffix_1!r} and {suffix_2!r}. "
                 f"Columns present: {list(intersect.columns)}"
@@ -204,114 +247,106 @@ class Comparisons:
                 )
                 long_rows.append(record)
 
-        long_form = pd.DataFrame(
+        long_form_comparison = pd.DataFrame(
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
 
-        differences_path = self.report.report_dir / "comparison_by_column.csv"
-        comparison_path = self.report.report_dir / "comparison_by_record.csv"
-        long_form.to_csv(differences_path, index=False)
-        comparison.all_mismatch(ignore_matching_cols=True).to_csv(
-            comparison_path, index=False
+        export_file_name = "comparison_by_column"
+        export_file_description = (
+            "A comparison file that displays the comparison differences "
+            "over a single column."
+        )
+
+        self.comparison_export_path = self.reporter.artifacts.path_for(
+            export_file_name, export_file_description
+        )
+
+        self.reporter.artifacts.save_csv(
+            export_file_name,
+            long_form_comparison,
+            export_file_description,
+        )
+        self.reporter.artifacts.save_csv(
+            "comparison_by_record",
+            comparison.all_mismatch(ignore_matching_cols=True),
+            "A comparison file that displays the comparison differences "
+            "over a complete record. (May contain blank values for columns "
+            "that do not affect a particular record.)",
         )
 
         matches = comparison.matches()
 
-        if not long_form.empty:
-            pdf_report_status = PDFReportStatus.FAIL
-            self.report.highlight_error("COMPARISON FAILED")
-            self.report.info(
-                " ⛔ COMPARISON FAILED ⛔ ",
-                popup=True,
-                log=False,
-                report=False,
-            )
-            self.report.info(
-                f"{len(long_form)} differing cell(s). Reporting the differences below:"
+        if not long_form_comparison.empty:
+            self.pdf_report_status = PDFReportStatus.FAIL
+            self.journal.error_banner("COMPARISON FAILED")
+            self.notify.error(" ⛔ COMPARISON FAILED ⛔ ", "Comparison Failed")
+            self.journal.info(
+                f"{len(long_form_comparison)} differing cell(s). Reporting the "
+                "differences below:"
             )
             key_width = max(len(k) for k in key_columns)
             name_width = max(len(df1_name), len(df2_name))
 
             for number, (keys, group) in enumerate(
-                long_form.groupby(key_columns, dropna=False, sort=False), start=1
+                long_form_comparison.groupby(key_columns, dropna=False, sort=False),
+                start=1,
             ):
-                print(f"long_form len: {len(long_form)}")
-                if len(long_form) > 256:
-                    self.report.warning("There are more than 256 errors.")
-                    self.report.warning("Verbose logging forcefully stopped.")
-                    self.report.warning(
+                print(f"long_form len: {len(long_form_comparison)}")
+                if len(long_form_comparison) > 256:
+                    self.journal.warning("There are more than 256 errors.")
+                    self.journal.warning("Verbose logging forcefully stopped.")
+                    self.journal.warning(
                         "Review the generated comparison files for a full review of the data."
                     )
                     break
 
                 keys = keys if isinstance(keys, tuple) else (keys,)
-                self.report.error_divider()
-                self.report.error(f"Record {number}:")
+                self.journal.divider()
+                self.journal.error(f"Record {number}:")
                 for key, value in zip(key_columns, keys):
-                    self.report.error(f"  {key:>{key_width}}: {self._display(value)}")
+                    self.journal.error(f"  {key:>{key_width}}: {self._display(value)}")
 
                 for _, row in group.iterrows():
-                    self.report.error_section()
-                    self.report.error(f"{'Column':>{key_width}}: {row['column']}")
-                    self.report.error(f"    {df1_name:>{name_width}}: {row[df1_name]}")
-                    self.report.error(f"    {df2_name:>{name_width}}: {row[df2_name]}")
+                    self.journal.error("!!!")
+                    self.journal.error(f"{'Column':>{key_width}}: {row['column']}")
+                    self.journal.error(f"    {df1_name:>{name_width}}: {row[df1_name]}")
+                    self.journal.error(f"    {df2_name:>{name_width}}: {row[df2_name]}")
 
-            self.report.error_divider()
-            self.report.error("Differences by column:")
-            counts = long_form["column"].value_counts()
+            self.journal.divider()
+            self.journal.error("Differences by column:")
+            counts = long_form_comparison["column"].value_counts()
             width = max(len(str(c)) for c in counts.index)
             for column, count in counts.items():
-                self.report.error(f"  {column!s:>{width}}: {count}")
+                self.journal.error(f"  {column!s:>{width}}: {count}")
 
         elif not matches:
-            pdf_report_status = PDFReportStatus.ERRORED
-            self.report.highlight_error("COMPARISON COMPLETED WITH PROBLEM RECORDS")
-            self.report.info(
-                " ⚠️ COMPARISON COMPLETED WITH PROBLEM RECORDS ⚠️ ",
-                popup=True,
-                log=False,
-                report=False,
-            )
-            self.report.info(
+            self.pdf_report_status = PDFReportStatus.ERRORED
+            self.journal.error_banner("COMPARISON COMPLETED WITH PROBLEM RECORDS")
+            self.notify.warning(" ⚠️ COMPARISON COMPLETED WITH PROBLEM RECORDS ⚠️ ")
+            self.journal.warning(
                 "Every compared cell matched, but DatacomPy still reports a "
                 "mismatch. Unmatched records or column set differences remain. "
                 "Please review all generated data files."
             )
-            self.report.info("Full datacompy report")
+            self.journal.info("Full datacompy report")
             for line in comparison.report().splitlines():
-                self.report.error(line)
+                self.journal.error(line)
 
         else:
-            pdf_report_status = PDFReportStatus.PASS
-            self.report.subtitle("COMPARISON IS SOUND")
-            self.report.info(
-                " 🎉 COMPARISON IS SOUND 🎉 ", popup=True, log=False, report=False
+            self.journal.subtitle("COMPARISON IS SOUND")
+            self.notify.info(" 🎉 COMPARISON IS SOUND 🎉 ", "Good news!")
+            self.journal.info(
+                "Note: Because the comparison is sound, all comparison files "
+                "will return blank."
             )
-            self.report.subtitle("All comparison files will return blank.")
 
-        report_fields = self._build_report_fields(
-            long_form, comparison, key_columns, df1_name, df2_name
+        self.comparison_fields = self._build_comparison_fields(
+            long_form_comparison, comparison, key_columns, df1_name, df2_name
         )
-
-        pdf_report_data = ComparisonPDFTemplate(
-            title="MTL vs PI Builder Comparison Report",
-            report_id=self.report.report_name,
-            user=self.report.user,
-            created_date=datetime.now(UTC),
-            status=pdf_report_status,
-            subtitle="Field-level comparison of the Master Tag List against "
-            "the PI Builder input.",
-            mtl_source=self.mtl_source,
-            pib_source=self.pib_source,
-            csv_export_name=differences_path,
-            **report_fields,
-        )
-
-        self.report.create_pdf_report(pdf_report_data)
 
         return matches
 
-    def _build_report_fields(
+    def _build_comparison_fields(
         self,
         long_form: pd.DataFrame,
         comparison: "datacompy.PandasCompare",

@@ -44,12 +44,10 @@ class DataExtractor:
         self.journal = reporter.journal
         self.debug = reporter.debug
 
-        self.report_issues: list[ReportIssue] = []
-
         self.metadata = metadata
 
-    def reset_report_issues(self) -> None:
-        self.report_issues = []
+        # NOTE: Use .clear() to reset list.
+        self.report_issues: list[ReportIssue] = []
 
     def _get_browser_download_dir(self) -> Path:
         """

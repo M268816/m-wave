@@ -546,7 +546,8 @@ class ComparisonPDFTemplate(PDFReportTemplate):
     missing_from_pib: int = 0
     column_summaries: list[ColumnDifferenceSummary] = field(default_factory=list)
     difference_samples: list[ComparisonRecord] = field(default_factory=list)
-    csv_export_name: Path | None = None
+    csv_export_path: Path | None = None
+    issues: list[ReportIssue] = field(default_factory=list)
 
     # -- derived values -----------------------------------------------------
 
@@ -608,11 +609,67 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         elements.extend(self._record_count_section(text_styles, width))
 
         elements.append(Spacer(1, Sizing.GAP_SECTION))
+        elements.extend(self._issue_section(text_styles, width))
+
+        elements.append(Spacer(1, Sizing.GAP_SECTION))
         elements.append(note_box(text_styles, self._closing_note(), width))
 
         return elements
 
     # -- sections -----------------------------------------------------------
+
+    def _issue_section(
+        self,
+        text_styles: TextStyles,
+        width: float,
+    ) -> list[Flowable]:
+        """
+        Builds an issue seciton if issues are present within self.issues
+        """
+
+        heading = section_heading(text_styles, "Download Issues")
+
+        if not self.issues:
+            return [
+                Spacer(1, Sizing.GAP_HEADING),
+                KeepTogether(
+                    [
+                        heading,
+                        Spacer(1, 10),
+                        empty_state(
+                            text_styles,
+                            "No problems were found.",
+                        ),
+                    ]
+                ),
+            ]
+
+        rows = [
+            [
+                issue.check,
+                issue.detail,
+                Paragraph(
+                    issue.severity.capitalize(),
+                    text_styles.severity_style(issue.severity),
+                ),
+            ]
+            for issue in self.issues
+        ]
+
+        table = data_table(
+            text_styles,
+            headers=["Check Performed", "What was found", "Severity"],
+            rows=rows,
+            width=width,
+            column_ratios=[1.8, 4.2, 1.0],
+        )
+
+        return [
+            Spacer(1, Sizing.GAP_HEADING),
+            heading,
+            Spacer(1, 10),
+            table,
+        ]
 
     def _summary_section(
         self,

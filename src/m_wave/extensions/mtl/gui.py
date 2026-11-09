@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from threading import Thread
 from typing import TYPE_CHECKING
 
@@ -552,7 +552,7 @@ class MTLFrame(WavePackGUI):
         req = MTLProcessorRequest(
             process_type=MTLProcessorType.DOWNLOAD,
             user=self.context.user_id,
-            start_datetime=datetime.now(),
+            start_datetime=datetime.now(UTC),
             env_types=MTLEnvironmentTypes.NONE,
             filter="MTL_CMD Download",  # ignore the filer here and use "MTL/CMD Download"
             mtl_worksheet_name=self.opt_mtl_worksheet_name.get(),
@@ -602,7 +602,7 @@ class MTLFrame(WavePackGUI):
         req = MTLProcessorRequest(
             MTLProcessorType(self.opt_process.get()),
             self.context.user_id,
-            datetime.now(),
+            datetime.now(UTC),
             MTLEnvironmentTypes(self.opt_env_types.get()),
             self.opt_filter.get(),
             self.opt_mtl_worksheet_name.get(),

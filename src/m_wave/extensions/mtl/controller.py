@@ -86,13 +86,20 @@ class MTLController(WavePackController):
                     f"Process finished: {pdf_template.status.label}\n"
                     f"Results saved to: {report.folder.name}"
                 )
+            elif request.process_type == MTLProcessorType.COMPARE:
+                pdf_template = self.processor.run_comparison(request, ui)
+                reporter.finish_report(pdf_template)
+                reporter.notifier.info(
+                    f"Process finished: {pdf_template.status.label}\n"
+                    f"Results saved to : {report.folder.name}"
+                )
             else:
                 self.notify.info("Other processes are disabled at this time.")
                 return
         except Exception as error:
             reporter.finish_report_with_error(error)
             self.notify.error(
-                f"The process stopped with an error:\n{error}\n\n"
+                f"The process stopped with an unexpected error:\n{error}\n\n"
                 "See journal.log in the report folder for more details."
             )
         finally:
