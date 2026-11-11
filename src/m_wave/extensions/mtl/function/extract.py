@@ -157,7 +157,7 @@ class DataExtractor:
             self.journal.warning("Process timed out, no excel file detected.")
             issue = ReportIssue(
                 "Process Timeout",
-                "Process timeed out while downloading MTL/CMD",
+                "Process timed out while downloading MTL/CMD",
                 "error",
             )
             self.report_issues.append(issue)
@@ -240,7 +240,7 @@ class DataExtractor:
             return str(version_value)
         except Exception as e:
             e_text = (
-                "Exception caught while attempting to retrive the latest revision "
+                "Exception caught while attempting to retrieve the latest revision "
                 "number from the MTL/CMD"
             )
             self.journal.error(e_text)

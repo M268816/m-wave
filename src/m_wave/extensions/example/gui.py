@@ -4,7 +4,7 @@
 # This tool was created with the help of AI.
 
 # WavePackFrames will always need a circular import to App
-# Use this type_chekcing blocker for these classes.
+# Use this type_checking blocker for these classes.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

@@ -144,7 +144,7 @@ class App(tkb.Window):
 
     def init_wavepacks(self) -> None:
         """
-        Registers WavePacks to the applicaiton. Only registered packs can be loaded
+        Registers WavePacks to the application. Only registered packs can be loaded
         and initialized by the Launcher frame.
         """
         self.add_wavepack(

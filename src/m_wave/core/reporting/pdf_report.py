@@ -9,7 +9,7 @@ PdfReport: saves a summary PDF for non-technical reviewers.
 The layout lives in the pdf_* files:
     pdf_builder.py     page setup, header, footer  (PDFReportBuilder, PDFReportTemplate)
     pdf_components.py  building blocks (status banner, tables, metric cards)
-    pdf_styles.py      fonts, colours, sizes
+    pdf_styles.py      fonts, colors, sizes
     pdf_utils.py       number/date formatting and PDFReportStatus
 
 Each WavePack writes its own template (for example ExamplePDFReportTemplate)

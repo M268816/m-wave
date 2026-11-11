@@ -175,7 +175,7 @@ class Comparisons:
                 "Security strings were found for this comparison.\n\n"
                 "Normalization of the security strings are needed for "
                 "proper comparisons. This process does not remove values "
-                "but will sort them alphebetically."
+                "but will sort them alphabetically."
             )
 
         for column in found_sec_columns:
@@ -202,8 +202,8 @@ class Comparisons:
         # Collecting unmatched record artifacts.
         self.journal.heading("Non matching records are now being recorded.")
         self.journal.info(
-            "Any records within the 'mtl_non_mathcing_records.csv' or "
-            "'pi_builder_non_mathcing_records.csv' file are records that have no "
+            "Any records within the 'mtl_non_matching_records.csv' or "
+            "'pi_builder_non_matching_records.csv' file are records that have no "
             "matching comparison record and will require manual fixes."
         )
         self.reporter.artifacts.save_csv(
@@ -375,11 +375,11 @@ class Comparisons:
             self.journal.error_banner("COMPARISON COMPLETED WITH PROBLEM RECORDS")
             self.notify.warning(" ⚠️ COMPARISON COMPLETED WITH PROBLEM RECORDS ⚠️ ")
             self.journal.warning(
-                "Every compared cell matched, but DatacomPy still reports a "
+                "Every compared cell matched, but DataComPy still reports a "
                 "mismatch. Unmatched records or column set differences remain. "
                 "Please review all generated data files."
             )
-            self.journal.info("Full datacompy report")
+            self.journal.info("Full DataComPy report")
             for line in comparison.report().splitlines():
                 self.journal.error(line)
 
@@ -415,7 +415,7 @@ class Comparisons:
         Translate the finished comparison into the values MTLReportData needs.
 
         Nothing here re-compares anything. It only counts and reshapes what
-        datacompy and ``long_form`` already established.
+        DataComPy and ``long_form`` already established.
         """
         # A record is a joined key pair. Records that joined are the ones we
         # were actually able to compare.

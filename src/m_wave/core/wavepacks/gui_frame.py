@@ -16,7 +16,7 @@ class WavePackGUI(tkb.Frame):
     """
     Base class for WavePack GUI Frames.
 
-    Basic strucutre for composition with the WavePack is defined here.
+    Basic structure for composition with the WavePack is defined here.
     controller = wavepack controller
 
     Defines help, menubar and teardown methods.
@@ -66,7 +66,7 @@ class WavePackGUI(tkb.Frame):
     def build_menus(self, menubar: tkb.Menu) -> None:
         """
         Override in the subclasses to add WavePack specific menus to the menubar.
-        Called by AppWidnow after lock_wavepack()
+        Called by AppWindow after lock_wavepack()
         """
 
     @property

@@ -107,7 +107,7 @@ class DownloadPDFTemplate(PDFReportTemplate):
         width: float,
     ) -> list[Flowable]:
         """
-        Builds an issue seciton if issues are present within self.issues
+        Builds an issue section if issues are present within self.issues
         """
 
         heading = section_heading(text_styles, "Download Issues")
@@ -630,7 +630,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         width: float,
     ) -> list[Flowable]:
         """
-        Builds an issue seciton if issues are present within self.issues
+        Builds an issue section if issues are present within self.issues
         """
 
         heading = section_heading(text_styles, "Comparison Processor Issues")

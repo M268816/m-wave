@@ -287,7 +287,7 @@ class Formatting:
         These columns are mostly numeric, but may contain boolean and string
         values.
 
-        Boolean and null values should be normalized and strigified.
+        Boolean and null values should be normalized and stringified.
           true = True = "True"
 
         Numerics should keep their values stringified.
@@ -382,7 +382,7 @@ class Formatting:
 
     def _normalize_key_columns(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
         """
-        Normalizes blank keys to the pandas standard pd.NA while perserving literal
+        Normalizes blank keys to the pandas standard pd.NA while preserving literal
         key values like "N/A", "None", and "Null", which may be valid names
         within key groups.
         """
@@ -391,7 +391,7 @@ class Formatting:
 
             for key in keys:
                 if key not in result.columns:
-                    self.journal.error_banner(f"{key} not found for key normaliztion.")
+                    self.journal.error_banner(f"{key} not found for key normalization.")
                     self.journal.error(f"Columns: {result.columns.tolist()}")
                     continue
 
@@ -467,7 +467,7 @@ class Formatting:
                 "error",
             )
             self.report_issues.append(issue)
-            self.journal.error("Cannot format empty DataFrame. Formating stopped.")
+            self.journal.error("Cannot format empty DataFrame. Formatting stopped.")
             return pd.DataFrame()
 
         try:
@@ -502,7 +502,7 @@ class Formatting:
         except Exception as e:
             error_msg = f"Could not format dataframe:\n{e}"
             self.journal.error(error_msg)
-            self.debug.error("An unexpected error occurred during formating:\n %s", e)
+            self.debug.error("An unexpected error occurred during formatting:\n %s", e)
             issue = ReportIssue(
                 "Unexpected Format Error",
                 "An unexpected error occurred during formatting.",

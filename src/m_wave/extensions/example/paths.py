@@ -27,7 +27,7 @@ USER_CONFIG_DIR = PATHS.create_sub_folder(PATHS.user_config_dir, "example")
 # within the EXE. This files does not actually exist, so don't try to test it.
 
 # EXTRA_DIR = PATHS.extras_dir
-# EXAMPLE_BIG_FILE_PATH = EXTRA_DIR / "8k_paris_panarama.png"
+# EXAMPLE_BIG_FILE_PATH = EXTRA_DIR / "8k_paris_panorama.png"
 
 # WavePack writeable folders
 # EXAMPLE_WRITABLE_DIR = PATHS.create_generated_folder("example_of_new_directory")

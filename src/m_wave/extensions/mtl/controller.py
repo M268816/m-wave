@@ -47,7 +47,7 @@ class MTLController(WavePackController):
 
     def start_process(self, request: MTLProcessorRequest, ui: MTLUiPayload) -> None:
         """
-        Called on the main thread when the user clicks the proces button.
+        Called on the main thread when the user clicks the process button.
         """
         if self.is_running:
             self.notify.warning("Process already running!")
@@ -56,7 +56,7 @@ class MTLController(WavePackController):
         self.display_journal_to(ui.text_box)
 
         if request.process_type == MTLProcessorType.APPEND:
-            self.notify.info("This process is currently diabled.")
+            self.notify.info("This process is currently disabled.")
             return
 
         ui.process_button.config(state=DISABLED)
@@ -72,7 +72,7 @@ class MTLController(WavePackController):
 
     def _worker_thread(self, request: MTLProcessorRequest, ui: MTLUiPayload) -> None:
         """
-        Worker thread for one complted process run.
+        Worker thread for one completed process run.
             start_process -> processor.run -> report.finish (or report.finish_with_error)
         """
         reporter = self.reporter

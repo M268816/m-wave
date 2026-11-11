@@ -112,7 +112,7 @@ class AppPaths:
     def get_resource_root(self) -> Path:
         """
         Return the root location for bundled resources.
-        Returns PyInstaller's temp extraction folder for onefile exe
+        Returns PyInstaller's temp extraction folder for one file exe
         or the regular base path if run as script or in dev.
         """
         if self.is_frozen:

@@ -17,7 +17,7 @@ from m_wave.extensions.mtl.utils.metadata import Metadata
 
 class SecurityParser:
     """
-    Parses and compares secuirty strings.
+    Parses and compares security strings.
     Takes the strings and builds permission map with a "principal key".
     Differences are reported to the journal and noted within the PDF report.
     """
@@ -48,13 +48,13 @@ class SecurityParser:
             f"{principal}: {permissions[principal]}"
             for principal in sorted(permissions)
         )
-        self.debug.debug("Cannonized security string: %s", canon)
+        self.debug.debug("Canonized security string: %s", canon)
         return canon
 
     def normalize_permission(self, permission: str) -> str:
         """
         Normalizes the whitespace and sorts the order of rights inside
-        the parantheses as irrelivant: A(r,w) becomes the same as A(w,r)
+        the parentheses as irrelevant: A(r,w) becomes the same as A(w,r)
         """
         # Remove whitespace, tabs, etc
         permission = "".join(permission.split())
@@ -113,7 +113,7 @@ class SecurityParser:
         ``record_name``: record tested, can use keys or names
         ``column_name``: the specific security column name the string is from.
         ``only_in_mtl``: sorted permission keys only in the mtl string,
-        ``only_in_pi_builder``: sorted permission skeys only in the pi builder string,
+        ``only_in_pi_builder``: sorted permission keys only in the pi builder string,
         ``permission_differences``: dict of principal keys: {mtl_settings, pib_settings}
         """
         try:

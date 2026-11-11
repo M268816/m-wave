@@ -202,7 +202,7 @@ class Journal:
 
     def error(self, text: str) -> None:
         """
-        A problematic informational journal entry a techical reviewer must know about.
+        A problematic informational journal entry a technical reviewer must know about.
         The journal only gets this message; a full traceback should be sent to the
         DebugLog.
         """

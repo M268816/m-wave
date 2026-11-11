@@ -30,7 +30,7 @@ class Sorting:
 
     def _handle_element_template_hierarchy(self, df: pd.DataFrame):
         """
-        Sorts the element-tempalte records that use logical hierarchy.
+        Sorts the element-template records that use logical hierarchy.
         This handles name and parent columns with export paths like:
         ElementTemplates[...]/NotificationRuleTemplates[...]
         ElementTemplates[...]/NotificationRuleTemplates[...]/
@@ -187,7 +187,7 @@ class Sorting:
                 group_key_order is not None
                 and self.metadata.table_type == TableType.ELEMENT_TEMPLATE
             ):
-                self.journal.info("Using hierarchical Element Tempalte Sorting.")
+                self.journal.info("Using hierarchical Element Template Sorting.")
                 output = self._handle_element_template_hierarchy(_df)
                 self.journal.info("Hierarchical ElementTemplate sorting completed")
                 return output

@@ -20,7 +20,7 @@ class AppContext:
     """
 
     def __init__(self) -> None:
-        self.app_version: str = "1.3.7"
+        self.app_version: str = "1.3.8"
         self.user_preferences: dict = load_configs(get_user_prefs_path())
         self.user_id: str = USER
         self.session_id = self.user_id + "_" + str(datetime.now())
@@ -33,4 +33,4 @@ class AppContext:
         # feature_flags: dict          # toggle experimental features
         # session_id: str              # for logging/audit trails
         # license_info: LicenseInfo    # if the app ever gets licensed
-        # app_version: str             # centralised, not hardcoded in About window
+        # app_version: str             # centralized, not hardcoded in About window
