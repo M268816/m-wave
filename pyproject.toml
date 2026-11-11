@@ -1,6 +1,6 @@
 [project]
 name = "m-wave"
-version = "1.3.6"
+version = "1.3.7"
 description = "An application that helps Jaffrey PI developers with configurations."
 readme = "README.md"
 requires-python = ">=3.11"

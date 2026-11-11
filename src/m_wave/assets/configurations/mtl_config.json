@@ -228,6 +228,11 @@
       "securitystring",
       "asset details"
     ],
+    "security_setting_columns": [
+      "datasecurity",
+      "ptsecurity",
+      "securitystring"
+    ],
     "datetime_columns": [
       "VersionEffectiveDate",
       "VersionObsoleteDate",

@@ -207,9 +207,9 @@ class MTLProcessor:
                 self.journal.subtitle(f"{request.mtl_worksheet_name}")
 
             if not self.metadata.can_compare_worksheet():
-                self.journal.warning(
-                    "This table does not yet have the capability to process data."
-                )
+                msg = "This table does not yet have the capability to process data."
+                self.journal.warning(msg)
+                self.notify.error(msg, "Cannot process this data table.")
                 return self._build_comparison_pdf(
                     request, PDFReportStatus.ERRORED, comparison_issues
                 )
@@ -243,9 +243,9 @@ class MTLProcessor:
 
             # Formatting Phase
             self.journal.heading("Formatting the MTL data.")
-            self.formatter.format(mtl_df)
+            mtl_df = self.formatter.format(mtl_df)
             self.journal.heading("Formatting the PI Builder data.")
-            self.formatter.format(pib_df)
+            pib_df = self.formatter.format(pib_df)
 
             # Conform Columns
             self.journal.heading("Conforming columns.")
@@ -351,8 +351,14 @@ class MTLProcessor:
             )
 
         except Exception as e:
-            self.debug.debug("Could not run comparison: %s", e)
-            self.journal.error("Could not run comparson")
+            msg = (
+                "An unexcpected error occured while attempting to run the "
+                "comparison process"
+            )
+            self.debug.debug(msg + ": %s", e)
+            self.journal.error(msg)
+            issue = ReportIssue("Unexpected comparison run error.", msg, "critical")
+            comparison_issues.append(issue)
             return self._build_comparison_pdf(
                 request=request,
                 status=PDFReportStatus.ERRORED,

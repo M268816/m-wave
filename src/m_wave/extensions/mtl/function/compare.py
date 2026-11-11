@@ -17,6 +17,7 @@ from m_wave.core.reporting.pdf_utils import PDFReportStatus
 from m_wave.core.reporting.reporter import Reporter
 
 # local extension
+from m_wave.extensions.mtl.function.security import SecurityParser
 from m_wave.extensions.mtl.pdf_template import (
     ColumnDifferenceSummary,
     ComparisonRecord,
@@ -39,11 +40,17 @@ class Comparisons:
         self.reporter = reporter
         self.journal = reporter.journal
         self.notify = reporter.notifier
+        self.debug = reporter.debug
 
         self.metadata = metadata
         self.manual_review_columns = self.metadata.dataframe_formatting[
             "manual_review_columns"
         ]
+        self.security_setting_columns = self.metadata.dataframe_formatting[
+            "security_setting_columns"
+        ]
+
+        self.sec_string_parser = SecurityParser(self.reporter, self.metadata)
 
         # NOTE: use .clear() to reset list.
         self.comparison_issues: list[ReportIssue] = []
@@ -158,6 +165,32 @@ class Comparisons:
             )
             return PDFReportStatus.ERRORED
 
+        # Normalize security strings, if they exist
+        found_sec_columns = set(self.security_setting_columns)
+        found_sec_columns &= set(mtl.columns)
+        found_sec_columns &= set(inp.columns)
+
+        if found_sec_columns:
+            self.notify.warning(
+                "Security strings were found for this comparison.\n\n"
+                "Normalization of the security strings are needed for "
+                "proper comparisons. This process does not remove values "
+                "but will sort them alphebetically."
+            )
+
+        for column in found_sec_columns:
+            mtl[column] = mtl[column].map(
+                lambda value: self.sec_string_parser.canonicalize_security_string(
+                    self._display(value)
+                )
+            )
+            inp[column] = inp[column].map(
+                lambda value: self.sec_string_parser.canonicalize_security_string(
+                    self._display(value)
+                )
+            )
+
+        # DataComPy Comparison
         comparison = datacompy.PandasCompare(
             mtl,
             inp,
@@ -184,8 +217,8 @@ class Comparisons:
             "PI Builder records without a matching MTL/CMD record to compare to.",
         )
 
-        if comparison.df1_unq_rows.empty and comparison.df1_unq_rows.empty:
-            self.journal.heading(" ✓ No non matching records were recorded!")
+        if comparison.df1_unq_rows.empty and comparison.df2_unq_rows.empty:
+            self.journal.heading(" ✓ No non matching records were found!")
 
         if not comparison.df1_unq_rows.empty:
             self.journal.warning(
@@ -233,6 +266,7 @@ class Comparisons:
             return PDFReportStatus.ERRORED
 
         long_rows: list[dict[str, Any]] = []
+        sec_rows: list[dict[str, str]] = []
         for column in compared:
             differing = intersect.loc[~intersect[f"{column}_match"].astype(bool)]
             for position in differing.index:
@@ -245,10 +279,31 @@ class Comparisons:
                     intersect.at[position, f"{column}{suffix_2}"]
                 )
                 long_rows.append(record)
+                if column in self.security_setting_columns:
+                    sec_rows.append(record)
 
         long_form_comparison = pd.DataFrame(
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
+        sec_records: pd.DataFrame = pd.DataFrame(
+            sec_rows, columns=[*key_columns, "column", df1_name, df2_name]
+        )
+
+        name_column = "name" if "name" in sec_records.columns else None
+
+        self.debug.debug("security sting columns: %s", self.security_setting_columns)
+        for row in sec_records.to_dict(orient="records"):
+            if name_column is not None:
+                record_name = self._display(row[name_column])
+            else:
+                record_name = ", ".join(
+                    f"{key}={self._display(row[key])}" for key in key_columns
+                )
+            result = self.sec_string_parser.compare_security_strings(
+                record_name, row["column"], row[df1_name], row[df2_name]
+            )
+
+            self.debug.debug("security string comparison: %s", str(result))
 
         self.comparison_export_path = self.reporter.artifacts.save_csv(
             "comparison_by_column.csv",
@@ -308,6 +363,11 @@ class Comparisons:
             width = max(len(str(c)) for c in counts.index)
             for column, count in counts.items():
                 self.journal.error(f"  {column!s:>{width}}: {count}")
+
+            self.comparison_fields = self._build_comparison_fields(
+                long_form_comparison, comparison, key_columns, df1_name, df2_name
+            )
+
             return PDFReportStatus.FAIL
 
         elif not matches:
@@ -322,6 +382,10 @@ class Comparisons:
             self.journal.info("Full datacompy report")
             for line in comparison.report().splitlines():
                 self.journal.error(line)
+
+            self.comparison_fields = self._build_comparison_fields(
+                long_form_comparison, comparison, key_columns, df1_name, df2_name
+            )
 
             return PDFReportStatus.ERRORED
 

@@ -19,7 +19,6 @@ from m_wave.core.wavepacks.controller import WavePackController
 from m_wave.extensions.mtl.processor import MTLProcessor
 from m_wave.extensions.mtl.utils.paths import get_mtl_config_path
 from m_wave.extensions.mtl.utils.utils import (
-    MTLEnvironmentTypes,
     MTLProcessorRequest,
     MTLProcessorType,
     MTLUiPayload,
@@ -60,24 +59,13 @@ class MTLController(WavePackController):
             self.notify.info("This process is currently diabled.")
             return
 
-        if (
-            request.process_type == MTLProcessorType.NONE
-            or request.env_types == MTLEnvironmentTypes.NONE
-            and request.process_type != MTLProcessorType.DOWNLOAD
-        ):
-            self.notify.info(
-                "Please make sure you have selected an environment "
-                "type and process option."
-            )
-            return
-
         ui.process_button.config(state=DISABLED)
         ui.progress_bar.start()
 
         self.process_thread = Thread(
             target=self._worker_thread,
             args=(request, ui),
-            name="MTLProcess",
+            name="MTLProcessor",
             daemon=True,
         )
         self.process_thread.start()
@@ -92,7 +80,7 @@ class MTLController(WavePackController):
             report_name = str(
                 request.report_name
                 if request.report_name is not None
-                else "Not Filtered"
+                else "Unfiltered Report"
             )
             report = reporter.start_report(report_name)
             if request.process_type == MTLProcessorType.DOWNLOAD:

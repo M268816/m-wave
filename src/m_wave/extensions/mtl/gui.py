@@ -599,6 +599,22 @@ class MTLFrame(WavePackGUI):
             self.write("Please select both files to start process.")
             return
 
+        if self.opt_env_types.get() == MTLEnvironmentTypes.NONE.value:
+            self.write("Plase select if you are processing the same or different")
+            self.write("PI environments.")
+            return
+
+        if self.opt_process.get() == MTLProcessorType.NONE.value:
+            self.write("Please select a process option.")
+            self.write(
+                "Comparisons will compare data between PI Builder and the MTL/CMD."
+            )
+            self.write(
+                "Appending will attempt to create new records in the MTL/CMD from"
+            )
+            self.write("A PI Builder csv, or update existing records.")
+            return
+
         req = MTLProcessorRequest(
             MTLProcessorType(self.opt_process.get()),
             self.context.user_id,
