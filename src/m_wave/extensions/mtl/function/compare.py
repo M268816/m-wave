@@ -171,11 +171,12 @@ class Comparisons:
         found_sec_columns &= set(inp.columns)
 
         if found_sec_columns:
-            self.notify.warning(
-                "Security strings were found for this comparison.\n\n"
+            self.journal.warning(
+                "Security strings were found for this comparison. "
                 "Normalization of the security strings are needed for "
-                "proper comparisons. This process does not remove values "
-                "but will sort them to canonical PI order."
+                "proper comparisons. This process attempts to sort values "
+                "in canonical PI order. Malformed security string and "
+                "unknown values will cause this comparison to error."
             )
 
         for column in found_sec_columns:

@@ -51,14 +51,38 @@ class SecurityParser:
         # Remove whitespace, tabs, etc
         permission = "".join(permission.split())
 
-        before, content = permission.split("(", 1)
-        rights, after = content.split(")", 1)
+        try:
+            before, content = permission.split("(", 1)
+            rights, after = content.split(")", 1)
+        except ValueError as e:
+            message = f"Malformed permission value: {permission!r}"
+            self._issue("Normalizing security value", message, "critical")
+            raise ValueError(message) from e
+
+        if rights == "":
+            right_tokens = []
+        else:
+            right_tokens = rights.split(",")
+            if any(not right for right in right_tokens):
+                message = f"Malformed permission value: {permission!r}"
+                self._issue("Normalizing security value", message, "critical")
+                raise ValueError(message)
 
         # sort the rights
-        right_set = set(rights.split(","))
+        right_set = set(right_tokens)
+        unknown_rights = sorted(right_set - set(self.canon_order))
+
+        if unknown_rights:
+            message = (
+                "Unknown permission right(s): "
+                f"{', '.join(unknown_rights)}."
+                "Comparison cannot safely normalize this value."
+            )
+            self._issue("Normalizing security value", message, "critical")
+            raise ValueError(message)
+
         sorted_rights = ",".join(
-            right for right in self.canon_order
-            if right in right_set
+            right for right in self.canon_order if right in right_set
         )
 
         return before + "(" + sorted_rights + ")" + after
@@ -75,7 +99,6 @@ class SecurityParser:
         )
         self.debug.debug("Canonized security string: %s", canon)
         return canon
-
 
     def parse_security(self, text: str) -> dict[str, str]:
         """
@@ -96,7 +119,7 @@ class SecurityParser:
                 self._issue(
                     "Parser setting check",
                     f"Malformed security entry: {entry!r}. Cannot continue.",
-                    "critical"
+                    "critical",
                 )
                 raise ValueError(f"Malformed security entry: {entry!r}")
 
@@ -141,7 +164,7 @@ class SecurityParser:
 
         prefix = "PI Web API Admins ("
         if principal.startswith(prefix) and principal.endswith(")"):
-            server = principal[len(prefix):-1]
+            server = principal[len(prefix) : -1]
             configured_servers = {
                 self.metadata.mtl_configs.get("val_server"),
                 self.metadata.mtl_configs.get("prod_server"),
@@ -176,24 +199,17 @@ class SecurityParser:
             formatting_rules = self.metadata.get_formatting_rules()
             table_is_non_standard = table_type is TableType.GXP
             canon_settings = formatting_rules["Security Strings"]
-         
+
             mtl = self.parse_security(mtl_string)
             pib = self.parse_security(pib_string)
 
             mtl_only = sorted(mtl.keys() - pib.keys())
 
-            mtl_only_settings = {
-                principal: mtl[principal]
-                for principal in mtl_only
-            }
+            mtl_only_settings = {principal: mtl[principal] for principal in mtl_only}
 
             pib_only = sorted(pib.keys() - mtl.keys())
 
-            pib_only_settings = {
-                principal: pib[principal]
-                for principal in pib_only
-            }
-
+            pib_only_settings = {principal: pib[principal] for principal in pib_only}
 
             permission_differences = {
                 principal: {
@@ -208,39 +224,52 @@ class SecurityParser:
 
             if not matches:
                 self.journal.error_banner(
-                    f"{record_name}: '{column_name}' string does not match!"
+                    f"{record_name} security column: '{column_name}' has errors!"
                 )
                 if permission_differences:
-                    self.journal.error("Matching Differences:")
-                    for permission, settings in permission_differences.items():
-                        self.journal.error(f"\t{permission}:")
+                    for permission in permission_differences:
                         self.journal.error(
-                            f"\t\tMTL_Setting: {settings['mtl_setting']}"
+                            f"⛔ Permission '{permission}' does not match"
                         )
-                        self.journal.error(
-                            f"\t\tPIB_Setting: {settings['pib_setting']}"
-                        )
-                        matrix_setting = self._get_matrix_setting(
-                            canon_settings,
-                            table_is_non_standard,
-                            column_name,
-                            permission
-                        )
-                        self.journal.error(
-                            f"\t\tMatrix_Setting: {matrix_setting}"
-                        )
+
+                    # self.journal.error("Matching Differences:")
+                    # for permission, settings in permission_differences.items():
+                    #     self.journal.error(f"\t{permission}:")
+                    #     self.journal.error(
+                    #         f"\t\tMTL_Setting: {settings['mtl_setting']}"
+                    #     )
+                    #     self.journal.error(
+                    #         f"\t\tPIB_Setting: {settings['pib_setting']}"
+                    #     )
+                    #     matrix_setting = self._get_matrix_setting(
+                    #         canon_settings,
+                    #         table_is_non_standard,
+                    #         column_name,
+                    #         permission,
+                    #     )
+                    #     self.journal.error(f"\t\tMatrix_Setting: {matrix_setting}")
 
                 if mtl_only:
-                    self.journal.error("Settings only in the MTL security string:")
                     for permission in mtl_only:
-                        self.journal.error(f"\t{permission}")
+                        self.journal.error(
+                            f"⛔ Permission '{permission}' is missing from the PI string"
+                        )
+
+                    # self.journal.error("Settings only in the MTL security string:")
+                    # for permission in mtl_only:
+                    #     self.journal.error(f"\t{permission}")
 
                 if pib_only:
-                    self.journal.error(
-                        "Settings only in the PI Builder security string:"
-                    )
                     for permission in pib_only:
-                        self.journal.error(f"\t{permission}")
+                        self.journal.error(
+                            f"⛔ Permission '{permission}' is missing form the MTL string"
+                        )
+
+                    # self.journal.error(
+                    #     "Settings only in the PI Builder security string:"
+                    # )
+                    # for permission in pib_only:
+                    #     self.journal.error(f"\t{permission}")
 
             return {
                 "matches": matches,
@@ -250,7 +279,7 @@ class SecurityParser:
                 "only_in_pi_builder": pib_only,
                 "permission_differences": permission_differences,
                 "mtl_only_settings": mtl_only_settings,
-                "pib_only_settings": pib_only_settings
+                "pib_only_settings": pib_only_settings,
             }
 
         except Exception as e:
@@ -265,7 +294,14 @@ class SecurityParser:
         security string dictionaries.
         """
 
-        columns = ["Record Name", "Security Column", "Permission", "MTL Config", "PIB Config", "Matrix Config"]
+        columns = [
+            "Record Name",
+            "Security Column",
+            "Permission",
+            "MTL Config",
+            "PIB Config",
+            "Matrix Config",
+        ]
         rows = []
 
         try:
@@ -280,58 +316,77 @@ class SecurityParser:
 
                 common_fields = {
                     "Record Name": comparison["record_name"],
-                    "Security Column": comparison["column_name"]
+                    "Security Column": comparison["column_name"],
                 }
 
-                for principal, setting in comparison.get("permission_differences", {}).items():
-                    rows.append({
-                        **common_fields,
-                        "Permission": principal,
-                        "MTL Config": setting["mtl_setting"],
-                        "PIB Config": setting["pib_setting"],
-                        "Matrix Config": self._get_matrix_setting(
-                            canon_settings,
-                            table_is_non_standard,
-                            comparison['column_name'],
-                            principal
-                        ),
-                    })
+                for principal, setting in comparison.get(
+                    "permission_differences", {}
+                ).items():
+                    rows.append(
+                        {
+                            **common_fields,
+                            "Permission": principal,
+                            "MTL Config": setting["mtl_setting"],
+                            "PIB Config": setting["pib_setting"],
+                            "Matrix Config": self._get_matrix_setting(
+                                canon_settings,
+                                table_is_non_standard,
+                                comparison["column_name"],
+                                principal,
+                            ),
+                        }
+                    )
 
-                for principal, mtl_setting in comparison.get("mtl_only_settings", {}).items():
-                    rows.append({
-                        **common_fields,
-                        "Permission": principal,
-                        "MTL Config": mtl_setting,
-                        "PIB Config": "---",
-                        "Matrix Config": self._get_matrix_setting(
-                            canon_settings,
-                            table_is_non_standard,
-                            comparison['column_name'],
-                            principal
-                        ),
-                    })
+                for principal, mtl_setting in comparison.get(
+                    "mtl_only_settings", {}
+                ).items():
+                    rows.append(
+                        {
+                            **common_fields,
+                            "Permission": principal,
+                            "MTL Config": mtl_setting,
+                            "PIB Config": "---",
+                            "Matrix Config": self._get_matrix_setting(
+                                canon_settings,
+                                table_is_non_standard,
+                                comparison["column_name"],
+                                principal,
+                            ),
+                        }
+                    )
 
-                for principal, pib_setting in comparison.get("pib_only_settings", {}).items():
-                    rows.append({
-                        **common_fields,
-                        "Permission": principal,
-                        "MTL Config": "---",
-                        "PIB Config": pib_setting,
-                        "Matrix Config": self._get_matrix_setting(
-                            canon_settings,
-                            table_is_non_standard,
-                            comparison['column_name'],
-                            principal
-                        ),
-                    })
+                for principal, pib_setting in comparison.get(
+                    "pib_only_settings", {}
+                ).items():
+                    rows.append(
+                        {
+                            **common_fields,
+                            "Permission": principal,
+                            "MTL Config": "---",
+                            "PIB Config": pib_setting,
+                            "Matrix Config": self._get_matrix_setting(
+                                canon_settings,
+                                table_is_non_standard,
+                                comparison["column_name"],
+                                principal,
+                            ),
+                        }
+                    )
 
             df = pd.DataFrame(rows, columns=columns)
 
             self.reporter.artifacts.save_csv(
                 "compared_security_strings.csv",
                 df,
-                "A table of compared security strings. Reports differences and missing values."
+                "A table of compared security strings. Reports differences and missing values.",
             )
         except Exception as e:
-            self._issue("Creating Security Artifact","Could not create security artifact.", "critical")
-            self.debug.error("An unexpected error occurred when attempting to create the security artifact, %s", e)
+            self._issue(
+                "Creating Security Artifact",
+                "Could not create security artifact.",
+                "critical",
+            )
+            self.debug.error(
+                "An unexpected error occurred when attempting to create the security artifact, %s",
+                e,
+            )
