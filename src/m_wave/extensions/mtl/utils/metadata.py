@@ -101,6 +101,7 @@ class Metadata:
                 "Group Key Order": entry.get("group_key_order"),
                 "Use Path Sorting": entry.get("use_path_sorting"),
                 "Path Sorting Keys": entry.get("path_sorting_keys"),
+                "Security Strings": entry.get("security_strings"),
             }
             for key, entry in self.mtl_configs["table_formatting"].items()
         }

@@ -175,7 +175,7 @@ class Comparisons:
                 "Security strings were found for this comparison.\n\n"
                 "Normalization of the security strings are needed for "
                 "proper comparisons. This process does not remove values "
-                "but will sort them alphabetically."
+                "but will sort them to canonical PI order."
             )
 
         for column in found_sec_columns:
@@ -285,12 +285,13 @@ class Comparisons:
         long_form_comparison = pd.DataFrame(
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
+
+        # Security String Checks, and artifact generation
         sec_records: pd.DataFrame = pd.DataFrame(
             sec_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
-
         name_column = "name" if "name" in sec_records.columns else None
-
+        compared_strings = []
         self.debug.debug("security sting columns: %s", self.security_setting_columns)
         for row in sec_records.to_dict(orient="records"):
             if name_column is not None:
@@ -302,8 +303,9 @@ class Comparisons:
             result = self.sec_string_parser.compare_security_strings(
                 record_name, row["column"], row[df1_name], row[df2_name]
             )
-
+            compared_strings.append(result)
             self.debug.debug("security string comparison: %s", str(result))
+        self.sec_string_parser.create_security_artifact(compared_strings)
 
         self.comparison_export_path = self.reporter.artifacts.save_csv(
             "comparison_by_column.csv",
