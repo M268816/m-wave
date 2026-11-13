@@ -89,47 +89,61 @@ class MTLProcessor:
 
         try:
             download_path = self.extractor.download_mtl()
-            self.journal.subtitle("MTL/CMD SUCCESSFULLY DOWNLOADED")
 
-            if download_path is not None:
-                self.journal.info("Attempting to retrieve the last document revision.")
-                ui.mtl_path.set(str(download_path))
-
-                try:
-                    revision = self.extractor.get_last_revision(download_path)
-                    self.journal.info(f"Revision captured: {revision}")
-                    ui.mtl_version.set(str(revision))
-                    self.metadata.set_mtl_version(str(revision))
-                except Exception as e:
-                    e_text = (
-                        "An unexpected error occurred while attempting to "
-                        "update the UI with a new revision."
-                    )
-                    self.journal.error(e_text)
-                    self.debug.error(e_text + ": %s", e)
-                    issue = ReportIssue("Collecting Revision Data", e_text, "error")
-                    download_issues.append(issue)
-            else:
+            if download_path is None:
+                self.journal.error_banner("MTL/CMD Download and Path Resolution Failed")
                 self.journal.error(
                     "The download path could not be captured while "
                     "attempting to download the MTL/CMD!"
                 )
-                issue = ReportIssue(
-                    "Checking download path.", "No download path found", "error"
+                download_issues.append(
+                    ReportIssue(
+                        "Checking download path.", "No download path found", "error"
+                    )
                 )
-                pdf = self._build_download_pdf(
+                return self._build_download_pdf(
                     request,
                     PDFReportStatus.FAIL,
                     download_issues + self.extractor.report_issues,
                 )
-                return pdf
 
-            pdf = self._build_download_pdf(
+            try:
+                revision = self.extractor.get_last_revision(download_path)
+            except Exception as e:
+                message = "Could not retrieve the MTL/CMD revision."
+                self.journal.error(f"{message}: {e}")
+                self.debug.error(message, error=e)
+                download_issues.append(
+                    ReportIssue("Collecting revision data", message, "error")
+                )
+                return self._build_download_pdf(
+                    request,
+                    PDFReportStatus.ERRORED,
+                    download_issues + self.extractor.report_issues,
+                )
+
+            if revision is None or not str(revision).strip():
+                message = "The downloaded MTL/CMD revision could not be read."
+                self.journal.error(message)
+                download_issues.append(
+                    ReportIssue("Collectiong revision data", message, "error")
+                )
+                return self._build_download_pdf(
+                    request,
+                    PDFReportStatus.FAIL,
+                    download_issues + self.extractor.report_issues,
+                )
+
+            self.journal.subtitle("MTL/CMD SUCCESSFULLY DOWNLOADED")
+            self.journal.info(f"Revision captured: {revision}")
+            ui.mtl_version.set(str(revision))
+            self.metadata.set_mtl_version(str(revision))
+            ui.mtl_path.set(str(download_path))
+            return self._build_download_pdf(
                 request,
                 PDFReportStatus.PASS,
                 download_issues + self.extractor.report_issues,
             )
-            return pdf
 
         except Exception as e:
             e_text = (
