@@ -20,7 +20,7 @@ class AppContext:
     """
 
     def __init__(self) -> None:
-        self.app_version: str = "1.3.9"
+        self.app_version: str = "1.3.10"
         self.user_preferences: dict = load_configs(get_user_prefs_path())
         self.user_id: str = USER
         self.session_id = self.user_id + "_" + str(datetime.now())

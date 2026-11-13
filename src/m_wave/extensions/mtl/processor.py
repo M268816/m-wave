@@ -324,7 +324,7 @@ class MTLProcessor:
             )
             self.reporter.artifacts.save_csv(
                 "pib_after_formatting.csv",
-                mtl_df,
+                pib_df,
                 "The PI Builder extracted data after formatting for comparison.",
             )
 
