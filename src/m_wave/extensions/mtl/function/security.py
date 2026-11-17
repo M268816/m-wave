@@ -87,20 +87,21 @@ class SecurityParser:
 
         return before + "(" + sorted_rights + ")" + after
 
-    def canonicalize_security_string(self, text: str) -> str:
+    def canonicalize_security_string(self, text: str, record_name: str) -> str:
         """
         Normalizes a security string so that permission keys, and permission setting
         orders can be compared to correctly.
         """
-        permissions = self.parse_security(text)
+        permissions = self.parse_security(text, record_name)
         canon = " | ".join(
             f"{principal}: {permissions[principal]}"
             for principal in sorted(permissions)
         )
-        self.debug.debug("Canonized security string: %s", canon)
+        if canon:
+            self.debug.debug("Canonized security string: %s", canon)
         return canon
 
-    def parse_security(self, text: str) -> dict[str, str]:
+    def parse_security(self, text: str, record_name: str) -> dict[str, str]:
         """
         Build the security map. Uses a security type as the principal key,
         then assigns values as strings.
@@ -118,25 +119,45 @@ class SecurityParser:
             if ":" not in entry:
                 self._issue(
                     "Parser setting check",
-                    f"Malformed security entry: {entry!r}. Cannot continue.",
+                    f"Malformed security entry found in '{record_name}': {entry!r}. Cannot continue.",
                     "critical",
                 )
-                raise ValueError(f"Malformed security entry: {entry!r}")
+                raise ValueError(
+                    f"Malformed security entry found in '{record_name}': {entry!r}"
+                )
 
             principal, permission = entry.split(":", 1)
             principal = principal.strip()
             permission = permission.strip()
 
             if not principal or not permission:
-                raise ValueError(f"Malformed security entry: {entry!r}")
+                raise ValueError(
+                    f"Malformed security entry found in '{record_name}': {entry!r}"
+                )
 
             # Don't silently overwrite repeated principals.
             if principal in result:
-                raise ValueError(f"Duplicate principal: {principal!r}")
+                raise ValueError(
+                    f"Duplicate principal found in '{record_name}': {principal!r}"
+                )
 
             result[principal] = self.normalize_permission(permission)
 
         return result
+
+    def _get_matrix_column(
+        self, canon_settings: dict | None, table_is_gxp: bool, column_name: str
+    ) -> dict:
+        """
+        Returns the matrix dict that applies to the given column name.
+        GxP tables keep onw matrix per security column (ptsecurity/datasecurity)
+        Other tables return flat dicts or {}
+        """
+        if not isinstance(canon_settings, dict):
+            return {}
+        if table_is_gxp:
+            canon_settings = canon_settings.get(column_name.strip().casefold())
+        return canon_settings if isinstance(canon_settings, dict) else {}
 
     def _get_matrix_setting(
         self,
@@ -147,16 +168,15 @@ class SecurityParser:
     ) -> str:
         setting = "Not configured"
 
+        settings = self._get_matrix_column(canon_settings, table_is_gxp, column_name)
+
         if not isinstance(canon_settings, dict):
-            self.debug.debug("Setting: %s, is not cannon_settings instance", setting)
+            self.debug.debug(
+                "No matrix settings for column '%s'. (principal '%s')",
+                column_name,
+                principal,
+            )
             return setting
-
-        settings = canon_settings
-
-        if table_is_gxp:
-            settings = canon_settings.get(column_name.strip().casefold())
-            if not isinstance(settings, dict):
-                return setting
 
         # An exact key match takes precedence, including a literal "{server}" key.
         if principal in settings:
@@ -188,36 +208,72 @@ class SecurityParser:
         ``matches``: boolean determination if the strings match,
         ``record_name``: record tested, can use keys or names
         ``column_name``: the specific security column name the string is from.
-        ``only_in_mtl``: sorted permission keys only in the mtl string,
-        ``only_in_pi_builder``: sorted permission keys only in the pi builder string,
+        ``only_in_mtl``: sorted permission keys only in the mtl string
+        ``only_in_pib``: sorted permission keys only in the pi builder string
+        ``only_in_matrix``: sorted permission keys only in the matrix string
         ``permission_differences``: dict of principal keys: {mtl_settings, pib_settings}
         ``mtl_only_settings``: dict of mtl only settings, principal: value
         ``pib_only_settings``: dict of pib only settings, principal: value
+        ``matrix_only_settings``: dict of matrix only setting, principal: value
         """
         try:
+            server_prefix = "PI Web API Admins ("
+            server_key = "PI Web API Admins ({server})"
+
             table_type = self.metadata.get_table_type()
             formatting_rules = self.metadata.get_formatting_rules()
-            table_is_non_standard = table_type is TableType.GXP
+            table_is_gxp = table_type is TableType.GXP
             canon_settings = formatting_rules["Security Strings"]
 
-            mtl = self.parse_security(mtl_string)
-            pib = self.parse_security(pib_string)
+            matrix = self._get_matrix_column(canon_settings, table_is_gxp, column_name)
+            mtl = self.parse_security(mtl_string, record_name)
+            pib = self.parse_security(pib_string, record_name)
 
             mtl_only = sorted(mtl.keys() - pib.keys())
-
-            mtl_only_settings = {principal: mtl[principal] for principal in mtl_only}
-
             pib_only = sorted(pib.keys() - mtl.keys())
-
+            mtl_only_settings = {principal: mtl[principal] for principal in mtl_only}
             pib_only_settings = {principal: pib[principal] for principal in pib_only}
+
+            available_keys = mtl.keys() | pib.keys()
+            server_key_present = any(
+                principal.startswith(server_prefix) for principal in available_keys
+            )
+
+            matrix_only = sorted(
+                key
+                for key in matrix
+                if key not in available_keys
+                and not (key == server_key and server_key_present)
+            )
+            matrix_only_settings = {
+                principal: self._get_matrix_setting(
+                    canon_settings, table_is_gxp, column_name, principal
+                )
+                for principal in matrix_only
+            }
 
             permission_differences = {
                 principal: {
                     "mtl_setting": mtl[principal],
                     "pib_setting": pib[principal],
+                    "matrix_setting": self._get_matrix_setting(
+                        canon_settings, table_is_gxp, column_name, principal
+                    ),
                 }
                 for principal in sorted(mtl.keys() & pib.keys())
                 if mtl[principal] != pib[principal]
+                or pib[principal] != matrix[principal]
+            }
+
+            all_settings = {
+                principal: {
+                    "mtl_setting": mtl.get(principal, "---"),
+                    "pib_setting": pib.get(principal, "---"),
+                    "matrix_setting": self._get_matrix_setting(
+                        canon_settings, table_is_gxp, column_name, principal
+                    ),
+                }
+                for principal in sorted(available_keys | set(matrix_only))
             }
 
             matches = not mtl_only and not pib_only and not permission_differences
@@ -229,7 +285,7 @@ class SecurityParser:
                 if permission_differences:
                     for permission in permission_differences:
                         self.journal.error(
-                            f"⛔ Permission '{permission}' does not match"
+                            f"⛔ Permission '{permission}' has non matching values."
                         )
 
                     # self.journal.error("Matching Differences:")
@@ -276,10 +332,13 @@ class SecurityParser:
                 "record_name": record_name,
                 "column_name": column_name,
                 "only_in_mtl": mtl_only,
-                "only_in_pi_builder": pib_only,
+                "only_in_pib": pib_only,
+                "only_in_matrix": matrix_only,
                 "permission_differences": permission_differences,
                 "mtl_only_settings": mtl_only_settings,
                 "pib_only_settings": pib_only_settings,
+                "matrix_only_settings": matrix_only_settings,
+                "all_settings": all_settings,
             }
 
         except Exception as e:
@@ -301,77 +360,112 @@ class SecurityParser:
             "MTL Config",
             "PIB Config",
             "Matrix Config",
+            "MTL/CMD matches PI",
+            "MTL/CMD matches Matrix",
+            "PI matches Matrix",
+            "Passes Validation",
         ]
         rows = []
+        MISSING = "---"
+
+        def build_row(common, principal, mtl_setting, pib_setting, matrix_setting):
+            mtl_ok = mtl_setting == matrix_setting
+            pib_ok = pib_setting == matrix_setting
+            return {
+                **common,
+                "Permission": principal,
+                "MTL Config": mtl_setting,
+                "PIB Config": pib_setting,
+                "Matrix Config": matrix_setting,
+                "MTL/CMD matches PI": mtl_setting == pib_setting,
+                "MTL/CMD matches Matrix": mtl_ok,
+                "PI matches Matrix": pib_ok,
+                "Passes Validation": pib_ok,
+            }
 
         try:
             table_type = self.metadata.get_table_type()
             formatting_rules = self.metadata.get_formatting_rules()
-            table_is_non_standard = table_type is TableType.GXP
+            table_is_gxp = table_type is TableType.GXP
             canon_settings = formatting_rules["Security Strings"]
 
             for comparison in compared_security_strings:
                 if not comparison or comparison.get("matches", True):
                     continue
 
+                column_name = comparison["column_name"]
                 common_fields = {
                     "Record Name": comparison["record_name"],
                     "Security Column": comparison["column_name"],
                 }
 
-                for principal, setting in comparison.get(
-                    "permission_differences", {}
-                ).items():
-                    rows.append(
-                        {
-                            **common_fields,
-                            "Permission": principal,
-                            "MTL Config": setting["mtl_setting"],
-                            "PIB Config": setting["pib_setting"],
-                            "Matrix Config": self._get_matrix_setting(
-                                canon_settings,
-                                table_is_non_standard,
-                                comparison["column_name"],
-                                principal,
-                            ),
-                        }
+                def _matrix_for(principal):
+                    return self._get_matrix_setting(
+                        canon_settings, table_is_gxp, column_name, principal
                     )
 
-                for principal, mtl_setting in comparison.get(
-                    "mtl_only_settings", {}
-                ).items():
+                for principal, setting in comparison.get("all_settings", {}).items():
                     rows.append(
-                        {
-                            **common_fields,
-                            "Permission": principal,
-                            "MTL Config": mtl_setting,
-                            "PIB Config": "---",
-                            "Matrix Config": self._get_matrix_setting(
-                                canon_settings,
-                                table_is_non_standard,
-                                comparison["column_name"],
-                                principal,
-                            ),
-                        }
+                        build_row(
+                            common_fields,
+                            principal,
+                            setting["mtl_setting"],
+                            setting["pib_setting"],
+                            setting["matrix_setting"],
+                        )
                     )
 
-                for principal, pib_setting in comparison.get(
-                    "pib_only_settings", {}
-                ).items():
-                    rows.append(
-                        {
-                            **common_fields,
-                            "Permission": principal,
-                            "MTL Config": "---",
-                            "PIB Config": pib_setting,
-                            "Matrix Config": self._get_matrix_setting(
-                                canon_settings,
-                                table_is_non_standard,
-                                comparison["column_name"],
-                                principal,
-                            ),
-                        }
-                    )
+                # for principal, setting in comparison.get(
+                #     "permission_differences", {}
+                # ).items():
+                #     rows.append(
+                #         build_row(
+                #             common_fields,
+                #             principal,
+                #             setting["mtl_setting"],
+                #             setting["pib_setting"],
+                #             setting["matrix_setting"],
+                #         )
+                #     )
+                #
+                # for principal, mtl_setting in comparison.get(
+                #     "mtl_only_settings", {}
+                # ).items():
+                #     rows.append(
+                #         build_row(
+                #             common_fields,
+                #             principal,
+                #             mtl_setting,
+                #             MISSING,
+                #             _matrix_for(principal),
+                #         )
+                #     )
+                #
+                # for principal, pib_setting in comparison.get(
+                #     "pib_only_settings", {}
+                # ).items():
+                #     rows.append(
+                #         build_row(
+                #             common_fields,
+                #             principal,
+                #             MISSING,
+                #             pib_setting,
+                #             _matrix_for(principal),
+                #         )
+                #     )
+                #
+                # for principal, matrix_setting in comparison.get(
+                #     "matrix_only_settings", {}
+                # ).items():
+                #     rows.append(
+                #         build_row(
+                #             common_fields,
+                #             principal,
+                #             MISSING,
+                #             MISSING,
+                #             matrix_setting,
+                #         )
+                #     )
 
             df = pd.DataFrame(rows, columns=columns)
 

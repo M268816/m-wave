@@ -97,7 +97,9 @@ class ReportRequest:
         """Make the ReportRequest and its output folder."""
         name = name.strip() or "Not Named"
         started_at = datetime.now().astimezone()
-        safe_name = name.replace(" ", "_").replace("*", "")
+        safe_name = (
+            name.replace(" ", "_").replace("*", "").replace("/", "-").replace("\\", "-")
+        )
         run_id = f"({started_at.strftime(DATETIME_FORMAT)})_{safe_name}"
 
         folder = output_dir / run_id

@@ -182,12 +182,12 @@ class Comparisons:
         for column in found_sec_columns:
             mtl[column] = mtl[column].map(
                 lambda value: self.sec_string_parser.canonicalize_security_string(
-                    self._display(value)
+                    self._display(value), str(mtl[column])
                 )
             )
             inp[column] = inp[column].map(
                 lambda value: self.sec_string_parser.canonicalize_security_string(
-                    self._display(value)
+                    self._display(value), str(inp[column])
                 )
             )
 
@@ -233,7 +233,7 @@ class Comparisons:
             )
 
         # Compare matching records
-        self.journal.heading("Matching records will now be compared.")
+        self.journal.heading("Checking values for possible comparison matches.")
 
         # datacompy flags every compared column with a <col>_match boolean on
         # intersect_rows, and treats blank vs value as a mismatch. Trust it.
@@ -252,6 +252,7 @@ class Comparisons:
             and f"{column[: -len('_match')]}{suffix_2}" in intersect.columns
         ]
         if not compared:
+            self.journal.error_banner("COULD NOT LOCATE MATCHING VALUE PAIRS")
             issue = ReportIssue(
                 "No Matching Records",
                 "Could not locate any matching value pairs on "
@@ -265,7 +266,9 @@ class Comparisons:
                 f"Columns present: {list(intersect.columns)}"
             )
             return PDFReportStatus.ERRORED
+        self.journal.info(" ✓ All values can be compared!")
 
+        self.journal.heading("Creating symmetrical comparison data frames.")
         long_rows: list[dict[str, Any]] = []
         sec_rows: list[dict[str, str]] = []
         for column in compared:
@@ -287,6 +290,8 @@ class Comparisons:
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
 
+
+        self.journal.heading("Parsing security string columns")
         # Security String Checks, and artifact generation
         sec_records: pd.DataFrame = pd.DataFrame(
             sec_rows, columns=[*key_columns, "column", df1_name, df2_name]
@@ -307,6 +312,7 @@ class Comparisons:
             compared_strings.append(result)
             self.debug.debug("security string comparison: %s", str(result))
         self.sec_string_parser.create_security_artifact(compared_strings)
+        
 
         self.comparison_export_path = self.reporter.artifacts.save_csv(
             "comparison_by_column.csv",
