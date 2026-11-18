@@ -38,6 +38,8 @@ class TableInfo:
     table_id: str
     type: TableType = TableType.UNKNOWN
     can_compare: bool = False
+    permeable_permissions: bool = False
+    permeable_permission_values: list[str] | None = None
 
 
 class Metadata:
@@ -83,6 +85,8 @@ class Metadata:
                 table_id=entry["table_id"],
                 type=TableType[entry["type"]],
                 can_compare=entry["can_compare"],
+                permeable_permissions=entry["permeable_permissions"],
+                permeable_permission_values=entry["permeable_permission_values"],
             )
             for sheet_name, entry in self.mtl_configs["worksheet_metadata"].items()
         }
@@ -165,6 +169,30 @@ class Metadata:
         if self.worksheet_name_is_set():
             return self.worksheet_metadata[self.worksheet_name].table_id
         return "None"
+
+    def worksheet_has_permeable_permissions(self) -> str:
+        if self.worksheet_name_is_set():
+            try:
+                return self.worksheet_metadata[
+                    self.worksheet_name
+                ].permeable_permissions
+            except KeyError:
+                raise KeyError(f"No worksheet metadata found for {self.worksheet_name}")
+        raise RuntimeError(
+            "Worksheet name is not set, cannot return permeable permission boolean."
+        )
+
+    def get_worksheet_permeable_permission_values(self) -> str:
+        if self.worksheet_name_is_set():
+            try:
+                return self.worksheet_metadata[
+                    self.worksheet_name
+                ].permeable_permission_values
+            except KeyError:
+                raise KeyError(f"No worksheet metadata found for {self.worksheet_name}")
+        raise RuntimeError(
+            "Worksheet name is not set, cannot return permeable permission boolean."
+        )
 
     def get_formatting_rules(self) -> dict:
         if self.table_type_is_set():

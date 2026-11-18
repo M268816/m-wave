@@ -271,7 +271,21 @@ class Comparisons:
         self.journal.heading("Creating symmetrical comparison data frames.")
         long_rows: list[dict[str, Any]] = []
         sec_rows: list[dict[str, str]] = []
+
         for column in compared:
+            if column in self.security_setting_columns:
+                for pos in intersect.index:
+                    df_1_value = self._display(intersect.at[pos, f"{column}{suffix_1}"])
+                    df_2_value = self._display(intersect.at[pos, f"{column}{suffix_2}"])
+                    if not df_1_value and not df_2_value:
+                        continue
+
+                    sec_record = {k: intersect.at[pos, k] for k in key_columns}
+                    sec_record["column"] = column
+                    sec_record[df1_name] = df_1_value
+                    sec_record[df2_name] = df_2_value
+                    sec_rows.append(sec_record)
+
             differing = intersect.loc[~intersect[f"{column}_match"].astype(bool)]
             for position in differing.index:
                 record = {k: intersect.at[position, k] for k in key_columns}
@@ -283,19 +297,25 @@ class Comparisons:
                     intersect.at[position, f"{column}{suffix_2}"]
                 )
                 long_rows.append(record)
-                if column in self.security_setting_columns:
-                    sec_rows.append(record)
+
+                ### if column in self.security_setting_columns:
+                ###    sec_rows.append(record)
 
         long_form_comparison = pd.DataFrame(
             long_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
-
 
         self.journal.heading("Parsing security string columns")
         # Security String Checks, and artifact generation
         sec_records: pd.DataFrame = pd.DataFrame(
             sec_rows, columns=[*key_columns, "column", df1_name, df2_name]
         )
+        if not sec_records.empty:
+            count = len(sec_records)
+            self.journal.info(f"Comparison needed for {count} columns")
+        else:
+            self.journal.info(" ✓ No security strings need comparisons")
+
         name_column = "name" if "name" in sec_records.columns else None
         compared_strings = []
         self.debug.debug("security sting columns: %s", self.security_setting_columns)
@@ -312,7 +332,6 @@ class Comparisons:
             compared_strings.append(result)
             self.debug.debug("security string comparison: %s", str(result))
         self.sec_string_parser.create_security_artifact(compared_strings)
-        
 
         self.comparison_export_path = self.reporter.artifacts.save_csv(
             "comparison_by_column.csv",

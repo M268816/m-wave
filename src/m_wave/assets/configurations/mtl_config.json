@@ -11,87 +11,121 @@
     "MTL-Digital Sets-VAL&PROD": {
       "table_id": "Table5",
       "type": "DIGITAL_SET",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "MTL GxP-VAL": {
       "table_id": "Table2",
       "type": "GXP",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "MTL GxP-PROD": {
       "table_id": "Table3",
       "type": "GXP",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "MTL-Analytics-VAL&PROD": {
       "table_id": "Table4",
       "type": "ANALYTICS",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD-Enumeration Sets-VAL": {
       "table_id": "Table6",
       "type": "ENUM_SET",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD-Enumeration Sets-PROD": {
       "table_id": "Table7",
       "type": "ENUM_SET",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD Categories-VAL": {
       "table_id": "Table8",
       "type": "CATEGORIES",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD Categories-PROD": {
       "table_id": "Table9",
       "type": "CATEGORIES",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD Tables-VAL": {
       "table_id": "Table10",
       "type": "TABLES",
-      "can_compare": false
+      "can_compare": false,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD Tables-PROD": {
       "table_id": "Table1012",
       "type": "TABLES",
-      "can_compare": false
+      "can_compare": false,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD-Event Frame Templates-VAL": {
       "table_id": "Table14",
       "type": "EVENT_FRAME",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD-Event Frame Templates-PROD": {
       "table_id": "Table1416",
       "type": "EVENT_FRAME",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": false,
+      "permeable_permission_values": null
     },
     "CMD-Element Templates-VAL": {
       "table_id": "Table12",
       "type": "ELEMENT_TEMPLATE",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": true,
+      "permeable_permission_values": ["r", "s", "x", "so"]
     },
     "CMD-Element Templates-PROD": {
       "table_id": "Table13",
       "type": "ELEMENT_TEMPLATE",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": true,
+      "permeable_permission_values": ["r", "s", "x", "so"]
     },
     "CMD-Elements-Build": {
       "table_id": "Table11",
       "type": "ELEMENT",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": true,
+      "permeable_permission_values": ["s", "x", "so"]
     },
     "CMD-Elements LSDH - VAL": {
       "table_id": "Table1117",
       "type": "ELEMENT",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": true,
+      "permeable_permission_values": ["s", "x", "so"]
     },
     "CMD-Elements LSDH - PROD": {
       "table_id": "Table1118",
       "type": "ELEMENT",
-      "can_compare": true
+      "can_compare": true,
+      "permeable_permissions": true,
+      "permeable_permission_values": ["s", "x", "so"]
     }
   },
   "table_formatting": {

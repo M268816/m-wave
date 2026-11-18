@@ -43,6 +43,36 @@ class SecurityParser:
         self.report_issues.append(ReportIssue(title, msg, severity))
         self.journal.error(msg)
 
+    def remove_permeable_permissions(self, permission: str) -> str:
+        """
+        Elements and Element Templates will often keep permissions
+        (r, x, s, and so) in principal permissions. This rebuilds the
+        permissions to remove them.
+        """
+        permission = "".join(permission.split())
+        permeable_values = self.metadata.get_worksheet_permeable_permission_values()
+
+        try:
+            before, content = permission.split("(")
+            rights, after = content.split(")")
+
+            tokens = rights.split(",")
+            for permeable in permeable_values:
+                if permeable in tokens:
+                    tokens.remove(permeable)
+            right_set = set(tokens)
+            sorted_rights = ",".join(
+                right for right in self.canon_order if right in right_set
+            )
+            modified = before + "(" + sorted_rights + ")" + after
+            return modified
+
+        except Exception as e:
+            msg = f"Could not remove permeable permissions from '{permission}'"
+            self.journal.error(msg)
+            self.debug.error(msg + ": %s", e, error=e)
+            raise ValueError(msg)
+
     def normalize_permission(self, permission: str) -> str:
         """
         Normalizes one permission value.
@@ -112,7 +142,6 @@ class SecurityParser:
         result = {}
 
         for entry in text.split("|"):
-            entry = entry.strip()
             if not entry:
                 continue
 
@@ -135,10 +164,20 @@ class SecurityParser:
                     f"Malformed security entry found in '{record_name}': {entry!r}"
                 )
 
+            compact_permission = "".join(permission.split())
+            action, is_valid, _ = compact_permission.partition("(")
+            if is_valid and action.upper() != "A":
+                self.debug.debug(
+                    "Ignoring deny permission for principal %s in %s",
+                    principal,
+                    record_name,
+                )
+                continue
+
             # Don't silently overwrite repeated principals.
             if principal in result:
                 raise ValueError(
-                    f"Duplicate principal found in '{record_name}': {principal!r}"
+                    f"Duplicate principal '{principal!r}' found in '{record_name!r}'"
                 )
 
             result[principal] = self.normalize_permission(permission)
@@ -201,7 +240,11 @@ class SecurityParser:
         return setting
 
     def compare_security_strings(
-        self, record_name: str, column_name: str, mtl_string: str, pib_string: str
+        self,
+        record_name: str,
+        column_name: str,
+        mtl_string: str,
+        pib_string: str,
     ) -> dict:
         """
         Compare two security strings. Returns a dictionary of:
@@ -262,7 +305,10 @@ class SecurityParser:
                 }
                 for principal in sorted(mtl.keys() & pib.keys())
                 if mtl[principal] != pib[principal]
-                or pib[principal] != matrix[principal]
+                or pib[principal]
+                != self._get_matrix_setting(
+                    canon_settings, table_is_gxp, column_name, principal
+                )
             }
 
             all_settings = {
@@ -276,56 +322,62 @@ class SecurityParser:
                 for principal in sorted(available_keys | set(matrix_only))
             }
 
-            matches = not mtl_only and not pib_only and not permission_differences
+            def effective_setting(settings: dict[str, str], principal: str) -> str:
+                original = settings.get(principal, "---")
+                if original == "---":
+                    return "---"
+                effective = self.remove_permeable_permissions(original)
+                return effective
 
-            if not matches:
+            permeable_settings = {
+                principal: {
+                    "mtl_setting_original": mtl.get(principal, "---"),
+                    "mtl_setting_effective": effective_setting(mtl, principal),
+                    "pib_setting_original": pib.get(principal, "---"),
+                    "pib_setting_effective": effective_setting(pib, principal),
+                    "matrix_setting": self._get_matrix_setting(
+                        canon_settings, table_is_gxp, column_name, principal
+                    ),
+                }
+                for principal in sorted(available_keys | set(matrix_only))
+            }
+
+            if self.metadata.worksheet_has_permeable_permissions():
+                matches = not mtl_only and not pib_only and not permission_differences
+                validated = all(
+                    setting["pib_setting_effective"] == setting["matrix_setting"]
+                    for setting in permeable_settings.values()
+                )
+            else:
+                matches = not mtl_only and not pib_only and not permission_differences
+                validated = all(
+                    setting["pib_setting"] == setting["matrix_setting"]
+                    for setting in all_settings.values()
+                )
+
+            if not (matches and validated):
                 self.journal.error_banner(
                     f"{record_name} security column: '{column_name}' has errors!"
                 )
-                if permission_differences:
-                    for permission in permission_differences:
-                        self.journal.error(
-                            f"⛔ Permission '{permission}' has non matching values."
-                        )
+                for permission in permission_differences:
+                    self.journal.error(
+                        f"⛔ Permission '{permission}' has non matching values."
+                    )
 
-                    # self.journal.error("Matching Differences:")
-                    # for permission, settings in permission_differences.items():
-                    #     self.journal.error(f"\t{permission}:")
-                    #     self.journal.error(
-                    #         f"\t\tMTL_Setting: {settings['mtl_setting']}"
-                    #     )
-                    #     self.journal.error(
-                    #         f"\t\tPIB_Setting: {settings['pib_setting']}"
-                    #     )
-                    #     matrix_setting = self._get_matrix_setting(
-                    #         canon_settings,
-                    #         table_is_non_standard,
-                    #         column_name,
-                    #         permission,
-                    #     )
-                    #     self.journal.error(f"\t\tMatrix_Setting: {matrix_setting}")
+                for permission in mtl_only:
+                    self.journal.error(
+                        f"⛔ MTL/CMD Permission '{permission}' is missing from the PI string"
+                    )
 
-                if mtl_only:
-                    for permission in mtl_only:
-                        self.journal.error(
-                            f"⛔ Permission '{permission}' is missing from the PI string"
-                        )
+                for permission in pib_only:
+                    self.journal.error(
+                        f"⛔ PI Permission '{permission}' is missing from the MTL/CMD string"
+                    )
 
-                    # self.journal.error("Settings only in the MTL security string:")
-                    # for permission in mtl_only:
-                    #     self.journal.error(f"\t{permission}")
-
-                if pib_only:
-                    for permission in pib_only:
-                        self.journal.error(
-                            f"⛔ Permission '{permission}' is missing form the MTL string"
-                        )
-
-                    # self.journal.error(
-                    #     "Settings only in the PI Builder security string:"
-                    # )
-                    # for permission in pib_only:
-                    #     self.journal.error(f"\t{permission}")
+                for permission in matrix_only:
+                    self.journal.error(
+                        f"⛔ Matrix Permission '{permission}' is missing from the comparison"
+                    )
 
             return {
                 "matches": matches,
@@ -339,12 +391,14 @@ class SecurityParser:
                 "pib_only_settings": pib_only_settings,
                 "matrix_only_settings": matrix_only_settings,
                 "all_settings": all_settings,
+                "permeable_settings": permeable_settings,
             }
 
         except Exception as e:
             msg = "An unexpected error occurred while attempting to compare security strings."
-            self.debug.error(msg + ": %s", e)
+            self.debug.error(msg + ": %s", e, error=e)
             self.journal.error(msg)
+            self.journal.error(f"Error: {e}")
             return {}
 
     def create_security_artifact(self, compared_security_strings: list[dict]):
@@ -352,26 +406,59 @@ class SecurityParser:
         Create a security string table artifact with a list of compared
         security string dictionaries.
         """
-
-        columns = [
-            "Record Name",
-            "Security Column",
-            "Permission",
-            "MTL Config",
-            "PIB Config",
-            "Matrix Config",
-            "MTL/CMD matches PI",
-            "MTL/CMD matches Matrix",
-            "PI matches Matrix",
-            "Passes Validation",
-        ]
+        columns = (
+            [
+                "Record Name",
+                "Security Column",
+                "Permission",
+                "MTL Config",
+                "PIB Config",
+                "Matrix Config",
+                "MTL/CMD matches PI",
+                "MTL/CMD matches Matrix",
+                "PI matches Matrix",
+                "Passes Validation",
+            ]
+            if not self.metadata.worksheet_has_permeable_permissions()
+            else [
+                "Record Name",
+                "Security Column",
+                "Permission",
+                "MTL Original Config",
+                "MTL Effective Config",
+                "PIB Original Config",
+                "PIB Effective Config",
+                "Matrix Config",
+                "MTL/CMD matches PI",
+                "MTL/CMD matches Matrix",
+                "PI matches Matrix",
+                "Passes Validation",
+            ]
+        )
         rows = []
         MISSING = "---"
 
-        def build_row(common, principal, mtl_setting, pib_setting, matrix_setting):
-            mtl_ok = mtl_setting == matrix_setting
-            pib_ok = pib_setting == matrix_setting
-            return {
+        def build_row(
+            is_permeable: bool,
+            common,
+            principal,
+            mtl_setting,
+            pib_setting,
+            matrix_setting,
+            mtl_effective="",
+            pib_effective="",
+        ):
+            mtl_ok = (
+                mtl_setting == matrix_setting
+                if not is_permeable
+                else mtl_effective == matrix_setting
+            )
+            pib_ok = (
+                pib_setting == matrix_setting
+                if not is_permeable
+                else pib_effective == matrix_setting
+            )
+            row = {
                 **common,
                 "Permission": principal,
                 "MTL Config": mtl_setting,
@@ -382,6 +469,20 @@ class SecurityParser:
                 "PI matches Matrix": pib_ok,
                 "Passes Validation": pib_ok,
             }
+            permeable_row = {
+                **common,
+                "Permission": principal,
+                "MTL Original Config": mtl_setting,
+                "MTL Effective Config": mtl_effective,
+                "PIB Original Config": pib_setting,
+                "PIB Effective Config": pib_effective,
+                "Matrix Config": matrix_setting,
+                "MTL/CMD matches PI": mtl_setting == pib_setting,
+                "MTL/CMD matches Matrix": mtl_ok,
+                "PI matches Matrix": pib_ok,
+                "Passes Validation": pib_ok,
+            }
+            return permeable_row if is_permeable else row
 
         try:
             table_type = self.metadata.get_table_type()
@@ -390,7 +491,7 @@ class SecurityParser:
             canon_settings = formatting_rules["Security Strings"]
 
             for comparison in compared_security_strings:
-                if not comparison or comparison.get("matches", True):
+                if not comparison:
                     continue
 
                 column_name = comparison["column_name"]
@@ -399,21 +500,41 @@ class SecurityParser:
                     "Security Column": comparison["column_name"],
                 }
 
-                def _matrix_for(principal):
+                def _matrix_for(principal, column_name):
                     return self._get_matrix_setting(
                         canon_settings, table_is_gxp, column_name, principal
                     )
 
-                for principal, setting in comparison.get("all_settings", {}).items():
-                    rows.append(
-                        build_row(
-                            common_fields,
-                            principal,
-                            setting["mtl_setting"],
-                            setting["pib_setting"],
-                            setting["matrix_setting"],
+                if self.metadata.worksheet_has_permeable_permissions():
+                    for principal, setting in comparison.get(
+                        "permeable_settings", {}
+                    ).items():
+                        rows.append(
+                            build_row(
+                                True,
+                                common_fields,
+                                principal,
+                                setting["mtl_setting_original"],
+                                setting["pib_setting_original"],
+                                setting["matrix_setting"],
+                                setting["mtl_setting_effective"],
+                                setting["pib_setting_effective"],
+                            )
                         )
-                    )
+                else:
+                    for principal, setting in comparison.get(
+                        "all_settings", {}
+                    ).items():
+                        rows.append(
+                            build_row(
+                                False,
+                                common_fields,
+                                principal,
+                                setting["mtl_setting"],
+                                setting["pib_setting"],
+                                setting["matrix_setting"],
+                            )
+                        )
 
                 # for principal, setting in comparison.get(
                 #     "permission_differences", {}
@@ -483,4 +604,5 @@ class SecurityParser:
             self.debug.error(
                 "An unexpected error occurred when attempting to create the security artifact, %s",
                 e,
+                error=e,
             )
