@@ -181,13 +181,19 @@ class Comparisons:
 
         for column in found_sec_columns:
             mtl[column] = mtl[column].map(
-                lambda value: self.sec_string_parser.canonicalize_security_string(
-                    self._display(value), str(mtl[column])
+                lambda value, col_name=column: (
+                    self.sec_string_parser.canonicalize_security_string(
+                        text=self._display(value),
+                        column_name=col_name,
+                    )
                 )
             )
             inp[column] = inp[column].map(
-                lambda value: self.sec_string_parser.canonicalize_security_string(
-                    self._display(value), str(inp[column])
+                lambda value, col_name=column: (
+                    self.sec_string_parser.canonicalize_security_string(
+                        text=self._display(value),
+                        column_name=col_name,
+                    )
                 )
             )
 

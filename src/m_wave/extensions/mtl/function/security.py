@@ -6,6 +6,8 @@
 # stdlib
 
 # third party
+import re
+
 import pandas as pd
 
 # local core
@@ -117,18 +119,27 @@ class SecurityParser:
 
         return before + "(" + sorted_rights + ")" + after
 
-    def canonicalize_security_string(self, text: str, record_name: str) -> str:
+    def canonicalize_security_string(
+        self,
+        text: str,
+        column_name: str,
+    ) -> str:
         """
         Normalizes a security string so that permission keys, and permission setting
         orders can be compared to correctly.
         """
-        permissions = self.parse_security(text, record_name)
+        permissions = self.parse_security(text, column_name)
+        matrix = self._matrix_for_column(column_name)
+        permissions = self._drop_other_site_principals(permissions, matrix)
+
         canon = " | ".join(
             f"{principal}: {permissions[principal]}"
             for principal in sorted(permissions)
         )
+
         if canon:
             self.debug.debug("Canonized security string: %s", canon)
+
         return canon
 
     def parse_security(self, text: str, record_name: str) -> dict[str, str]:
@@ -239,6 +250,44 @@ class SecurityParser:
 
         return setting
 
+    def _matrix_for_column(self, column_name: str) -> dict:
+        rules = self.metadata.get_formatting_rules()
+        return self._get_matrix_column(
+            rules["Security Strings"],
+            self.metadata.get_table_type() is TableType.GXP,
+            column_name,
+        )
+
+    def _drop_other_site_principals(
+        self,
+        permissions: dict[str, str],
+        matrix: dict,
+    ) -> dict[str, str]:
+        in_scope_codes = set()
+        site_code_principal = re.compile(r"^PI_([A-Z0-9]{2,8})_")
+        for principal in matrix:
+            match = site_code_principal.match(principal)
+            if match:
+                in_scope_codes.add(match.group(1))
+
+        if not in_scope_codes:
+            return permissions
+
+        filtered = {}
+        dropped = []
+        for principal, setting in permissions.items():
+            match = site_code_principal.match(principal)
+            if match and match.group(1) not in in_scope_codes:
+                dropped.append(principal)
+            else:
+                filtered[principal] = setting
+        if dropped:
+            self.debug.debug(
+                "Ignoring permissions for other side codes: &s", sorted(dropped)
+            )
+
+        return filtered
+
     def compare_security_strings(
         self,
         record_name: str,
@@ -269,8 +318,13 @@ class SecurityParser:
             canon_settings = formatting_rules["Security Strings"]
 
             matrix = self._get_matrix_column(canon_settings, table_is_gxp, column_name)
-            mtl = self.parse_security(mtl_string, record_name)
-            pib = self.parse_security(pib_string, record_name)
+
+            mtl = self._drop_other_site_principals(
+                self.parse_security(mtl_string, record_name), matrix
+            )
+            pib = self._drop_other_site_principals(
+                self.parse_security(pib_string, record_name), matrix
+            )
 
             mtl_only = sorted(mtl.keys() - pib.keys())
             pib_only = sorted(pib.keys() - mtl.keys())
@@ -329,18 +383,22 @@ class SecurityParser:
                 effective = self.remove_permeable_permissions(original)
                 return effective
 
-            permeable_settings = {
-                principal: {
-                    "mtl_setting_original": mtl.get(principal, "---"),
-                    "mtl_setting_effective": effective_setting(mtl, principal),
-                    "pib_setting_original": pib.get(principal, "---"),
-                    "pib_setting_effective": effective_setting(pib, principal),
-                    "matrix_setting": self._get_matrix_setting(
-                        canon_settings, table_is_gxp, column_name, principal
-                    ),
+            permeable_settings = (
+                {
+                    principal: {
+                        "mtl_setting_original": mtl.get(principal, "---"),
+                        "mtl_setting_effective": effective_setting(mtl, principal),
+                        "pib_setting_original": pib.get(principal, "---"),
+                        "pib_setting_effective": effective_setting(pib, principal),
+                        "matrix_setting": self._get_matrix_setting(
+                            canon_settings, table_is_gxp, column_name, principal
+                        ),
+                    }
+                    for principal in sorted(available_keys | set(matrix_only))
                 }
-                for principal in sorted(available_keys | set(matrix_only))
-            }
+                if self.metadata.worksheet_has_permeable_permissions()
+                else {}
+            )
 
             if self.metadata.worksheet_has_permeable_permissions():
                 matches = not mtl_only and not pib_only and not permission_differences
@@ -411,12 +469,12 @@ class SecurityParser:
                 "Record Name",
                 "Security Column",
                 "Permission",
-                "MTL Config",
-                "PIB Config",
-                "Matrix Config",
-                "MTL/CMD matches PI",
-                "MTL/CMD matches Matrix",
-                "PI matches Matrix",
+                "MTL/CMD Config",
+                "PI System Config",
+                "Security Matrix Config",
+                "MTL/CMD matches PI System",
+                "MTL/CMD matches Security Matrix",
+                "PI System matches Security Matrix",
                 "Passes Validation",
             ]
             if not self.metadata.worksheet_has_permeable_permissions()
@@ -424,19 +482,18 @@ class SecurityParser:
                 "Record Name",
                 "Security Column",
                 "Permission",
-                "MTL Original Config",
-                "MTL Effective Config",
-                "PIB Original Config",
-                "PIB Effective Config",
-                "Matrix Config",
-                "MTL/CMD matches PI",
-                "MTL/CMD matches Matrix",
-                "PI matches Matrix",
+                "MTL/CMD Original Config",
+                "MTL/CMD Effective Config",
+                "PI System Original Config",
+                "PI System Effective Config",
+                "Security Matrix Config",
+                "MTL/CMD matches PI System",
+                "MTL/CMD matches Security Matrix",
+                "PI System matches Security Matrix",
                 "Passes Validation",
             ]
         )
         rows = []
-        MISSING = "---"
 
         def build_row(
             is_permeable: bool,
@@ -448,39 +505,29 @@ class SecurityParser:
             mtl_effective="",
             pib_effective="",
         ):
-            mtl_ok = (
-                mtl_setting == matrix_setting
-                if not is_permeable
-                else mtl_effective == matrix_setting
-            )
-            pib_ok = (
-                pib_setting == matrix_setting
-                if not is_permeable
-                else pib_effective == matrix_setting
-            )
             row = {
                 **common,
                 "Permission": principal,
-                "MTL Config": mtl_setting,
-                "PIB Config": pib_setting,
-                "Matrix Config": matrix_setting,
-                "MTL/CMD matches PI": mtl_setting == pib_setting,
-                "MTL/CMD matches Matrix": mtl_ok,
-                "PI matches Matrix": pib_ok,
-                "Passes Validation": pib_ok,
+                "MTL/CMD Config": mtl_setting,
+                "PI System Config": pib_setting,
+                "Security Matrix Config": matrix_setting,
+                "MTL/CMD matches PI System": mtl_setting == pib_setting,
+                "MTL/CMD matches Security Matrix": mtl_setting == matrix_setting,
+                "PI System matches Security Matrix": pib_setting == matrix_setting,
+                "Passes Validation": pib_setting == matrix_setting,
             }
             permeable_row = {
                 **common,
                 "Permission": principal,
-                "MTL Original Config": mtl_setting,
-                "MTL Effective Config": mtl_effective,
-                "PIB Original Config": pib_setting,
-                "PIB Effective Config": pib_effective,
-                "Matrix Config": matrix_setting,
-                "MTL/CMD matches PI": mtl_setting == pib_setting,
-                "MTL/CMD matches Matrix": mtl_ok,
-                "PI matches Matrix": pib_ok,
-                "Passes Validation": pib_ok,
+                "MTL/CMD Original Config": mtl_setting,
+                "MTL/CMD Effective Config": mtl_effective,
+                "PI System Original Config": pib_setting,
+                "PI System Effective Config": pib_effective,
+                "Security Matrix Config": matrix_setting,
+                "MTL/CMD matches PI System": mtl_effective == pib_effective,
+                "MTL/CMD matches Security Matrix": mtl_effective == matrix_setting,
+                "PI System matches Security Matrix": pib_effective == matrix_setting,
+                "Passes Validation": pib_effective == matrix_setting,
             }
             return permeable_row if is_permeable else row
 
@@ -494,7 +541,6 @@ class SecurityParser:
                 if not comparison:
                     continue
 
-                column_name = comparison["column_name"]
                 common_fields = {
                     "Record Name": comparison["record_name"],
                     "Security Column": comparison["column_name"],
@@ -521,6 +567,7 @@ class SecurityParser:
                                 setting["pib_setting_effective"],
                             )
                         )
+
                 else:
                     for principal, setting in comparison.get(
                         "all_settings", {}
@@ -535,59 +582,15 @@ class SecurityParser:
                                 setting["matrix_setting"],
                             )
                         )
-
-                # for principal, setting in comparison.get(
-                #     "permission_differences", {}
-                # ).items():
-                #     rows.append(
-                #         build_row(
-                #             common_fields,
-                #             principal,
-                #             setting["mtl_setting"],
-                #             setting["pib_setting"],
-                #             setting["matrix_setting"],
-                #         )
-                #     )
-                #
-                # for principal, mtl_setting in comparison.get(
-                #     "mtl_only_settings", {}
-                # ).items():
-                #     rows.append(
-                #         build_row(
-                #             common_fields,
-                #             principal,
-                #             mtl_setting,
-                #             MISSING,
-                #             _matrix_for(principal),
-                #         )
-                #     )
-                #
-                # for principal, pib_setting in comparison.get(
-                #     "pib_only_settings", {}
-                # ).items():
-                #     rows.append(
-                #         build_row(
-                #             common_fields,
-                #             principal,
-                #             MISSING,
-                #             pib_setting,
-                #             _matrix_for(principal),
-                #         )
-                #     )
-                #
-                # for principal, matrix_setting in comparison.get(
-                #     "matrix_only_settings", {}
-                # ).items():
-                #     rows.append(
-                #         build_row(
-                #             common_fields,
-                #             principal,
-                #             MISSING,
-                #             MISSING,
-                #             matrix_setting,
-                #         )
-                #     )
-
+            if self.metadata.worksheet_has_permeable_permissions():
+                rows.insert(
+                    0,
+                    {
+                        "Record Name": "Note: Effective configurations remove "
+                        "permeable settings like 'r', 'x', 's', and 'so' so that "
+                        "comparisons reference active permission values only."
+                    },
+                )
             df = pd.DataFrame(rows, columns=columns)
 
             self.reporter.artifacts.save_csv(
