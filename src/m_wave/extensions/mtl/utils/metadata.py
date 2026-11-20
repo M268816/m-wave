@@ -141,7 +141,7 @@ class Metadata:
         except Exception as e:
             self.journal.error("MTL configuration could not be written.")
             self.notify.error("MTL configuration could not be written.")
-            self.debug.error("MTL configuration could not be written: %s", e)
+            self.debug.error("MTL configuration could not be written: %s", e, error=e)
 
     def get_mtl_doc_num(self) -> str:
         return self.mtl_configs["mtl_doc_num"]

@@ -247,5 +247,5 @@ class Sorting:
         except Exception as e:
             msg = "An unexpected error occurred during sorting"
             self.journal.error(msg)
-            self.debug.error(msg + ":\n %s", e)
+            self.debug.error(msg + ":\n %s", e, error=e)
             return output

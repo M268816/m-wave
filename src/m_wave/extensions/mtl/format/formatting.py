@@ -190,7 +190,9 @@ class Formatting:
             self.journal.info("Filter applied!")
             return output
         except Exception as e:
-            self.debug.error("Unexpected error while filtering by string:\n %s", e)
+            self.debug.error(
+                "Unexpected error while filtering by string:\n %s", e, error=e
+            )
             return output
 
     def _drop_na_columns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -212,7 +214,9 @@ class Formatting:
             )
             return _df
         except Exception as e:
-            self.debug.error("Unexpected error while dropping na columns:\n %s", e)
+            self.debug.error(
+                "Unexpected error while dropping na columns:\n %s", e, error=e
+            )
             return df
 
     def _drop_na_rows(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
@@ -344,7 +348,7 @@ class Formatting:
             return _df
         except Exception as e:
             self.journal.error(f"Could not normalize numeric columns: {e}")
-            self.debug.error("Could not normalize number columns:\n %s", e)
+            self.debug.error("Could not normalize number columns:\n %s", e, error=e)
             return df
 
     def _conform_blank_cells(
@@ -377,7 +381,7 @@ class Formatting:
 
         except Exception as e:
             self.journal.error(f"Could not conform blank cells: {e}")
-            self.debug.error("Could not conform blank cells:\n %", e)
+            self.debug.error("Could not conform blank cells:\n %", e, error=e)
             return df
 
     def _normalize_key_columns(self, df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
@@ -408,7 +412,7 @@ class Formatting:
 
         except Exception as e:
             self.journal.error(f"Could not normalize key columns: {e}")
-            self.debug.error("Could not normalize key columns:\n %s", e)
+            self.debug.error("Could not normalize key columns:\n %s", e, error=e)
             return df
 
     def _normalize_whitespace(
@@ -447,7 +451,7 @@ class Formatting:
         except Exception as e:
             error_msg = f"Could not normalize white space:\n{e}"
             self.journal.error(error_msg)
-            self.debug.error("Could not normalize white space:\n %s", e)
+            self.debug.error("Could not normalize white space:\n %s", e, error=e)
             return df
 
     def format(
@@ -502,7 +506,9 @@ class Formatting:
         except Exception as e:
             error_msg = f"Could not format dataframe:\n{e}"
             self.journal.error(error_msg)
-            self.debug.error("An unexpected error occurred during formatting:\n %s", e)
+            self.debug.error(
+                "An unexpected error occurred during formatting:\n %s", e, error=e
+            )
             issue = ReportIssue(
                 "Unexpected Format Error",
                 "An unexpected error occurred during formatting.",
@@ -656,5 +662,5 @@ class Formatting:
         except Exception as e:
             msg = "Data alignment failed! An unexpected error occurred."
             self.journal.error(msg)
-            self.debug.error(msg + ":\n %s", e)
+            self.debug.error(msg + ":\n %s", e, error=e)
             return output

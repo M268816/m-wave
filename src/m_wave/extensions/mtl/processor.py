@@ -151,7 +151,7 @@ class MTLProcessor:
             )
             self.journal.error_banner(e_text)
             self.journal.error(f"{e}")
-            self.debug.error(e_text + ": %s", e)
+            self.debug.error(e_text + ": %s", e, error=e)
             pdf = self._build_download_pdf(
                 request,
                 PDFReportStatus.ERRORED,

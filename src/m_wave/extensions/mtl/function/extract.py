@@ -108,6 +108,7 @@ class DataExtractor:
                 "Permissions error while attempting to return the file "
                 "name and size for excel files in the given folder: %s",
                 e,
+                error=e,
             )
 
         return result
@@ -244,7 +245,7 @@ class DataExtractor:
                 "number from the MTL/CMD"
             )
             self.journal.error(e_text)
-            self.debug.error(e_text + ": %s", e)
+            self.debug.error(e_text + ": %s", e, error=e)
         finally:
             if wb is not None:
                 wb.close()
@@ -341,7 +342,7 @@ class DataExtractor:
                 "with xlwings."
             )
             self.journal.error(e_text)
-            self.debug.error(e_text + ": %s", e)
+            self.debug.error(e_text + ": %s", e, error=e)
             issue = ReportIssue("Extracting MTL with xlwings.", e_text, "error")
             self.report_issues.append(issue)
             return dataframe
@@ -410,7 +411,7 @@ class DataExtractor:
                 )
                 self.journal.error_banner("Could not convert bad input data.")
                 self.journal.error(error_msg)
-                self.debug.error("Bad symbol in CSV file: %s", e)
+                self.debug.error("Bad symbol in CSV file: %s", e, error=e)
                 issue = ReportIssue("Bad symbol in CSV file", error_msg, "critical")
                 self.report_issues.append(issue)
                 return df
@@ -420,7 +421,7 @@ class DataExtractor:
             )
             self.journal.error_banner("Could not convert bad input data.")
             self.journal.error(error_msg)
-            self.debug.error(error_msg)
+            self.debug.error(error_msg, error=e)
             self.reporter.notifier.error(error_msg, "PI Builder CSV Extraction Error.")
             return df
 

@@ -77,11 +77,13 @@ class ExampleController(WavePackController):
             )
 
         except Exception as error:
-            reporter.finish_report_with_error(error)
-            reporter.notifier.error(
-                f"The process stopped with an error:\n{error}\n\n"
-                "See journal.log in the report folder for details."
+            msg = (
+                "The process stopped with an error:\n"
+                "See journal.log in the report folder for details.\n\n"
             )
+            reporter.finish_report_with_error(error)
+            reporter.notifier.error(msg + f": {error}")
+            reporter.debug.error(msg + ": %s", error, error=error)
 
         finally:
             # Widgets may only be changed on the main thread, so use after().
