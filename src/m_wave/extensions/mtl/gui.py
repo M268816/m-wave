@@ -154,7 +154,7 @@ class MTLFrame(WavePackGUI):
         worker thread so the UI stays responsive, then finishes on the main thread.
         """
         self.write("Checking files for a MTL document.")
-        mtl_doc_path = self.metadata.get_mtl_document_path()
+        mtl_doc_path = self.metadata.mtl_document_path
 
         if not mtl_doc_path.exists():
             warn = (

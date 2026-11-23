@@ -15,6 +15,7 @@ from reportlab.platypus import (
     Flowable,
     HRFlowable,
     Image,
+    PageBreakIfNotEmpty,
     Paragraph,
     Spacer,
     Table,
@@ -339,6 +340,33 @@ def data_table(
 
     table.setStyle(TableStyle(commands))
     return table
+
+
+def page_break() -> Flowable:
+    """
+    Start the next element on a new page.
+
+    Skipped when the current page is still empty, so consecutive breaks or a
+    break after an omitted section never produce a blank page.
+    """
+    return PageBreakIfNotEmpty()
+
+
+def on_new_page(section: Sequence[Flowable]) -> list[Flowable]:
+    """
+    Place a section at the top of a new page.
+
+    Returns an empty list for an empty section, so optional sections add no
+    break. Leading spacers are dropped; they only make sense below other
+    content, not at the top of a page.
+    """
+    elements = list(section)
+    while elements and isinstance(elements[0], Spacer):
+        elements.pop(0)
+
+    if not elements:
+        return []
+    return [page_break(), *elements]
 
 
 def note_box(text_styles: TextStyles, text: str, width: float) -> Flowable:

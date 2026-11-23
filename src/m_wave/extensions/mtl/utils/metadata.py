@@ -8,6 +8,7 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 # local core
 from m_wave.core.reporting.reporter import Reporter
@@ -16,8 +17,37 @@ from m_wave.core.reporting.reporter import Reporter
 from m_wave.extensions.mtl.utils.paths import MTL_DOC_DIR, get_mtl_config_path
 
 
+class MetadataContextError(RuntimeError):
+    """
+    Base error for unavailable worksheet or table context.
+    """
+
+
+class WorksheetNotSetError(MetadataContextError):
+    """
+    Raise dwhen worksheet-specific metadata is requested before selection.
+    """
+
+
+class UnknownWorksheetError(MetadataContextError):
+    """
+    Raised when the selected worksheet has no configured metadata.
+    """
+
+
+class MetadataConfigurationError(RuntimeError):
+    """
+    Raised when configuration contains missing or invalid table metadata.
+    """
+
+
+class MissingTableFormattingError(MetadataContextError):
+    """
+    Raised when a table type has no corresponding formatting configuration.
+    """
+
+
 class TableType(str, Enum):
-    UNKNOWN = "unknown"
     ANALYTICS = "analytics"
     DIGITAL_SET = "digital_set"
     GXP = "pi_tags"
@@ -32,68 +62,183 @@ class TableType(str, Enum):
 @dataclass
 class TableInfo:
     """
-    A data class to hold the named excel table metadata.
+    Metadata fora names excel table.
     """
 
     table_id: str
-    type: TableType = TableType.UNKNOWN
+    type: TableType
     can_compare: bool = False
     permeable_permissions: bool = False
     permeable_permission_values: list[str] | None = None
 
 
 class Metadata:
-    def __init__(self, reporter: Reporter, ws_name: str | None = None) -> None:
+    """
+    Load MTL Configuration and procide context-aware metadata access.
+    """
+
+    def __init__(
+        self,
+        reporter: Reporter,
+        ws_name: str | None = None,
+        config_path: Path | None = None,
+    ) -> None:
         self.report: Reporter = reporter
         self.journal = reporter.journal
         self.debug = reporter.debug
         self.notify = reporter.notifier
-        self.worksheet_name = ws_name
-        self.mtl_configs = self.get_mtl_configs()
-        self.worksheet_metadata = self.get_worksheet_metadata()
-        self.dataframe_formatting = self.get_dataframe_formatting()
-        self.mtl_document_path = self.get_mtl_document_path()
-        self.table_formatting = self.get_table_formatting()
 
-    @property
-    def table_type(self) -> TableType:
-        if self.worksheet_name and self.worksheet_name in self.worksheet_metadata:
-            return self.worksheet_metadata[self.worksheet_name].type
-        return TableType.UNKNOWN
+        self.worksheet_name: str | None = None
+        self._config_path = Path(config_path or get_mtl_config_path())
+        self.mtl_configs: dict[str, Any] = {}
 
-    def set_worksheet_name(self, name: str):
-        self.worksheet_name = name
+        self.reload_config()
 
-    def worksheet_name_is_set(self) -> bool:
-        if self.worksheet_name:
-            return True
+        if ws_name is not None:
+            self.set_worksheet_name(ws_name)
 
-        self.journal.error("Worksheet name was never set!")
-        self.debug.debug("metadata.worksheet_name_is_set: name never set.")
-        return False
+    def reload_config(self) -> None:
+        """
+        Reload the JSON file and refresh all derived configuration attribuutes.
 
-    def get_mtl_configs(self) -> dict:
+        This instance holds a snapshot of the file's configuration. Call this
+        method to pick up changes made outside this instance.
+        """
+        configs = self._load_mtl_configs()
+        self._apply_config(configs)
+
+    def _load_mtl_configs(self) -> dict[str, Any]:
+        """
+        Read the configuration JSON file.
+        """
         try:
-            with open(get_mtl_config_path(), "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            raise SystemExit(f"Configuration not found. Cannot run application.\n{e}")
+            with self._config_path.open("r", encoding="utf-8") as f:
+                configs = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            raise RuntimeError(
+                f"Configuration could not be loaded from {self._config_path}"
+            ) from e
 
-    def get_worksheet_metadata(self) -> dict:
-        return {
-            sheet_name: TableInfo(
+        if not isinstance(configs, dict):
+            raise TypeError(
+                f"Configuration at {self._config_path} must contain a JSON object."
+            )
+
+        return configs
+
+    def _apply_config(self, configs: dict[str, Any]) -> None:
+        """Validate config and refresh this instance's configuration attributes.
+
+        Treat the exposed config attributes as read-only. Use set_mtl_version() or
+        reload_config() rather than mutating them directly.
+        """
+        try:
+            mtl_version = configs["mtl_version"]
+            mtl_doc_num = configs["mtl_doc_num"]
+            mtl_dl_url = configs["mtl_dl_url"]
+            val_server = configs["val_server"]
+            prod_server = configs["prod_server"]
+            mtl_instructions_git_url = configs["mtl_instructions_git_url"]
+            mtl_help_vid_url = configs["mtl_help_vid_url"]
+            canon_security_string_order = configs["canon_security_string_order"]
+
+            dataframe_formatting = configs["dataframe_formatting"]
+            excluded_columns = dataframe_formatting["exclude_columns"]
+            security_string_columns = dataframe_formatting["security_string_columns"]
+            datetime_columns = dataframe_formatting["datetime_columns"]
+            numeric_columns = dataframe_formatting["numeric_columns"]
+            classic_gxp_columns = dataframe_formatting["classic_gxp_columns"]
+
+            worksheet_metadata = self._build_worksheet_metadata(
+                configs["worksheet_metadata"]
+            )
+            table_formatting = self._build_table_formatting(configs["table_formatting"])
+        except KeyError as exc:
+            raise MetadataConfigurationError(
+                f"Configuration is missing required key {exc.args[0]!r}."
+            ) from exc
+
+        worksheet_types = {info.type for info in worksheet_metadata.values()}
+        missing_formatting = worksheet_types - table_formatting.keys()
+        if missing_formatting:
+            missing_names = ", ".join(
+                sorted(table_type.name for table_type in missing_formatting)
+            )
+            raise MetadataConfigurationError(
+                "No table formatting is configured for worksheet table type(s): "
+                f"{missing_names}."
+            )
+
+        # Keep the loaded JSON and its commonly used values available directly.
+        self.mtl_configs = configs
+        self.mtl_version: str = mtl_version
+        self.mtl_doc_num: str = mtl_doc_num
+        self.mtl_dl_url: str = mtl_dl_url
+        self.val_server: str = val_server
+        self.prod_server: str = prod_server
+        self.mtl_instructions_git_url: str = mtl_instructions_git_url
+        self.mtl_help_vid_url: str = mtl_help_vid_url
+        self.canon_security_string_order: list[str] = canon_security_string_order
+
+        self.dataframe_formatting: dict[str, Any] = dataframe_formatting
+        self.excluded_columns: list[str] = excluded_columns
+        self.security_string_columns: list[str] = security_string_columns
+        self.datetime_columns: list[str] = datetime_columns
+        self.numeric_columns: list[str] = numeric_columns
+        self.classic_gxp_columns: list[str] = classic_gxp_columns
+
+        self.worksheet_metadata: dict[str, TableInfo] = worksheet_metadata
+        self.table_formatting: dict[TableType, dict[str, Any]] = table_formatting
+        self.mtl_document_path: Path = (
+            Path(MTL_DOC_DIR) / self.mtl_doc_num
+        ).with_suffix(".xlsx")
+
+    @staticmethod
+    def _build_worksheet_metadata(
+        configs: dict[str, dict[str, Any]],
+    ) -> dict[str, TableInfo]:
+        """
+        Convert worksheet entries, requireing a valid configured table type.
+        """
+        worksheet_metadata: dict[str, TableInfo] = {}
+
+        for sheet_name, entry in configs.items():
+            try:
+                configured_type = entry["type"]
+                table_type = TableType[configured_type]
+            except (KeyError, TypeError) as e:
+                raise MetadataConfigurationError(
+                    f"Worksheet {sheet_name} is missing a valid table type."
+                ) from e
+
+            worksheet_metadata[sheet_name] = TableInfo(
                 table_id=entry["table_id"],
-                type=TableType[entry["type"]],
+                type=table_type,
                 can_compare=entry["can_compare"],
                 permeable_permissions=entry["permeable_permissions"],
                 permeable_permission_values=entry["permeable_permission_values"],
             )
-            for sheet_name, entry in self.mtl_configs["worksheet_metadata"].items()
-        }
 
-    def get_table_formatting(self) -> dict:
-        return {
-            TableType[key]: {
+        return worksheet_metadata
+
+    @staticmethod
+    def _build_table_formatting(
+        configs: dict[str, dict[str, Any]],
+    ) -> dict[TableType, dict[str, Any]]:
+        """
+        Convert table formatting entries, rejecting unrecognised table types.
+        """
+        table_formatting: dict[TableType, dict[str, Any]] = {}
+
+        for configured_type, entry in configs.items():
+            try:
+                table_type = TableType[configured_type]
+            except (KeyError, TypeError) as e:
+                raise MetadataConfigurationError(
+                    f"Table formatting contains invalid table type {configured_type}"
+                ) from e
+
+            table_formatting[table_type] = {
                 "Index Keys": entry["index_keys"],
                 "Filter on Keys": entry["filter_on_keys"],
                 "Filter Keys": entry["filter_keys"],
@@ -107,149 +252,175 @@ class Metadata:
                 "Path Sorting Keys": entry.get("path_sorting_keys"),
                 "Security Strings": entry.get("security_strings"),
             }
-            for key, entry in self.mtl_configs["table_formatting"].items()
-        }
 
-    def get_table_type(self) -> TableType:
-        if self.worksheet_name_is_set():
-            return self.worksheet_metadata[self.worksheet_name].type
-        self.journal.error("Table type could not be set.")
-        self.debug.debug("metadata.get_table_type: table type could not be set")
-        return TableType.UNKNOWN
-
-    def table_type_is_set(self) -> bool:
-        if self.table_type is not None and self.table_type != TableType.UNKNOWN:
-            return True
-
-        msg = "Table type was not set before trying to return table data."
-        self.journal.error(msg)
-        self.notify.info(msg)
-
-        return False
-
-    def get_mtl_version(self) -> str:
-        return self.mtl_configs["mtl_version"]
+        return table_formatting
 
     def set_mtl_version(self, new_version: str) -> None:
+        """
+        Persist a version change and refresh this instance's config snapshot.
+        """
         try:
-            config_path = get_mtl_config_path()
-            config = self.get_mtl_configs()
-            config["mtl_version"] = new_version
-            with open(config_path, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=4)
-            self.mtl_configs["mtl_version"] = new_version
-        except Exception as e:
-            self.journal.error("MTL configuration could not be written.")
-            self.notify.error("MTL configuration could not be written.")
-            self.debug.error("MTL configuration could not be written: %s", e, error=e)
+            configs = self._load_mtl_configs()
+            configs["mtl_version"] = new_version
 
-    def get_mtl_doc_num(self) -> str:
-        return self.mtl_configs["mtl_doc_num"]
+            with self._config_path.open("w", encoding="utf-8") as f:
+                json.dump(configs, f, indent=4)
 
-    def get_mtl_document_path(self) -> Path:
-        return Path(MTL_DOC_DIR / self.get_mtl_doc_num()).with_suffix(".xlsx")
+            self._apply_config(configs)
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
+            msg = "MTL configuration cul dnot be written"
+            self.journal.error(msg)
+            self.notify.error(msg)
+            self.debug.error(msg + ": %s", e, error=e)
 
-    def get_mtl_dl_url(self) -> str:
-        return self.mtl_configs["mtl_dl_url"]
+    @property
+    def has_worksheet_context(self) -> bool:
+        """
+        Whether the currently selected worksheet has configured metadata.
+        """
+        return (
+            self.worksheet_name is not None
+            and self.worksheet_name in self.worksheet_metadata
+        )
 
-    def get_dataframe_formatting(self) -> dict:
-        return self.mtl_configs["dataframe_formatting"]
+    @property
+    def worksheet_info(self) -> TableInfo:
+        """
+        Return the selected worksheet's metadata or raise a context error.
+        """
+        if self.worksheet_name is None:
+            raise WorksheetNotSetError(
+                "Set a worksheet name before requesting worksheet metadata."
+            )
+        try:
+            return self.worksheet_metadata[self.worksheet_name]
+        except KeyError as e:
+            raise UnknownWorksheetError(
+                f"No metadata is configured for worksheet {self.worksheet_name}"
+            ) from e
+
+    @property
+    def table_type(self) -> TableType:
+        """
+        Return the selected worksheet's configured table type.
+        """
+        return self.worksheet_info.type
+
+    def set_worksheet_name(self, name: str) -> None:
+        """
+        Select a configured worksheet; invalid names are rejected immediately.
+        """
+        if name not in self.worksheet_metadata:
+            raise UnknownWorksheetError(
+                f"No metadata is configured for worksheet {name}"
+            )
+        self.worksheet_name = name
+
+    def clear_worksheet_name(self) -> None:
+        """
+        Clear the worksheet selection, leaving config-only access available.
+        """
+        self.worksheet_name = None
+
+    def worksheet_name_is_set(self) -> bool:
+        """
+        Return whether a configured worksheet has been selected.
+        """
+        return self.worksheet_name is not None
+
+    def table_type_is_set(self) -> bool:
+        """
+        Return whether a configured worksheet has been selected.
+        """
+        return self.has_worksheet_context
+
+    def get_table_type(self) -> TableType:
+        """
+        Return the selected worksheet's table type.
+        """
+        return self.table_type
 
     def get_worksheet_name(self) -> str:
-        if self.worksheet_name_is_set():
-            return self.worksheet_name if self.worksheet_name else "None"
-        return "None"
+        """
+        Return the selected worksheet name, requiring a selection.
+        """
+        if self.worksheet_name is None:
+            raise WorksheetNotSetError(
+                "Set a worksheet name before requesting its name."
+            )
+        return self.worksheet_name
 
     def can_compare_worksheet(self) -> bool:
-        if self.worksheet_name_is_set():
-            return self.worksheet_metadata[self.worksheet_name].can_compare
-        return False
+        """
+        Return whether the selected worksheet supports comparison.
+        """
+        return self.worksheet_info.can_compare
 
     def get_table_id(self) -> str:
-        if self.worksheet_name_is_set():
-            return self.worksheet_metadata[self.worksheet_name].table_id
-        return "None"
+        """
+        Return the selected worksheet's Table ID.
+        """
+        return self.worksheet_info.table_id
 
-    def worksheet_has_permeable_permissions(self) -> str:
-        if self.worksheet_name_is_set():
-            try:
-                return self.worksheet_metadata[
-                    self.worksheet_name
-                ].permeable_permissions
-            except KeyError:
-                raise KeyError(f"No worksheet metadata found for {self.worksheet_name}")
-        raise RuntimeError(
-            "Worksheet name is not set, cannot return permeable permission boolean."
-        )
+    def worksheet_has_permeable_permissions(self) -> bool:
+        """
+        Return whether the selected worksheet hsa permeable permissions.
+        """
+        return self.worksheet_info.permeable_permissions
 
-    def get_worksheet_permeable_permission_values(self) -> str:
-        if self.worksheet_name_is_set():
-            try:
-                return self.worksheet_metadata[
-                    self.worksheet_name
-                ].permeable_permission_values
-            except KeyError:
-                raise KeyError(f"No worksheet metadata found for {self.worksheet_name}")
-        raise RuntimeError(
-            "Worksheet name is not set, cannot return permeable permission boolean."
-        )
+    def get_worksheet_permeable_permission_values(self) -> list[str] | None:
+        """
+        Return permission values for the selected worksheet.
+        """
+        return self.worksheet_info.permeable_permission_values
 
-    def get_formatting_rules(self) -> dict:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]
-        return {}
+    def _get_current_table_formatting(self) -> dict[str, Any]:
+        """
+        Return formatting rules for the selected table type.
+        """
+        table_type = self.table_type
+        try:
+            return self.table_formatting[table_type]
+        except KeyError as e:
+            raise MissingTableFormattingError(
+                f"No formatting rules are configured for table type {table_type.value}."
+            ) from e
+
+    def get_formatting_rules(self) -> dict[str, Any]:
+        """
+        Return all formatting rules for the selected table type.
+        """
+        return self._get_current_table_formatting()
 
     def get_table_index_keys(self) -> list[str]:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Index Keys"]
-        return []
+        return self._get_current_table_formatting()["Index Keys"]
 
     def should_filter_on_keys(self) -> bool:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Filter on Keys"]
-        return False
+        return bool(self._get_current_table_formatting()["Filter on Keys"])
 
     def get_table_filter_keys(self) -> list[str]:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Filter Keys"]
-        return []
+        return self._get_current_table_formatting()["Filter Keys"]
 
     def get_table_sort_order(self) -> list[str]:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Sort Order"]
-        return []
+        return self._get_current_table_formatting()["Sort Order"]
 
     def get_table_sort_direction(self) -> list[bool]:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Sort Ascending"]
-        return []
+        return self._get_current_table_formatting()["Sort Ascending"]
 
-    def get_group_key_order(self) -> dict | None:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Group Key Order"]
-        return None
+    def get_group_key_order(self) -> dict[str, Any] | None:
+        return self._get_current_table_formatting()["Group Key Order"]
 
     def get_group_key(self) -> str | None:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Group Key"]
-        return None
+        return self._get_current_table_formatting()["Group Key"]
 
     def get_group_parent_key(self) -> str | None:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Group Parent Key"]
-        return None
+        return self._get_current_table_formatting()["Group Parent Key"]
 
     def get_group_member_key(self) -> str | None:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Group Member Key"]
-        return None
+        return self._get_current_table_formatting()["Group Member Key"]
 
     def use_path_sorting(self) -> bool:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Use Path Sorting"]
-        return False
+        return bool(self._get_current_table_formatting()["Use Path Sorting"])
 
     def get_path_sorting_keys(self) -> list[str]:
-        if self.table_type_is_set():
-            return self.table_formatting[self.table_type]["Path Sorting Keys"]
-        return []
+        return self._get_current_table_formatting()["Path Sorting Keys"]

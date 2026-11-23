@@ -344,13 +344,13 @@ class MTLProcessor:
 
             # Comparison Phase
             self.journal.heading("Comparing MTL and PI Builder tables.")
-            use_exclusions = request.env_types == MTLEnvironmentTypes.DIFF
+            parse_security_strings = request.env_types == MTLEnvironmentTypes.SAME
             compare_status = self.compare.compare(
                 mtl_df,
                 pib_df,
                 request.mtl_file_path,
                 request.pib_file_path,
-                use_exclusions,
+                parse_security_strings,
                 self.sorter.sort,
             )
             comparison_issues = comparison_issues + self.compare.comparison_issues

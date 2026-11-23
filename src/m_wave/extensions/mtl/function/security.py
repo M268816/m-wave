@@ -19,6 +19,8 @@ from m_wave.extensions.mtl.pdf_template import (
 )
 from m_wave.extensions.mtl.utils.metadata import Metadata, TableType
 
+PI_TAG_TABLES = [TableType.GXP, TableType.ANALYTICS]
+
 
 class SecurityParser:
     """
@@ -196,29 +198,30 @@ class SecurityParser:
         return result
 
     def _get_matrix_column(
-        self, canon_settings: dict | None, table_is_gxp: bool, column_name: str
+        self, canon_settings: dict | None, is_tag_table: bool, column_name: str
     ) -> dict:
         """
         Returns the matrix dict that applies to the given column name.
-        GxP tables keep onw matrix per security column (ptsecurity/datasecurity)
+        GxP, and Analytic tables keep one matrix per security column
+        (ptsecurity/datasecurity)
         Other tables return flat dicts or {}
         """
         if not isinstance(canon_settings, dict):
             return {}
-        if table_is_gxp:
+        if is_tag_table:
             canon_settings = canon_settings.get(column_name.strip().casefold())
         return canon_settings if isinstance(canon_settings, dict) else {}
 
     def _get_matrix_setting(
         self,
         canon_settings: dict | None,
-        table_is_gxp: bool,
+        is_tag_table: bool,
         column_name: str,
         principal: str,
     ) -> str:
         setting = "Not configured"
 
-        settings = self._get_matrix_column(canon_settings, table_is_gxp, column_name)
+        settings = self._get_matrix_column(canon_settings, is_tag_table, column_name)
 
         if not isinstance(canon_settings, dict):
             self.debug.debug(
@@ -254,7 +257,7 @@ class SecurityParser:
         rules = self.metadata.get_formatting_rules()
         return self._get_matrix_column(
             rules["Security Strings"],
-            self.metadata.get_table_type() is TableType.GXP,
+            self.metadata.get_table_type() in [TableType.GXP, TableType.ANALYTICS],
             column_name,
         )
 
@@ -283,7 +286,7 @@ class SecurityParser:
                 filtered[principal] = setting
         if dropped:
             self.debug.debug(
-                "Ignoring permissions for other side codes: &s", sorted(dropped)
+                "Ignoring permissions for other site codes: %s", sorted(dropped)
             )
 
         return filtered
@@ -296,28 +299,62 @@ class SecurityParser:
         pib_string: str,
     ) -> dict:
         """
-        Compare two security strings. Returns a dictionary of:
-        ``matches``: boolean determination if the strings match,
-        ``record_name``: record tested, can use keys or names
-        ``column_name``: the specific security column name the string is from.
-        ``only_in_mtl``: sorted permission keys only in the mtl string
-        ``only_in_pib``: sorted permission keys only in the pi builder string
-        ``only_in_matrix``: sorted permission keys only in the matrix string
-        ``permission_differences``: dict of principal keys: {mtl_settings, pib_settings}
-        ``mtl_only_settings``: dict of mtl only settings, principal: value
-        ``pib_only_settings``: dict of pib only settings, principal: value
-        ``matrix_only_settings``: dict of matrix only setting, principal: value
+        Compare one MTL/CMD security string with its PI Builder string, and the PI
+        Builder string with the security matrix.
+
+        The two checks are reported separately:
+
+        ``mtl_matches_pi``: the MTL/CMD and PI strings grant the same principals the
+            same permissions. Uses effective permissions on worksheets with
+            permeable permissions.
+        ``pi_matches_matrix``: every principal in the PI string, and every principal
+            the matrix expects, has the permission the matrix requires.
+        ``passes``: both checks passed.
+
+        Supporting detail:
+
+        ``record_name``: record tested, can use keys or names.
+        ``column_name``: the security column the strings are from.
+        ``only_in_mtl``: sorted principals only in the MTL/CMD string.
+        ``only_in_pib``: sorted principals only in the PI Builder string.
+        ``only_in_matrix``: sorted principals only in the matrix.
+        ``mtl_pi_differences``: principals in both strings whose permissions differ,
+            {principal: {"mtl_setting", "pib_setting"}}.
+        ``pi_matrix_differences``: principals whose PI permission does not satisfy
+            the matrix, {principal: {"pib_setting", "matrix_setting"}}.
+        ``mtl_only_settings`` / ``pib_only_settings`` / ``matrix_only_settings``:
+            {principal: setting} for the one-sided principals above.
+        ``all_settings``: every principal with its raw MTL, PI, and matrix settings.
+        ``permeable_settings``: original and effective settings per principal, only
+            populated on worksheets with permeable permissions.
+
+        Returns an empty dict when the strings cannot be evaluated.
         """
+        missing = "---"
+
         try:
             server_prefix = "PI Web API Admins ("
             server_key = "PI Web API Admins ({server})"
 
             table_type = self.metadata.get_table_type()
             formatting_rules = self.metadata.get_formatting_rules()
-            table_is_gxp = table_type is TableType.GXP
+            is_tag_table = table_type in PI_TAG_TABLES
             canon_settings = formatting_rules["Security Strings"]
+            has_permeable = self.metadata.worksheet_has_permeable_permissions()
 
-            matrix = self._get_matrix_column(canon_settings, table_is_gxp, column_name)
+            matrix = self._get_matrix_column(canon_settings, is_tag_table, column_name)
+
+            def matrix_setting(principal: str) -> str:
+                return self._get_matrix_setting(
+                    canon_settings, is_tag_table, column_name, principal
+                )
+
+            def effective_setting(settings: dict[str, str], principal: str) -> str:
+                """The setting actually compared: permeable rights removed if needed."""
+                original = settings.get(principal, missing)
+                if original == missing or not has_permeable:
+                    return original
+                return self.remove_permeable_permissions(original)
 
             mtl = self._drop_other_site_principals(
                 self.parse_security(mtl_string, record_name), matrix
@@ -326,6 +363,7 @@ class SecurityParser:
                 self.parse_security(pib_string, record_name), matrix
             )
 
+            # -- principals present on one side only ------------------------
             mtl_only = sorted(mtl.keys() - pib.keys())
             pib_only = sorted(pib.keys() - mtl.keys())
             mtl_only_settings = {principal: mtl[principal] for principal in mtl_only}
@@ -335,7 +373,6 @@ class SecurityParser:
             server_key_present = any(
                 principal.startswith(server_prefix) for principal in available_keys
             )
-
             matrix_only = sorted(
                 key
                 for key in matrix
@@ -343,108 +380,78 @@ class SecurityParser:
                 and not (key == server_key and server_key_present)
             )
             matrix_only_settings = {
-                principal: self._get_matrix_setting(
-                    canon_settings, table_is_gxp, column_name, principal
-                )
-                for principal in matrix_only
+                principal: matrix_setting(principal) for principal in matrix_only
             }
+            all_principals = sorted(available_keys | set(matrix_only))
 
-            permission_differences = {
+            # -- check 1: MTL/CMD vs PI -------------------------------------
+            mtl_pi_differences = {
                 principal: {
-                    "mtl_setting": mtl[principal],
-                    "pib_setting": pib[principal],
-                    "matrix_setting": self._get_matrix_setting(
-                        canon_settings, table_is_gxp, column_name, principal
-                    ),
+                    "mtl_setting": effective_setting(mtl, principal),
+                    "pib_setting": effective_setting(pib, principal),
                 }
                 for principal in sorted(mtl.keys() & pib.keys())
-                if mtl[principal] != pib[principal]
-                or pib[principal]
-                != self._get_matrix_setting(
-                    canon_settings, table_is_gxp, column_name, principal
-                )
+                if effective_setting(mtl, principal)
+                != effective_setting(pib, principal)
             }
+            mtl_matches_pi = not mtl_only and not pib_only and not mtl_pi_differences
 
+            # -- check 2: PI vs security matrix -----------------------------
+            pi_matrix_differences = {
+                principal: {
+                    "pib_setting": effective_setting(pib, principal),
+                    "matrix_setting": matrix_setting(principal),
+                }
+                for principal in all_principals
+                if effective_setting(pib, principal) != matrix_setting(principal)
+            }
+            pi_matches_matrix = not pi_matrix_differences
+
+            # -- detail for the security artifact ---------------------------
             all_settings = {
                 principal: {
-                    "mtl_setting": mtl.get(principal, "---"),
-                    "pib_setting": pib.get(principal, "---"),
-                    "matrix_setting": self._get_matrix_setting(
-                        canon_settings, table_is_gxp, column_name, principal
-                    ),
+                    "mtl_setting": mtl.get(principal, missing),
+                    "pib_setting": pib.get(principal, missing),
+                    "matrix_setting": matrix_setting(principal),
                 }
-                for principal in sorted(available_keys | set(matrix_only))
+                for principal in all_principals
             }
-
-            def effective_setting(settings: dict[str, str], principal: str) -> str:
-                original = settings.get(principal, "---")
-                if original == "---":
-                    return "---"
-                effective = self.remove_permeable_permissions(original)
-                return effective
-
             permeable_settings = (
                 {
                     principal: {
-                        "mtl_setting_original": mtl.get(principal, "---"),
+                        "mtl_setting_original": mtl.get(principal, missing),
                         "mtl_setting_effective": effective_setting(mtl, principal),
-                        "pib_setting_original": pib.get(principal, "---"),
+                        "pib_setting_original": pib.get(principal, missing),
                         "pib_setting_effective": effective_setting(pib, principal),
-                        "matrix_setting": self._get_matrix_setting(
-                            canon_settings, table_is_gxp, column_name, principal
-                        ),
+                        "matrix_setting": matrix_setting(principal),
                     }
-                    for principal in sorted(available_keys | set(matrix_only))
+                    for principal in all_principals
                 }
-                if self.metadata.worksheet_has_permeable_permissions()
+                if has_permeable
                 else {}
             )
 
-            if self.metadata.worksheet_has_permeable_permissions():
-                matches = not mtl_only and not pib_only and not permission_differences
-                validated = all(
-                    setting["pib_setting_effective"] == setting["matrix_setting"]
-                    for setting in permeable_settings.values()
-                )
-            else:
-                matches = not mtl_only and not pib_only and not permission_differences
-                validated = all(
-                    setting["pib_setting"] == setting["matrix_setting"]
-                    for setting in all_settings.values()
-                )
-
-            if not (matches and validated):
-                self.journal.error_banner(
-                    f"{record_name} security column: '{column_name}' has errors!"
-                )
-                for permission in permission_differences:
-                    self.journal.error(
-                        f"⛔ Permission '{permission}' has non matching values."
-                    )
-
-                for permission in mtl_only:
-                    self.journal.error(
-                        f"⛔ MTL/CMD Permission '{permission}' is missing from the PI string"
-                    )
-
-                for permission in pib_only:
-                    self.journal.error(
-                        f"⛔ PI Permission '{permission}' is missing from the MTL/CMD string"
-                    )
-
-                for permission in matrix_only:
-                    self.journal.error(
-                        f"⛔ Matrix Permission '{permission}' is missing from the comparison"
-                    )
+            self._log_security_findings(
+                record_name,
+                column_name,
+                mtl_only,
+                pib_only,
+                matrix_only,
+                mtl_pi_differences,
+                pi_matrix_differences,
+            )
 
             return {
-                "matches": matches,
+                "mtl_matches_pi": mtl_matches_pi,
+                "pi_matches_matrix": pi_matches_matrix,
+                "passes": mtl_matches_pi and pi_matches_matrix,
                 "record_name": record_name,
                 "column_name": column_name,
                 "only_in_mtl": mtl_only,
                 "only_in_pib": pib_only,
                 "only_in_matrix": matrix_only,
-                "permission_differences": permission_differences,
+                "mtl_pi_differences": mtl_pi_differences,
+                "pi_matrix_differences": pi_matrix_differences,
                 "mtl_only_settings": mtl_only_settings,
                 "pib_only_settings": pib_only_settings,
                 "matrix_only_settings": matrix_only_settings,
@@ -459,7 +466,79 @@ class SecurityParser:
             self.journal.error(f"Error: {e}")
             return {}
 
-    def create_security_artifact(self, compared_security_strings: list[dict]):
+    def _log_security_findings(
+        self,
+        record_name: str,
+        column_name: str,
+        mtl_only: list[str],
+        pib_only: list[str],
+        matrix_only: list[str],
+        mtl_pi_differences: dict[str, dict[str, str]],
+        pi_matrix_differences: dict[str, dict[str, str]],
+    ) -> None:
+        """Journal each failed check under its own heading."""
+        mtl_pi_failed = bool(mtl_only or pib_only or mtl_pi_differences)
+        pi_matrix_failed = bool(pi_matrix_differences)
+        if not (mtl_pi_failed or pi_matrix_failed):
+            return
+
+        self.journal.error_banner(
+            f"{record_name} security column: '{column_name}' has errors!"
+        )
+
+        if mtl_pi_failed:
+            self.journal.error("MTL/CMD vs PI:")
+            for principal, setting in mtl_pi_differences.items():
+                self.journal.error(
+                    f"⛔ Permission '{principal}' differs: MTL/CMD "
+                    f"{setting['mtl_setting']} vs PI {setting['pib_setting']}"
+                )
+            for principal in mtl_only:
+                self.journal.error(
+                    f"⛔ MTL/CMD permission '{principal}' is missing from the PI string"
+                )
+            for principal in pib_only:
+                self.journal.error(
+                    f"⛔ PI permission '{principal}' is missing from the MTL/CMD string"
+                )
+
+        if pi_matrix_failed:
+            self.journal.error("PI vs security matrix:")
+            for principal, setting in pi_matrix_differences.items():
+                if principal in matrix_only:
+                    self.journal.error(
+                        f"⛔ Matrix permission '{principal}' "
+                        f"({setting['matrix_setting']}) is missing from the PI string"
+                    )
+                else:
+                    self.journal.error(
+                        f"⛔ Permission '{principal}' does not satisfy the matrix: PI "
+                        f"{setting['pib_setting']} vs matrix "
+                        f"{setting['matrix_setting']}"
+                    )
+
+    def _announce_effective_settings(self) -> None:
+        """
+        Explain effective configurations in the journal and a notification.
+
+        This used to be a note row at the top of the security artifact, but a
+        row with only a "Record Name" left every other column blank, so tools
+        reading the CSV saw "Passes Validation" as False and counted a failure.
+        """
+        permeable_values = self.metadata.get_worksheet_permeable_permission_values()
+        values = ", ".join(f"'{value}'" for value in permeable_values or [])
+        message = (
+            "This worksheet uses permeable permissions. Effective configurations "
+            f"remove permeable settings ({values}) so that comparisons reference "
+            "active permission values only. The 'Effective Config' columns in "
+            "compared_security_strings.csv show the values that were compared."
+        )
+        self.journal.info(message)
+        self.notify.info(message, "Effective security configurations")
+
+    def create_security_dataframe(
+        self, compared_security_strings: list[dict]
+    ) -> pd.DataFrame:
         """
         Create a security string table artifact with a list of compared
         security string dictionaries.
@@ -495,7 +574,7 @@ class SecurityParser:
         )
         rows = []
 
-        def build_row(
+        def _build_row(
             is_permeable: bool,
             common,
             principal,
@@ -504,7 +583,10 @@ class SecurityParser:
             matrix_setting,
             mtl_effective="",
             pib_effective="",
-        ):
+        ) -> dict:
+            """
+            Builds a dictionary that is used to create a record (row) for the dataframe.
+            """
             row = {
                 **common,
                 "Permission": principal,
@@ -534,7 +616,7 @@ class SecurityParser:
         try:
             table_type = self.metadata.get_table_type()
             formatting_rules = self.metadata.get_formatting_rules()
-            table_is_gxp = table_type is TableType.GXP
+            is_tag_table = table_type in PI_TAG_TABLES
             canon_settings = formatting_rules["Security Strings"]
 
             for comparison in compared_security_strings:
@@ -548,7 +630,7 @@ class SecurityParser:
 
                 def _matrix_for(principal, column_name):
                     return self._get_matrix_setting(
-                        canon_settings, table_is_gxp, column_name, principal
+                        canon_settings, is_tag_table, column_name, principal
                     )
 
                 if self.metadata.worksheet_has_permeable_permissions():
@@ -556,7 +638,7 @@ class SecurityParser:
                         "permeable_settings", {}
                     ).items():
                         rows.append(
-                            build_row(
+                            _build_row(
                                 True,
                                 common_fields,
                                 principal,
@@ -573,7 +655,7 @@ class SecurityParser:
                         "all_settings", {}
                     ).items():
                         rows.append(
-                            build_row(
+                            _build_row(
                                 False,
                                 common_fields,
                                 principal,
@@ -583,21 +665,16 @@ class SecurityParser:
                             )
                         )
             if self.metadata.worksheet_has_permeable_permissions():
-                rows.insert(
-                    0,
-                    {
-                        "Record Name": "Note: Effective configurations remove "
-                        "permeable settings like 'r', 'x', 's', and 'so' so that "
-                        "comparisons reference active permission values only."
-                    },
-                )
-            df = pd.DataFrame(rows, columns=columns)
+                self._announce_effective_settings()
 
-            self.reporter.artifacts.save_csv(
-                "compared_security_strings.csv",
-                df,
-                "A table of compared security strings. Reports differences and missing values.",
-            )
+            return pd.DataFrame(rows, columns=columns)
+
+            # self.reporter.artifacts.save_csv(
+            #     "compared_security_strings.csv",
+            #     df,
+            #     "A table of compared security strings. Reports differences and missing values.",
+            # )
+
         except Exception as e:
             self._issue(
                 "Creating Security Artifact",

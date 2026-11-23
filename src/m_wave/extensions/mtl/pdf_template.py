@@ -28,6 +28,7 @@ from m_wave.core.reporting.pdf_components import (
     data_table,
     empty_state,
     note_box,
+    on_new_page,
     section_heading,
     status_banner,
 )
@@ -45,6 +46,7 @@ from m_wave.core.reporting.pdf_utils import (
 # How many individual differences are listed in the PDF. The full set belongs
 # in the CSV export; a PDF with ten thousand mismatch rows helps nobody.
 DIFFERENCE_SAMPLE_LIMIT = 15
+SECURITY_SAMPLE_LIMIT = 15
 KEY_SAMPLE_LIMIT = 15
 
 
@@ -529,6 +531,57 @@ class ColumnDifferenceSummary:
 
 
 @dataclass
+class SecurityDifferenceRecord:
+    """One principal (permission) that failed the security string comparison."""
+
+    record_name: str
+    column: str
+    principal: str
+    mtl_setting: str
+    pib_setting: str
+    matrix_setting: str
+    finding: str
+    severity: str = "error"
+
+
+@dataclass
+class SecurityComparisonSummary:
+    """
+    Security string results for the comparison report.
+
+    ``parsing_enabled``: False when the user turned security string parsing off;
+    the security columns were then excluded and left for manual review.
+    ``columns``: security string columns found in both tables. Empty when the
+    table has none.
+    ``records_compared`` / ``failing_records``: counted per record, so they can
+    be read alongside the data record counts.
+    ``strings_compared``: individual security cells evaluated.
+    ``mtl_pib_mismatches``: strings where MTL/CMD and PI disagree.
+    ``matrix_failures``: strings where PI does not satisfy the security matrix.
+    ``unevaluated_strings``: strings that could not be parsed, so the security
+    result is incomplete.
+    """
+
+    parsing_enabled: bool = True
+    columns: list[str] = field(default_factory=list)
+    records_compared: int = 0
+    failing_records: int = 0
+    strings_compared: int = 0
+    mtl_pib_mismatches: int = 0
+    matrix_failures: int = 0
+    unevaluated_strings: int = 0
+    samples: list[SecurityDifferenceRecord] = field(default_factory=list)
+
+    @property
+    def performed(self) -> bool:
+        return self.parsing_enabled and bool(self.columns)
+
+    @property
+    def passed(self) -> bool:
+        return self.failing_records == 0 and self.unevaluated_strings == 0
+
+
+@dataclass
 class ComparisonPDFTemplate(PDFReportTemplate):
     """
     MTL vs PIB comparison report.
@@ -549,8 +602,18 @@ class ComparisonPDFTemplate(PDFReportTemplate):
     csv_export_path: Path | None = None
     artifacts: list = field(default_factory=list)
     issues: list[ReportIssue] = field(default_factory=list)
+    # None when no security result was supplied; the security section is omitted.
+    security: SecurityComparisonSummary | None = None
 
     # -- derived values -----------------------------------------------------
+
+    @property
+    def security_performed(self) -> bool:
+        return self.security is not None and self.security.performed
+
+    @property
+    def security_failing_records(self) -> int:
+        return self.security.failing_records if self.security_performed else 0
 
     @property
     def missing_records(self) -> int:
@@ -578,15 +641,41 @@ class ComparisonPDFTemplate(PDFReportTemplate):
     @property
     def status_message(self) -> str:
         if self.status is PDFReportStatus.PASS:
-            return "The datasets matched according to the configured comparison rules."
-        if self.status is PDFReportStatus.FAIL:
             return (
-                f"{thousands(self.non_matching_records)} records differ and should "
-                "be reviewed."
+                "The datasets matched according to the configured comparison rules."
+                f"{self._security_pass_suffix()}"
             )
+        if self.status is PDFReportStatus.FAIL:
+            return self._failure_message()
         if self.status is PDFReportStatus.ERRORED:
             return "The comparison did not finish. Results below may be incomplete."
         return "No comparison result was recorded for this run."
+
+    def _failure_message(self) -> str:
+        """Name each failing area, so a security-only failure is never "0 records"."""
+        parts: list[str] = []
+        if self.non_matching_records:
+            parts.append(f"{thousands(self.non_matching_records)} data record(s)")
+        if self.security_failing_records:
+            parts.append(
+                f"{thousands(self.security_failing_records)} security record(s)"
+            )
+
+        if not parts:
+            return "The comparison failed. Review the findings below."
+        return f"{' and '.join(parts)} failed comparison and should be reviewed."
+
+    def _security_pass_suffix(self) -> str:
+        if self.security is None:
+            return ""
+        if not self.security.parsing_enabled:
+            return (
+                " Security string parsing was turned off, so security columns "
+                "require manual review."
+            )
+        if self.security.columns:
+            return " Security strings matched and satisfied the security matrix."
+        return ""
 
     # -- layout -------------------------------------------------------------
 
@@ -595,32 +684,51 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
-        """Assemble the MTL report body."""
-        elements: list[Flowable] = []
+        """
+        Assemble the MTL report body.
 
-        elements.append(
-            status_banner(text_styles, self.status, self.status_message, width)
-        )
-        elements.append(Spacer(1, Sizing.GAP_SECTION))
+        Page flow, for reviewers reading top to bottom:
+            1. Result and summary (the first page stands on its own).
+            2. Generated files.
+            3. Data differences by column (chart and breakdown).
+            4. Record difference sample.
+            5. Security string comparison summary.
+            6. Security difference sample.
+            7. Record counts, closing note, and processor issues.
 
-        elements.extend(self._summary_section(text_styles, width))
-        elements.append(Spacer(1, Sizing.GAP_SECTION))
+        Each numbered block starts on a new page. Blocks with no content are
+        omitted along with their page break, so no blank pages are produced.
+        Record differences come before security strings because they carry
+        more weight for validation.
+        """
+        first_page: list[Flowable] = [
+            status_banner(text_styles, self.status, self.status_message, width),
+            Spacer(1, Sizing.GAP_SECTION),
+            *self._summary_section(text_styles, width),
+        ]
 
-        elements.extend(self._artifact_section(text_styles, width))
-        elements.append(Spacer(1, Sizing.GAP_SECTION))
+        column_breakdown = [
+            *self._chart_section(text_styles, width),
+            *self._column_section(text_styles, width),
+        ]
 
-        elements.extend(self._chart_section(text_styles, width))
-        elements.extend(self._column_section(text_styles, width))
-        elements.extend(self._difference_section(text_styles, width))
-        elements.extend(self._record_count_section(text_styles, width))
-        elements.append(Spacer(1, Sizing.GAP_SECTION))
+        closing: list[Flowable] = [
+            *self._record_count_section(text_styles, width),
+            Spacer(1, Sizing.GAP_SECTION),
+            note_box(text_styles, self._closing_note(), width),
+            Spacer(1, Sizing.GAP_SECTION),
+            *self._issue_section(text_styles, width),
+        ]
 
-        elements.append(note_box(text_styles, self._closing_note(), width))
-        elements.append(Spacer(1, Sizing.GAP_SECTION))
-
-        elements.extend(self._issue_section(text_styles, width))
-
-        return elements
+        return [
+            *first_page,
+            *on_new_page(self._artifact_section(text_styles, width)),
+            *on_new_page(column_breakdown),
+            *on_new_page(self._difference_section(text_styles, width)),
+            *on_new_page(self._security_section(text_styles, width)),
+            *on_new_page(self._security_difference_section(text_styles, width)),
+            *on_new_page(closing),
+        ]
 
     # -- sections -----------------------------------------------------------
 
@@ -685,15 +793,39 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         metrics = [
             ("Records compared", thousands(self.records_compared)),
             ("Matching records", thousands(self.matching_records)),
-            ("Differences", thousands(self.non_matching_records)),
+            ("Data records failing", thousands(self.non_matching_records)),
             ("Missing records", thousands(self.missing_records)),
         ]
 
-        return [
+        elements: list[Flowable] = [
             section_heading(text_styles, "Summary"),
             Spacer(1, Sizing.GAP_SECTION),
             data_metric_grid(text_styles, metrics, width, columns=4),
             Spacer(1, Sizing.GAP),
+        ]
+
+        if self.security_performed and self.security is not None:
+            elements.extend(
+                [
+                    data_metric_grid(
+                        text_styles,
+                        self._security_metrics(self.security),
+                        width,
+                        columns=4,
+                    ),
+                    Spacer(1, Sizing.GAP),
+                ]
+            )
+
+        return elements
+
+    @staticmethod
+    def _security_metrics(security: SecurityComparisonSummary) -> list[tuple[str, str]]:
+        return [
+            ("Security records checked", thousands(security.records_compared)),
+            ("Security records failing", thousands(security.failing_records)),
+            ("MTL/CMD vs PI mismatches", thousands(security.mtl_pib_mismatches)),
+            ("Security matrix failures", thousands(security.matrix_failures)),
         ]
 
     def _chart_section(
@@ -752,7 +884,7 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         text_styles: TextStyles,
         width: float,
     ) -> list[Flowable]:
-        if not self.column_summaries:
+        if not self.artifacts:
             return []
 
         rows = [
@@ -844,6 +976,171 @@ class ComparisonPDFTemplate(PDFReportTemplate):
 
         return elements
 
+    def _security_section(
+        self,
+        text_styles: TextStyles,
+        width: float,
+    ) -> list[Flowable]:
+        """Security string summary: what was checked and how it went."""
+        security = self.security
+        if security is None:
+            return []
+
+        heading = section_heading(text_styles, "Security String Comparison")
+
+        if not security.parsing_enabled:
+            message = (
+                "Security string parsing was turned off for this comparison. "
+                "Security string columns were excluded and must be reviewed "
+                "manually."
+            )
+            return self._security_note(heading, text_styles, message)
+
+        if not security.columns:
+            return self._security_note(
+                heading,
+                text_styles,
+                "This table has no security string columns to compare.",
+            )
+
+        rows = [
+            ["Security columns compared", ", ".join(security.columns)],
+            ["Security strings evaluated", thousands(security.strings_compared)],
+            ["Records checked", thousands(security.records_compared)],
+            ["Records failing", thousands(security.failing_records)],
+            [
+                "MTL/CMD and PI strings that differ",
+                thousands(security.mtl_pib_mismatches),
+            ],
+            [
+                "PI strings failing the security matrix",
+                thousands(security.matrix_failures),
+            ],
+            [
+                "Strings that could not be evaluated",
+                thousands(security.unevaluated_strings),
+            ],
+        ]
+
+        table = data_table(
+            text_styles,
+            headers=["Category", "Result"],
+            rows=rows,
+            width=width,
+            column_ratios=[4.0, 2.0],
+            right_aligned=(1,),
+        )
+
+        elements: list[Flowable] = [
+            Spacer(1, Sizing.GAP_HEADING),
+            heading,
+            Spacer(1, 10),
+            table,
+        ]
+
+        if security.unevaluated_strings:
+            elements.append(Spacer(1, Sizing.GAP))
+            elements.append(
+                Paragraph(
+                    f"{thousands(security.unevaluated_strings)} security string(s) "
+                    "could not be evaluated, so the security result is incomplete. "
+                    "See Comparison Processor Issues.",
+                    text_styles.severity_style("error"),
+                )
+            )
+        elif security.passed:
+            elements.append(Spacer(1, Sizing.GAP))
+            elements.append(
+                empty_state(
+                    text_styles,
+                    "All security strings matched and satisfied the security matrix.",
+                )
+            )
+
+        return elements
+
+    @staticmethod
+    def _wrappable_setting(setting: str) -> str:
+        """
+        Let long permission strings such as A(r,w,rd,wd,d,x,a,s,so,an) wrap at
+        commas instead of being split mid-token in narrow table columns.
+        """
+        return setting.replace(",", ", ")
+
+    @staticmethod
+    def _security_note(
+        heading: Flowable, text_styles: TextStyles, message: str
+    ) -> list[Flowable]:
+        return [
+            Spacer(1, Sizing.GAP_HEADING),
+            KeepTogether([heading, Spacer(1, 10), empty_state(text_styles, message)]),
+        ]
+
+    def _security_difference_section(
+        self,
+        text_styles: TextStyles,
+        width: float,
+    ) -> list[Flowable]:
+        """Sample of failing permissions; the full set is in the security CSV."""
+        if not self.security_performed or self.security is None:
+            return []
+
+        samples = self.security.samples
+        if not samples:
+            return []
+
+        shown = samples[:SECURITY_SAMPLE_LIMIT]
+        rows = [
+            [
+                record.record_name,
+                record.column,
+                record.principal,
+                self._wrappable_setting(record.mtl_setting),
+                self._wrappable_setting(record.pib_setting),
+                self._wrappable_setting(record.matrix_setting),
+                Paragraph(record.finding, text_styles.severity_style(record.severity)),
+            ]
+            for record in shown
+        ]
+
+        table = data_table(
+            text_styles,
+            headers=[
+                "Record",
+                "Column",
+                "Permission",
+                "MTL/CMD",
+                "PI",
+                "Matrix",
+                "Finding",
+            ],
+            rows=rows,
+            width=width,
+            column_ratios=[1.4, 1.6, 1.4, 1.2, 1.2, 1.2, 1.5],
+        )
+
+        elements: list[Flowable] = [
+            Spacer(1, Sizing.GAP_HEADING),
+            section_heading(text_styles, "Security Difference Sample"),
+            Spacer(1, 10),
+            table,
+        ]
+
+        remaining = len(samples) - len(shown)
+        if remaining > 0:
+            elements.append(Spacer(1, Sizing.GAP))
+            elements.append(
+                Paragraph(
+                    f"Showing the first {thousands(len(shown))} of "
+                    f"{thousands(len(samples))} security differences. "
+                    f"{thousands(remaining)} further differences are in "
+                    "compared_security_strings.csv.",
+                    text_styles.metadata,
+                )
+            )
+
+        return elements
+
     def _record_count_section(
         self,
         text_styles: TextStyles,
@@ -852,10 +1149,24 @@ class ComparisonPDFTemplate(PDFReportTemplate):
         rows = [
             ["Records compared", thousands(self.records_compared)],
             ["Matching records", thousands(self.matching_records)],
-            ["Non-matching records", thousands(self.non_matching_records)],
+            ["Data records failing", thousands(self.non_matching_records)],
             ["Missing from MTL", thousands(self.missing_from_mtl)],
             ["Missing from PIB", thousands(self.missing_from_pib)],
         ]
+
+        if self.security_performed and self.security is not None:
+            rows.extend(
+                [
+                    [
+                        "Security records checked",
+                        thousands(self.security.records_compared),
+                    ],
+                    [
+                        "Security records failing",
+                        thousands(self.security.failing_records),
+                    ],
+                ]
+            )
 
         table = data_table(
             text_styles,
@@ -879,6 +1190,15 @@ class ComparisonPDFTemplate(PDFReportTemplate):
             "The complete difference set is available in the accompanying "
             "CSV export"
         )
-        if self.csv_export_path:
-            return f"{note}: {self.csv_export_path.name}."
-        return f"{note}."
+        note = (
+            f"{note}: {self.csv_export_path.name}."
+            if self.csv_export_path
+            else f"{note}."
+        )
+
+        if self.security_performed:
+            note += (
+                " Every compared security permission is listed in "
+                "compared_security_strings.csv."
+            )
+        return note
