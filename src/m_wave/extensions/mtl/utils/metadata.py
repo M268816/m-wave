@@ -25,7 +25,7 @@ class MetadataContextError(RuntimeError):
 
 class WorksheetNotSetError(MetadataContextError):
     """
-    Raise dwhen worksheet-specific metadata is requested before selection.
+    Raised when worksheet-specific metadata is requested before selection.
     """
 
 
@@ -74,7 +74,7 @@ class TableInfo:
 
 class Metadata:
     """
-    Load MTL Configuration and procide context-aware metadata access.
+    Load MTL Configuration and provide context-aware metadata access.
     """
 
     def __init__(
@@ -99,7 +99,7 @@ class Metadata:
 
     def reload_config(self) -> None:
         """
-        Reload the JSON file and refresh all derived configuration attribuutes.
+        Reload the JSON file and refresh all derived configuration attributes.
 
         This instance holds a snapshot of the file's configuration. Call this
         method to pick up changes made outside this instance.
@@ -198,7 +198,7 @@ class Metadata:
         configs: dict[str, dict[str, Any]],
     ) -> dict[str, TableInfo]:
         """
-        Convert worksheet entries, requireing a valid configured table type.
+        Convert worksheet entries, requiring a valid configured table type.
         """
         worksheet_metadata: dict[str, TableInfo] = {}
 
@@ -226,7 +226,7 @@ class Metadata:
         configs: dict[str, dict[str, Any]],
     ) -> dict[TableType, dict[str, Any]]:
         """
-        Convert table formatting entries, rejecting unrecognised table types.
+        Convert table formatting entries, rejecting unrecognized table types.
         """
         table_formatting: dict[TableType, dict[str, Any]] = {}
 
@@ -264,11 +264,11 @@ class Metadata:
             configs["mtl_version"] = new_version
 
             with self._config_path.open("w", encoding="utf-8") as f:
-                json.dump(configs, f, indent=4)
+                json.dump(configs, f, indent=2)
 
             self._apply_config(configs)
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
-            msg = "MTL configuration cul dnot be written"
+            msg = "MTL configuration could not be written"
             self.journal.error(msg)
             self.notify.error(msg)
             self.debug.error(msg + ": %s", e, error=e)

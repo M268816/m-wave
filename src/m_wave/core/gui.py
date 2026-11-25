@@ -14,6 +14,7 @@ from ttkbootstrap.dialogs import Messagebox
 
 # local
 from m_wave.core.context import AppContext
+from m_wave.core.gui_dispatcher import GUIUpdateDispatcher
 from m_wave.core.paths import PATHS
 from m_wave.core.utils import (
     FONT_SMALL,
@@ -76,6 +77,7 @@ class App(tkb.Window):
 
     def __init__(self) -> None:
         super().__init__()
+        self.ui_dispatcher = GUIUpdateDispatcher(self, interval_ms=250)
         self.title("λ Workbook Automation & Verification Engine | Launcher")
         apply_scaled_geometry(self, 100, 100)
         self.resizable(False, False)
@@ -112,7 +114,7 @@ class App(tkb.Window):
 
         # File Menu
         file_menu = tkb.Menu(self.menubar, tearoff=0)  # type: ignore
-        file_menu.add_command(label="Exit", command=self.destroy)
+        file_menu.add_command(label="Exit", command=self._on_close_requested)
         self.menubar.add_cascade(label="File", menu=file_menu)
 
         # Themes
@@ -245,6 +247,7 @@ class App(tkb.Window):
                     title="Cleanup Warning",
                     message=f"Teardown encountered an issue:\n{e}",
                 )
+        self.ui_dispatcher.close()
         self.destroy()
 
     def _on_option_change(self, config_key: str, var: tkb.BooleanVar) -> None:

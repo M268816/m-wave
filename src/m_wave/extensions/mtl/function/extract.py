@@ -389,7 +389,7 @@ class DataExtractor:
                 df = read(file_path, encoding="latin-1")
                 df = df.replace("�C", "°C", regex=False)
                 df = df.replace("�F", "°F", regex=False)
-                fixed_name = f"{filter_str}_fixed.csv"
+                fixed_name = "pi_builder_input_fixed.csv"
                 # fixed_file = self.reporter.report_dir / fixed_name
                 # df.to_csv(fixed_file, encoding="utf-8-sig", index=False)
                 # df = read(fixed_file)
@@ -438,16 +438,16 @@ class DataExtractor:
                 " PI Builder CSV could not be extracted. Check your selected input table."
             )
             return False
-        self.journal.info("✓ MTL extracted successfully!")
+        self.journal.info("✅ MTL extracted successfully!")
         mtl_row_count = mtl_dataframe.shape[0]
         mtl_col_count = mtl_dataframe.shape[1]
         self.journal.info(
-            f"✓ The MTL has {mtl_row_count} rows and {mtl_col_count} columns."
+            f"✅ The MTL has {mtl_row_count} rows and {mtl_col_count} columns."
         )
-        self.journal.info("✓ Input csv extracted successfully!")
+        self.journal.info("✅ Input csv extracted successfully!")
         pib_row_count = pib_dataframe.shape[0]
         pib_col_count = pib_dataframe.shape[1]
         self.journal.info(
-            f"✓ The PI Builder csv has {pib_row_count} rows and {pib_col_count} columns."
+            f"✅ The PI Builder csv has {pib_row_count} rows and {pib_col_count} columns."
         )
         return True

@@ -14,9 +14,6 @@ import pywintypes
 import xlwings as xl
 
 # local core
-from m_wave.core.reporting.pdf_reporting import PDFReportStatus
-from m_wave.core.reporting.reporting import Reporting
-
 # local extension
 from m_wave.extensions.mtl.pdf_template import AppendPDFTemplate, UpsertIssue
 from m_wave.extensions.mtl.utils.metadata import Metadata
@@ -25,13 +22,13 @@ from m_wave.extensions.mtl.utils.metadata import Metadata
 class DataAppender:
     def __init__(
         self,
-        report: Reporting,
+        reporter: reporterer,
         metadata: Metadata,
     ) -> None:
-        self.report = report
+        self.reporter = reporter
         self.metadata = metadata
 
-        # Structured outcome of the most recent updert, for the PDF report.
+        # Structured outcome of the most recent updert, for the PDF reporter.
         # Process layer reads this after calling upsert()
         self.issues: list[UpsertIssue] = []
         self.rows_in_mtl_before: int = 0
@@ -45,7 +42,7 @@ class DataAppender:
         self.written_to_mtl: bool = False
         self.mtl_output_path: Path | None = None
 
-    def _reset_report_state(self) -> None:
+    def _reset_reporter_state(self) -> None:
         """Clear the previous run so a second upsert cannot inherit its state."""
         self.issues = []
         self.rows_in_mtl_before = 0
@@ -87,7 +84,7 @@ class DataAppender:
 
             - Key integrity: the key columns must be present in the input, and the
             key values must be unique. Duplicate keys found in the input, or already
-            present in the MTL, are reported to the user rather than silently merged or
+            present in the MTL, are reportered to the user rather than silently merged or
             dropped.
 
             - XOR append: for every key, the default contains either the updated MTL
@@ -98,7 +95,7 @@ class DataAppender:
         """
 
         output = pd.DataFrame()
-        self._reset_report_state()
+        self._reset_reporter_state()
         self.rows_in_mtl_before = len(mtl_dataframe)
         self.rows_in_pib = len(input_dataframe)
 
@@ -115,12 +112,12 @@ class DataAppender:
                     "Column Schema",
                     f"PI Builder column(s) not found in the MTL: {unmatched_list}.",
                 )
-                self.report.highlight_titled_error(
+                self.reporter.highlight_titled_error(
                     f"PI Builder column(s) not found in the MTL: {unmatched_list}",
                     title="PI Builder / MTL COLUMN MISMATCH",
                     is_critical=True,
                 )
-                self.report.critical(
+                self.reporter.critical(
                     "The upsert was stopped because the PI Builder file contains "
                     f"column(s) that do not exist in the mtl ({unmatched_list}). "
                     "Please confirm that you are using the correct PI Builder file, or "
@@ -138,7 +135,7 @@ class DataAppender:
                     "The PI Builder file is missing the required key column(s): "
                     f"{missing_list}",
                 )
-                self.report.critical(
+                self.reporter.critical(
                     "The upsert was stopped because the PI Builder file is missing "
                     f"the required key column(s): {missing_list}. These keys "
                     "are defined in the MTL configuration and are required to "
@@ -161,12 +158,12 @@ class DataAppender:
                     f"{len(duplicate_keys)} duplicate key value(s) in the PI Builder "
                     f"csv: {', '.join(self._key_label(k) for k in duplicate_keys[:10])}",
                 )
-                self.report.highlight_titled_error(
+                self.reporter.highlight_titled_error(
                     f"Duiplicate key value(s) found in the PI Builder csv: {duplicate_keys}",
                     title="DUPLICATE KEYS IN PI BUILDER CSV",
                     is_critical=True,
                 )
-                self.report.critical(
+                self.reporter.critical(
                     "The upsert was stopped because the PI Builder file contains "
                     "more than one row for th same key value. Each key combination "
                     f"({', '.join(keys)}) must be unique. Please remove or "
@@ -184,7 +181,7 @@ class DataAppender:
                     f"{len(duplicate_keys)} duplicate key value(s) already in the MTL "
                     f"table: {', '.join(self._key_label(k) for k in duplicate_keys[:10])}",
                 )
-                self.report.critical(
+                self.reporter.critical(
                     "The upsert was stopped because the existing MTL table contains "
                     f"duplicate key value(s): {duplicate_keys}. Please resolve these "
                     "duplicates in the MTL before appending or updating data.",
@@ -193,13 +190,13 @@ class DataAppender:
                 return output
 
             # Save each data frame to keep record of the changes.
-            mtl_before_path = self.report.report_dir / "mtl_dataframe_before.csv"
+            mtl_before_path = self.reporter.reporter_dir / "mtl_dataframe_before.csv"
             mtl_dataframe.to_csv(mtl_before_path, index=False)
             self.artifacts.append(
                 (mtl_before_path, "The MTL table as extracted, before any changes.")
             )
 
-            pib_dataframe_path = self.report.report_dir / "pi_dataframe.csv"
+            pib_dataframe_path = self.reporter.reporter_dir / "pi_dataframe.csv"
             input_dataframe.to_csv(pib_dataframe_path, index=False)
             self.artifacts.append(
                 (pib_dataframe_path, "The PI Builder rows used as the upsert source.")
@@ -224,16 +221,16 @@ class DataAppender:
                     "The merge would have produced duplicate keys in the resulting "
                     "table. No changes were made.",
                 )
-                self.report.critical(
+                self.reporter.critical(
                     "The upsert was aborted because it would have produced "
                     "duplicate keys in the resulting table. No changes were "
-                    "made. Please report this issue.",
+                    "made. Please reporter this issue.",
                     popup=True,
                 )
                 return pd.DataFrame()
 
             self.rows_in_mtl_after = len(output)
-            self.report.info(
+            self.reporter.info(
                 f"Upsert complete: {len(updated_keys)} rows(s) updated, "
                 f"{len(new_keys)} row(s) appended."
             )
@@ -242,28 +239,28 @@ class DataAppender:
         except KeyError as e:
             error_msg = f"A key error occurred during upserting.\n{e}"
             self._add_issue("Key error", error_msg)
-            self.report.exception(error_msg)
+            self.reporter.exception(error_msg)
             return pd.DataFrame()
         except ValueError as e:
             error_msg = f"A value error occurred during upserting.\n{e}"
             self._add_issue("Value error", error_msg)
-            self.report.exception(error_msg)
+            self.reporter.exception(error_msg)
             return pd.DataFrame()
         except Exception as e:
             error_msg = f"An unexpected error occurred during upserting.\n{e}"
             self._add_issue("Unexpected error", error_msg)
-            self.report.exception(error_msg)
+            self.reporter.exception(error_msg)
             return pd.DataFrame()
 
     def export_to_csv(self, appended_dataframe: pd.DataFrame) -> None:
         """
         Used to export the new appended data frame to csv format.
         """
-        appended_filepath = self.report.report_dir / "mtl_dataframe_after.csv"
-        self.report.info(f"Exporting the appended data to:  {appended_filepath}")
-        self.report.info("This data is supplied as the complete mtl table.")
-        self.report.info("This includes all appended rows, and updated rows,")
-        self.report.info("along with the full data within the supplied MTL file.")
+        appended_filepath = self.reporter.reporter_dir / "mtl_dataframe_after.csv"
+        self.reporter.info(f"Exporting the appended data to:  {appended_filepath}")
+        self.reporter.info("This data is supplied as the complete mtl table.")
+        self.reporter.info("This includes all appended rows, and updated rows,")
+        self.reporter.info("along with the full data within the supplied MTL file.")
         appended_dataframe.to_csv(appended_filepath, encoding="utf-8", index=False)
         self.artifacts.append(
             (appended_filepath, "The complete MTL table after the upsert.")
@@ -282,8 +279,8 @@ class DataAppender:
             if auto_filter is not None and auto_filter.FilterMode:
                 return True
         except Exception as e:
-            self.report.exception(
-                f"Could not read the table AutoFilter state. {e}", report=False
+            self.reporter.exception(
+                f"Could not read the table AutoFilter state. {e}", reporter=False
             )
 
         try:
@@ -292,8 +289,8 @@ class DataAppender:
             if worksheet.api.FitlerMode:
                 return True
         except Exception as e:
-            self.report.exception(
-                f"Could not read the worksheet AutoFilter state. {e}", report=False
+            self.reporter.exception(
+                f"Could not read the worksheet AutoFilter state. {e}", reporter=False
             )
 
         return False
@@ -306,26 +303,26 @@ class DataAppender:
         try:
             table.show_autofilter = not table.show_autofilter
         except Exception as e:
-            self.report.exception(f"Xlwings filter clear failed: {e}")
+            self.reporter.exception(f"Xlwings filter clear failed: {e}")
 
         try:
             auto_filter = table.api.AutoFilter
             if auto_filter is not None and auto_filter.FilterMode:
                 table.api.Range.AutoFilter()
         except Exception as e:
-            self.report.exception(f"Table level filter clear failed: {e}")
+            self.reporter.exception(f"Table level filter clear failed: {e}")
 
         try:
             if worksheet.api.FilterMode:
                 worksheet.api.ShowAllData()
         except Exception as e:
-            self.report.exception(f"ShowAllData failed. {e}")
+            self.reporter.exception(f"ShowAllData failed. {e}")
 
         try:
             if worksheet.api.AutoFilterMode:
                 worksheet.api.AutoFilterMode = False
         except Exception as e:
-            self.report.exception(f"AutoFilterMode reset failed. {e}")
+            self.reporter.exception(f"AutoFilterMode reset failed. {e}")
 
         return not self._table_has_filter(worksheet, table)
 
@@ -340,26 +337,26 @@ class DataAppender:
             if auto_filter == True:
                 table.show_autofilter = False
         except Exception as e:
-            self.report.exception(f"Xlwings filter clear failed: {e}")
+            self.reporter.exception(f"Xlwings filter clear failed: {e}")
 
         try:
             auto_filter = table.api.AutoFilter
             if auto_filter is not None and auto_filter.FilterMode:
                 table.api.Range.AutoFilter()
         except Exception as e:
-            self.report.exception(f"Table level filter clear failed: {e}")
+            self.reporter.exception(f"Table level filter clear failed: {e}")
 
         try:
             if worksheet.api.FilterMode:
                 worksheet.api.ShowAllData()
         except Exception as e:
-            self.report.exception(f"ShowAllData failed. {e}")
+            self.reporter.exception(f"ShowAllData failed. {e}")
 
         try:
             if worksheet.api.AutoFilterMode:
                 worksheet.api.AutoFilterMode = False
         except Exception as e:
-            self.report.exception(f"AutoFilterMode reset failed. {e}")
+            self.reporter.exception(f"AutoFilterMode reset failed. {e}")
 
         return not self._table_has_filter(worksheet, table)
 
@@ -376,16 +373,16 @@ class DataAppender:
         stop so the usre cna fix the MTL by hand.
         """
         if not self._table_has_filter(worksheet, table):
-            self.report.info("No active filers found on this table.")
+            self.reporter.info("No active filers found on this table.")
             self.filter_action = "No active filter was found on the table."
             return True
 
-        self.report.highlight_titled_error(
+        self.reporter.highlight_titled_error(
             "Writing to a filtered table can scramble the rows in the appended MTL.",
             title="ACTIVE FILTER DETECTED",
         )
 
-        clean_it = self.report.ask(
+        clean_it = self.reporter.ask(
             f"An active filter was found on the {worksheet.name} table.\n\n"
             "Filters hide rows, and writing into a filtered table can scramble "
             "the appended data.\n\n"
@@ -405,19 +402,19 @@ class DataAppender:
             self.filter_action = (
                 "An active filter was found. The user chose to clear it automatically."
             )
-            self.report.warning(
+            self.reporter.warning(
                 "Append stopped so the filters can be cleared manually. "
                 "Remove all filters form the table, dave the MTL, then run "
                 "the append process again.",
                 popup=True,
             )
             return False
-        self.report.info("Attempting to clear the filters automatically...")
+        self.reporter.info("Attempting to clear the filters automatically...")
         if not self._toggle_table_filter(worksheet, table):
             self.filter_action = (
                 "An active filer was found and could not be cleared automatically."
             )
-            self.report.critical(
+            self.reporter.critical(
                 "The filter could not be cleared automatically. Please remove "
                 "all filters form the table in the MTL, save it, and run the "
                 "append process agian.",
@@ -431,7 +428,7 @@ class DataAppender:
             "should be reviewed for scrambling.",
             severity="warning",
         )
-        self.report.warning(
+        self.reporter.warning(
             "The filter was cleared automatically. Please review the appeneded "
             "file carefully. If the rows look scrambled, clear the filters in "
             "the MTL manually and run the append process again."
@@ -452,7 +449,7 @@ class DataAppender:
         """
         if not output_file_path:
             doc_num = self.metadata.get_mtl_doc_num()
-            output_file_path = self.report.report_dir / f"{doc_num}_appended.xlsx"
+            output_file_path = self.reporter.reporter_dir / f"{doc_num}_appended.xlsx"
 
         table_id = self.metadata.get_table_id()
         worksheet_name = self.metadata.get_worksheet_name()
@@ -461,18 +458,18 @@ class DataAppender:
         workbook = None
 
         try:
-            self.report.info("Attempting to update the MTL.")
+            self.reporter.info("Attempting to update the MTL.")
 
             excel = xl.App(visible=False, add_book=False)
-            self.report.info("Excel opened silently.")
+            self.reporter.info("Excel opened silently.")
 
             workbook = excel.books.open(mtl_file_path, read_only=True)
-            self.report.info("Workbook found.")
+            self.reporter.info("Workbook found.")
 
-            self.report.info("Saving a working copy...")
+            self.reporter.info("Saving a working copy...")
             for attempt in range(retries):
                 try:
-                    self.report.info(f"Save attempt {attempt + 1} of {retries}.")
+                    self.reporter.info(f"Save attempt {attempt + 1} of {retries}.")
                     workbook.save(output_file_path)
                     break
                 except pywintypes.com_error as e:
@@ -484,20 +481,20 @@ class DataAppender:
                 raise RuntimeError(f"Failed to save workbook after {retries} attempts.")
 
             workbook.close()
-            self.report.info("Saved...")
+            self.reporter.info("Saved...")
 
-            self.report.info("Opening working copy...")
+            self.reporter.info("Opening working copy...")
             workbook = excel.books.open(str(output_file_path), read_only=False)
 
             worksheet: xl.Sheet = workbook.sheets[worksheet_name]
-            self.report.info("Worksheet accessed.")
+            self.reporter.info("Worksheet accessed.")
 
             table: xl.main.Table = worksheet.tables[table_id]
-            self.report.info(f"Table id:{table_id}, selected.")
+            self.reporter.info(f"Table id:{table_id}, selected.")
 
-            self.report.info("Checking the table for active filters...")
+            self.reporter.info("Checking the table for active filters...")
             if not self._resolve_filters(worksheet, table):
-                self.report.error(
+                self.reporter.error(
                     "The MTL was not updated. No changes were written.",
                     popup=True,
                 )
@@ -505,11 +502,11 @@ class DataAppender:
 
             table.update(appended_dataframe, index=False)
 
-            self.report.info("Table values updated.")
+            self.reporter.info("Table values updated.")
 
             # Reapply the autofilter so the MTL is as unchanged as possible
             if not self._toggle_table_filter(worksheet, table):
-                self.report.error(
+                self.reporter.error(
                     "The MTL autofilter could not be reapplied after updating. "
                     "Changes not saved.",
                     popup=True,
@@ -521,28 +518,30 @@ class DataAppender:
             self.artifacts.append(
                 (output_file_path, "A copy of the MTL with the table replaced.")
             )
-            self.report.subtitle(" 🎉 UPDATE/APPEND COMPLETED SUCCESSFULLY 🎉 ")
-            self.report.info(
+            self.reporter.subtitle(" 🎉 UPDATE/APPEND COMPLETED SUCCESSFULLY 🎉 ")
+            self.reporter.info(
                 " 🎉 UPDATE/APPEND COMPLETED SUCCESSFULLY 🎉 ",
                 popup=True,
                 log=False,
-                report=False,
+                reporter=False,
             )
 
             self.mtl_output_path = output_file_path
-            self.report.info(f"MTL Saved to a new file at: ../{output_file_path.name}")
+            self.reporter.info(
+                f"MTL Saved to a new file at: ../{output_file_path.name}"
+            )
 
         except Exception as e:
             self._add_issue(
                 "MTL export",
                 "The appended data could not be written to the MTL workbook.",
             )
-            self.report.error(
-                "Failed to export the data to the MTL. Check the general log and report "
+            self.reporter.error(
+                "Failed to export the data to the MTL. Check the general log and reporter "
                 "to an admin if necessary.",
                 popup=True,
             )
-            self.report.exception(f"\n{e}")
+            self.reporter.exception(f"\n{e}")
 
         finally:
             if workbook is not None:
@@ -550,21 +549,21 @@ class DataAppender:
             if excel is not None:
                 excel.quit()
 
-    def build_append_report(
+    def build_append_reporter(
         self,
-        status: PDFReportStatus,
+        status: PDFreporterStatus,
         mtl_worksheet_name: str,
         mtl_file_path: Path,
         input_file_path: Path,
         filter_string: str | None = None,
     ) -> AppendPDFTemplate:
-        """Snapshot the appender's outcome as a PDF report model."""
+        """Snapshot the appender's outcome as a PDF reporter model."""
         appender = self
         return AppendPDFTemplate(
-            title="MTL Append Report",
+            title="MTL Append reporter",
             subtitle=f"{self.metadata.get_mtl_doc_num()} / {mtl_worksheet_name}",
-            report_id=self.report.report_name,
-            user=self.report.user,
+            reporter_id=self.reporter.reporter_name,
+            user=self.reporter.user,
             created_date=datetime.now(UTC),
             status=status,
             mtl_source=mtl_file_path,

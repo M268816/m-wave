@@ -236,6 +236,10 @@ class Journal:
         """X===== TEXT =====X Makes a failure easy to find when scrolling."""
         self._write("ERROR", error_banner_line(text), text)
 
+    def error_divider(self) -> None:
+        """~~~~ A plain line. Not copied to the DebugLog."""
+        self._write("INFO", ["~" * WIDTH], debug_text=None)
+
     def open_file(self, file_path: Path) -> None:
         """
         Used by the Reporter.

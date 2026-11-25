@@ -41,7 +41,10 @@ from ttkbootstrap.widgets.scrolled import ScrolledText
 # local
 from m_wave.core.utils import FONT_MONO, PAD, PAD_X, PAD_Y
 from m_wave.core.wavepacks.gui_frame import WavePackGUI
-from m_wave.extensions.example.controller import ExampleController, ExampleUiPayload
+from m_wave.extensions.example.controller import (
+    ExampleController,
+    UIRefs,
+)
 from m_wave.extensions.example.paths import BUNDLED_INSTRUCTIONS_PATH
 from m_wave.extensions.example.processor import ProcessorRequest
 
@@ -228,11 +231,24 @@ class ExampleFrame(WavePackGUI):
         frame = tkb.Labelframe(self.container, text="Process Status")
         frame.pack(side=BOTTOM, fill=X, anchor=S)
 
-        self.progress_bar = tkb.Progressbar(frame, mode=INDETERMINATE)
+        # Processor status arrives as an event and is changed only by the
+        # controller's main-thread event handler.
+        self.process_status_var = tkb.StringVar(value="Ready.")
+        self.status_label = tkb.Label(
+            frame,
+            textvariable=self.process_status_var,
+            anchor="w",
+        )
+        self.status_label.pack(side=TOP, fill=X, padx=PAD_X, pady=(PAD_Y, 0))
+
+        controls = tkb.Frame(frame)
+        controls.pack(side=TOP, fill=X)
+
+        self.progress_bar = tkb.Progressbar(controls, mode=INDETERMINATE)
         self.progress_bar.pack(side=LEFT, expand=YES, padx=PAD_X, pady=PAD_Y, fill=X)
 
         self.process_button = tkb.Button(
-            frame,
+            controls,
             text="Example",
             bootstyle=SUCCESS,
             padding=PAD,
@@ -257,10 +273,11 @@ class ExampleFrame(WavePackGUI):
             Path(self.opt_input_path.get()),
         )
 
-        ui = ExampleUiPayload(
-            self.progress_bar,
-            self.process_button,
-            self.stext,
+        ui = UIRefs(
+            progress_bar=self.progress_bar,
+            process_button=self.process_button,
+            stext=self.stext,
+            status_var=self.process_status_var,
         )
 
         self.controller.start_process(request, ui)

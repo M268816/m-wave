@@ -454,7 +454,14 @@
     }
   },
   "dataframe_formatting": {
-    "exclude_columns": ["Asset Details"],
+    "exclude_columns": [
+      "Asset Details",
+      "versionid",
+      "versioneffectivedate",
+      "timeruledefinedbytemplate",
+      "description",
+      "categories",
+    ],
     "security_string_columns": [
       "datasecurity",
       "ptsecurity",

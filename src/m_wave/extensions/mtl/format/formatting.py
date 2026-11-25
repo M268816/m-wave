@@ -625,12 +625,10 @@ class Formatting:
 
             self.journal.info("Aligning columns...")
             _input = _input[_mtl.columns]
-            self.journal.info("✓ Input data columns have aligned to the MTL columns!")
-            self.journal.info(f"✓ {len(_mtl.columns)} columns set.")
+            self.journal.info("✅ Input data columns have aligned to the MTL columns!")
+            self.journal.info(f"✅ {len(_mtl.columns)} columns set.")
             self.journal.info("Columns used within this comparison:")
-
-            for index, col in enumerate(_input.columns):
-                self.journal.info(f"    {index}:{col}")
+            self.journal.info(f"\t{_input.columns.tolist()}")
 
             # Ensure the column data types are the same by matching the input
             # dtypes to the mtl dtypes

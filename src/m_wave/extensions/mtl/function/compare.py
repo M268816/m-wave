@@ -42,7 +42,7 @@ VERBOSE_DIFFERENCE_LIMIT = 256
 
 class _ComparisonAbort(Exception):
     """
-    Interal signal: a phase could not continue the run is ERRORED.
+    Internal signal: a phase could not continue the run is ERRORED.
     """
 
     def __init__(self, title: str, detail: str, journal_message: str) -> None:
@@ -73,7 +73,7 @@ class SecurityComparisonResult:
 
     ``mtl_matches_pib``: every compared MTL string matches its PI Builder string.
     ``pib_matches_matrix``: every PI Builder string satisfied the security matrix.
-    ``errored``: at lest one string coul dnot be evaluated, so the result is incompelte.
+    ``errored``: at lest one string could not be evaluated, so the result is incomplete.
     """
 
     performed: bool = False
@@ -112,12 +112,12 @@ class Comparisons:
     columns are handled in one of two modes.
 
     ``Parsed`` (default): security columns are removed before DataCompPy runs and
-        evaluated separately by ``SecurityParser``, because equivelent security
+        evaluated separately by ``SecurityParser``, because equivalent security
         strings are not necessarily identical text and must also be checked against the
         security matrix
     ``Not Parsed``: the security string columns are removed form the comparison entirely
     and left for the reviewer to check by hand. Useful for development and for
-    side by side checks of the perser results.
+    side by side checks of the parser results.
 
     Always excluded columns are removed from both modes. A blank value on one side
     of the comparison and a value on the other is a difference and is always reported.
@@ -232,14 +232,14 @@ class Comparisons:
             if frame.empty:
                 raise _ComparisonAbort(
                     f"Checking {label} dataframe",
-                    f"Chekcing if the {label} dataframe is empty, and it returned "
+                    f"Checking if the {label} dataframe is empty, and it returned "
                     "true stopping the comparison.",
                     f"There was a problem returning the {label} data. "
                     "Empty table detected. Stopping the process.",
                 )
 
         report_shape_differences(self.reporter, mtl_dataframe, pib_dataframe)
-        self.journal.info("✅ Inital comparison checks completed.")
+        self.journal.info("✅ Initial comparison checks completed.")
 
     def _prepare_frames(
         self,
@@ -262,7 +262,7 @@ class Comparisons:
 
         if parse_security_strings:
             # Security string columns move to the security phase;
-            # non-excluded colums go to DataComPy
+            # non-excluded columns go to DataComPy
             frames = self._split_security_columns(mtl, pib, key_columns)
         else:
             mtl, pib = self._remove_security_string_columns(mtl, pib, key_columns)
@@ -299,7 +299,7 @@ class Comparisons:
         key_columns: list[str],
     ) -> _PreparedFrames:
         """
-        Move security columsn present in both tables int oseparate key-aligned frames.
+        Move security columns present in both tables into separate key-aligned frames.
         A security column present on only one side stays in the main frames, so
         DataComPy reports the column-set difference.
         """
@@ -324,7 +324,7 @@ class Comparisons:
         self, mtl: pd.DataFrame, pib: pd.DataFrame, key_columns: list[str]
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Remove columns configured to be exluded from every comparison.
+        Remove columns configured to be excluded from every comparison.
         """
         return self._drop_columns(
             mtl,
@@ -332,7 +332,7 @@ class Comparisons:
             key_columns,
             self.metadata.excluded_columns,
             "The following columns are ALWAYS EXCLUDED from comparisons. "
-            "These columsn are not compared by design.",
+            "These columns are not compared by design.",
         )
 
     def _remove_security_string_columns(
@@ -360,7 +360,7 @@ class Comparisons:
         message: str,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Drop configured columsn present in either frame, never a join key.
+        Drop configured columns present in either frame, never a join key.
         """
         configured = {col.lower() for col in configured_columns}
         present = sorted(
@@ -400,12 +400,12 @@ class Comparisons:
         self.journal.info(
             "Any records within the 'mtl_non_matching_records.csv' or "
             "'pi_builder_non_matching_records.csv' file are records that have no "
-            "maching comparison record and will require manual fixes."
+            "matching comparison record and will require manual fixes."
         )
         self.reporter.artifacts.save_csv(
             "mtl_non_matching_records.csv",
             comparison.df1_unq_rows,
-            "MTL/CMD records without a matching PI Builder record to comapre to.",
+            "MTL/CMD records without a matching PI Builder record to compare to.",
         )
         self.reporter.artifacts.save_csv(
             "pi_builder_non_matching_records.csv",
@@ -438,7 +438,7 @@ class Comparisons:
         <column>_match flag. column_stats is avoided because its element type varies
         between DataComPy versions.
         """
-        self.journal.heading("Chekcing record values for possible comparison pairs.")
+        self.journal.heading("Checking record values for possible comparison pairs.")
         intersect = comparison.intersect_rows
         match_suffix = "_match"
 
@@ -497,10 +497,10 @@ class Comparisons:
         self, frames: _PreparedFrames, parse_security_strings: bool
     ) -> SecurityComparisonResult:
         """
-        Compare security strings for records present in btoh tables.
+        Compare security strings for records present in both tables.
 
         Records present on ony one side are already reported by DataComPy as unmatched
-        records, so they ar enot repeated here.
+        records, so they are not repeated here.
         """
         self.journal.heading("Parsing security string columns")
         if not parse_security_strings:
@@ -516,9 +516,9 @@ class Comparisons:
 
         self.journal.warning(
             "Security strings were found for this comparison. They are compared by "
-            "principal and permission, in canonical PI order, tather than as "
+            "principal and permission, in canonical PI order, rather than as "
             "literal text, and the PI Builder values are validated against the "
-            "security matrix. Malformed security strings and unknnown values will "
+            "security matrix. Malformed security strings and unknown values will "
             "cause this comparison to error."
         )
 
@@ -617,7 +617,7 @@ class Comparisons:
         """
         Whether the PI Builder string satisfies the security matrix.
 
-        Uses SecurityParser's validated value when procided; otherwise it applies the
+        Uses SecurityParser's validated value when provided; otherwise it applies the
         same rule from the returned settings.
         """
         if "validated" in comparison:
@@ -704,7 +704,7 @@ class Comparisons:
     ) -> PDFReportStatus:
         """
         FAIL when any definite difference is found, ERRORED when the result is
-        incomplete or DataComPy still reports a mmistmatch, otherwise PASS.
+        incomplete or DataComPy still reports a mismatch, otherwise PASS.
         """
         if not long_form.empty or security.failed:
             return PDFReportStatus.FAIL
@@ -781,7 +781,7 @@ class Comparisons:
         self, long_form: pd.DataFrame, key_columns: list[str]
     ) -> None:
         self.journal.info(
-            f"{len(long_form)} differing cell(s). Reporting differneces below:"
+            f"{len(long_form)} differing cell(s). Reporting differences below:"
         )
 
         if len(long_form) > VERBOSE_DIFFERENCE_LIMIT:

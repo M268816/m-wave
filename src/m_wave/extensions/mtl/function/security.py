@@ -533,8 +533,7 @@ class SecurityParser:
             "active permission values only. The 'Effective Config' columns in "
             "compared_security_strings.csv show the values that were compared."
         )
-        self.journal.info(message)
-        self.notify.info(message, "Effective security configurations")
+        self.journal.warning(message)
 
     def create_security_dataframe(
         self, compared_security_strings: list[dict]

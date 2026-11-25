@@ -36,7 +36,7 @@ import csv
 import shutil
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 # local
@@ -87,7 +87,7 @@ class Artifacts:
         Get a path in the artifacts folder for a file you will write yourself.
         The file is listed in the journal straight away.
         """
-        path = self._folder() / filename
+        path = self._artifact_path(filename)
         self._remember(path, description)
         return path
 
@@ -104,7 +104,7 @@ class Artifacts:
         data: a pandas DataFrame, or a list of rows (each row a list/tuple).
               For a list of rows, pass ``headers`` to add a header row.
         """
-        path = self._folder() / filename
+        path = self._artifact_path(filename)
 
         if hasattr(data, "to_csv"):  # pandas DataFrame
             data.to_csv(path, index=False, encoding="utf-8-sig")
@@ -124,7 +124,7 @@ class Artifacts:
 
     def save_text(self, filename: str, text: str, description: str) -> Path:
         """Save plain text, for example a list of sheet names or a config dump."""
-        path = self._folder() / filename
+        path = self._artifact_path(filename)
         path.write_text(text, encoding="utf-8")
         self._remember(path, description)
         return path
@@ -138,7 +138,7 @@ class Artifacts:
         Copy a file into the artifacts folder unchanged. Use this for the
         "before" snapshot of an input file.
         """
-        path = self._folder() / filename
+        path = self._artifact_path(filename)
         shutil.copy2(source, path)
         self._remember(path, description)
         return path
@@ -158,3 +158,33 @@ class Artifacts:
         self.saved.append(Artifact(path, description))
         self.journal.info(f"Saved artifact: {path.name} - {description}")
         self._debug.debug("Artifact path: %s", path)
+
+    def _artifact_path(self, filename: str) -> Path:
+        """Return a safe path for a single file inside the artifacts folder."""
+        if not filename or filename in {".", ".."}:
+            raise ValueError("Artifact filename must be a file name.")
+
+        # Check both path conventions so Windows-style paths are also rejected
+        # when this code is run or reviewed on another operating system.
+        native_path = Path(filename)
+        windows_path = PureWindowsPath(filename)
+
+        if (
+            native_path.name != filename
+            or windows_path.name != filename
+            or native_path.is_absolute()
+            or windows_path.is_absolute()
+            or windows_path.drive
+        ):
+            raise ValueError(f"Artifact filename must not contain a path: {filename!r}")
+
+        folder = self._folder().resolve()
+        destination = (folder / filename).resolve()
+
+        # Also blocks an existing symlink that points outside the artifacts folder.
+        if destination.parent != folder:
+            raise ValueError(
+                f"Artifact path must stay inside the artifacts folder: {filename!r}"
+            )
+
+        return destination

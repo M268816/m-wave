@@ -392,6 +392,8 @@ class MTLFrame(WavePackGUI):
 
         file_path = askopenfilename(title="Select a file.", filetypes=types)
 
+        file_path = file_path.replace("/", "\\")
+
         if file_path:
             string_variable.set(file_path)
             is_selected.set(True)

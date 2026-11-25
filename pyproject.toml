@@ -4,8 +4,7 @@ version = "1.4.0"
 description = "An application that helps Jaffrey PI developers with configurations."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
-license-files = ["LICENSE.*"]
+license-files = ["LICENSE"]
 authors = [
   { name = "Raymond Comeau", email = "raymond.comeau@milliporesigma.com" },
 ]
@@ -56,7 +55,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools>=68.0.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

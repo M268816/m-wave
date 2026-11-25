@@ -20,10 +20,16 @@ goes through reporter.notifier, so the processor can be tested without a GUI.
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from time import sleep
 
 # local
+from m_wave.core.gui_events import UIEventSink
 from m_wave.core.reporting.pdf_utils import PDFReportStatus
 from m_wave.core.reporting.reporter import Reporter
+from m_wave.core.wavepacks.processor import WavePackProcessor
+from m_wave.extensions.example.gui_events import (
+    EventExample,
+)
 from m_wave.extensions.example.pdf_template import ExamplePDFReportTemplate
 
 
@@ -38,11 +44,50 @@ class ProcessorRequest:
     file_path: Path
 
 
-class Processor:
-    def __init__(self, reporter: Reporter) -> None:
-        self.reporter = reporter
-        self.journal = reporter.journal  # short names, used on almost every line
-        self.debug = reporter.debug
+class Processor(WavePackProcessor):
+    def __init__(self, reporter: Reporter, event_sink: UIEventSink) -> None:
+        super().__init__(reporter, event_sink)
+
+    def ui_emitter(self, message: str) -> None:
+        """
+        This example emitter sends a "status string" update event to the GUI.
+        """
+        self._emit_ui_event(EventExample(message))
+
+    def _read_csv(self, path: Path) -> list[list[str]]:
+        with open(path, newline="", encoding="utf-8-sig") as file:
+            rows = list(csv.reader(file))
+        self.debug.debug("First row: %r", rows[0] if rows else None)
+        return rows
+
+    def _make_template(
+        self, status: PDFReportStatus, rows: list[list[str]]
+    ) -> ExamplePDFReportTemplate:
+        """
+        Build the PDF from the run process data.
+        """
+        report = self.reporter.report
+
+        # Assert here to make sure the report has been started before the app
+        # attempts to make a PDF report.
+        assert report is not None, (
+            "The controller must call reporter.start_report() first."
+        )
+
+        # Data from the run method shall be compiled here and passed into a pdf template
+        # and returned to the main process method, in this instance run().
+        # Not necessarily needed, but better to have a dedicated
+        return ExamplePDFReportTemplate(
+            title=report.name,
+            report_id=report.id,
+            user=report.user,
+            created_date=report.started_at,
+            status=status,
+            subtitle="Just a little subtitle",
+            example_int=len(rows),
+            example_str="Rows read from the input file",
+            example_list=["this", "is", "a", "example", "list"],
+        )
 
     def run(self, request: ProcessorRequest) -> ExamplePDFReportTemplate:
         """
@@ -52,7 +97,15 @@ class Processor:
         """
         self.journal.title("This is an example WavePack")
 
-        # STEP 1: read the input ------------------------------------------------
+        # STEP 0: simulate long processes
+        self.journal.heading("Step 0: Simulating an intensive process.")
+        self.journal.info(
+            "It may seem as if the app stalled, but it is just using time.sleep() calls."
+        )
+        sleep(5)
+        self.journal.info("✅ Completed!")
+
+        # STEP 1: read the input
         self.journal.heading("Step 1: Read the input file")
         self.journal.info(f"File: {request.file_path}")
         self.debug.debug(
@@ -83,7 +136,7 @@ class Processor:
                 self.journal.warning("Stopped by the user: the input file was empty.")
                 return self._make_template(PDFReportStatus.FAIL, rows)
 
-        # STEP 2: format ---------------------------------------------------------
+        # STEP 2: format
         self.journal.heading("Step 2: Format the data")
         formatted = [[cell.strip() for cell in row] for row in rows]
         changed = sum(1 for before, after in zip(rows, formatted) if before != after)
@@ -94,38 +147,8 @@ class Processor:
             "after_formatting.csv", formatted, "Input file after formatting"
         )
 
-        # STEP 3: decide the result ----------------------------------------------
+        # STEP 3: decide the result
         self.journal.heading("Step 3: Result")
         status = PDFReportStatus.PASS
         self.journal.info(f"Result: {status.label}")
         return self._make_template(status, formatted)
-
-    # -------------------------------------------------------------------------
-    # Helpers
-    # -------------------------------------------------------------------------
-    def _read_csv(self, path: Path) -> list[list[str]]:
-        with open(path, newline="", encoding="utf-8-sig") as file:
-            rows = list(csv.reader(file))
-        self.debug.debug("First row: %r", rows[0] if rows else None)
-        return rows
-
-    def _make_template(
-        self, status: PDFReportStatus, rows: list[list[str]]
-    ) -> ExamplePDFReportTemplate:
-        """The PDF is built from data, never from journal lines."""
-        report = self.reporter.report
-        assert report is not None, (
-            "The controller must call reporter.start_report() first."
-        )
-
-        return ExamplePDFReportTemplate(
-            title=report.name,
-            report_id=report.id,
-            user=report.user,
-            created_date=report.started_at,
-            status=status,
-            subtitle="Just a little subtitle",
-            example_int=len(rows),
-            example_str="Rows read from the input file",
-            example_list=["this", "is", "a", "example", "list"],
-        )

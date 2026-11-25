@@ -18,6 +18,8 @@ goes through reporter.notifier, so the processor can be tested without a GUI.
 
 # stdlib
 import csv
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -41,13 +43,32 @@ from m_wave.extensions.mtl.utils.metadata import Metadata
 from m_wave.extensions.mtl.utils.utils import (
     MTLEnvironmentTypes,
     MTLProcessorRequest,
-    MTLUiPayload,
 )
 
 
+@dataclass(frozen=True)
+class EventMTLDownloaded:
+    """
+    Plain data describing a successful MTL download.
+    """
+
+    revision: str
+    path: Path
+
+
+EventSink = Callable[[EventMTLDownloaded], None]
+
+
+def _ignore_processor_event(event: EventMTLDownloaded):
+    """
+    Default sink so the processor can run without a GUI controller.
+    """
+
+
 class MTLProcessor:
-    def __init__(self, reporter: Reporter) -> None:
+    def __init__(self, reporter: Reporter, emit_event: EventSink | None = None) -> None:
         self.reporter = reporter
+        self._emit_event = emit_event or _ignore_processor_event
         self.journal = reporter.journal  # short names, used on almost every line
         self.notify = reporter.notifier
         self.debug = reporter.debug
@@ -77,9 +98,7 @@ class MTLProcessor:
             issues=issues,
         )
 
-    def download_mtl(
-        self, request: MTLProcessorRequest, ui: MTLUiPayload
-    ) -> PDFReportTemplate:
+    def download_mtl(self, request: MTLProcessorRequest) -> PDFReportTemplate:
         """
         Download the MTL/CMD directly from ManGo.
         """
@@ -136,9 +155,13 @@ class MTLProcessor:
 
             self.journal.subtitle("MTL/CMD SUCCESSFULLY DOWNLOADED")
             self.journal.info(f"Revision captured: {revision}")
-            ui.mtl_version.set(str(revision))
+
             self.metadata.set_mtl_version(str(revision))
-            ui.mtl_path.set(str(download_path))
+
+            self._emit_event(
+                EventMTLDownloaded(revision=str(revision), path=download_path)
+            )
+
             return self._build_download_pdf(
                 request,
                 PDFReportStatus.PASS,
@@ -189,11 +212,9 @@ class MTLProcessor:
             **_comparison_fields,
         )
 
-    def run_comparison(
-        self, request: MTLProcessorRequest, ui: MTLUiPayload
-    ) -> PDFReportTemplate:
+    def run_comparison(self, request: MTLProcessorRequest) -> PDFReportTemplate:
         """
-        Given a ProcessorRequest and UiPayload, this processor will run a comparison
+        Given a ProcessorRequest, this processor will run a comparison
         of a supplied MTL/CMD, and PI Builder file.
         """
         comparison_issues: list[ReportIssue] = []
@@ -379,65 +400,6 @@ class MTLProcessor:
                 issues=comparison_issues,
             )
 
-    # def run(self, request: MTLProcessorRequest) -> PDFReportTemplate:
-    #     """
-    #     Do processing work and return the filled-in PDF template.
-    #     Raise an exception if something unexpected goes wrong. The controller
-    #     catches it and the Reporter produces an ERRORED summary.
-    #     """
-    #     self.journal.title("This is an example WavePack")
-    #
-    #     # STEP 1: read the input ------------------------------------------------
-    #     self.journal.heading("Step 1: Read the input file")
-    #     self.journal.info(f"File: {request.file_path}")
-    #     self.debug.debug(
-    #         "Resolved input path: %s (exists=%s)",
-    #         request.file_path.resolve(),
-    #         request.file_path.exists(),
-    #     )
-    #
-    #     if not request.file_path.exists():
-    #         self.journal.error_banner("Input file not found")
-    #         self.journal.error(f"No file at {request.file_path}")
-    #         return self._make_template(PDFReportStatus.FAIL, rows=[])
-    #
-    #     # "Before" snapshot: the file exactly as it was given to us.
-    #     self.reporter.artifacts.copy_in(
-    #         request.file_path,
-    #         f"before_{request.file_path.name}",
-    #         "Input file as received",
-    #     )
-    #     rows = self._read_csv(request.file_path)
-    #     self.journal.info(f"Read {len(rows):,} rows.")
-    #
-    #     if not rows:
-    #         go_on = self.reporter.notifier.ask(
-    #             "The file has no rows. Continue anyway?", default=False
-    #         )
-    #         if not go_on:
-    #             self.journal.warning("Stopped by the user: the input file was empty.")
-    #             return self._make_template(PDFReportStatus.FAIL, rows)
-    #
-    #     # STEP 2: format ---------------------------------------------------------
-    #     self.journal.heading("Step 2: Format the data")
-    #     formatted = [[cell.strip() for cell in row] for row in rows]
-    #     changed = sum(1 for before, after in zip(rows, formatted) if before != after)
-    #     self.journal.info(f"Trimmed spaces in {changed:,} rows.")
-    #
-    #     # "After" snapshot: the data as it will be compared.
-    #     self.reporter.artifacts.save_csv(
-    #         "after_formatting.csv", formatted, "Input file after formatting"
-    #     )
-    #
-    #     # STEP 3: decide the result ----------------------------------------------
-    #     self.journal.heading("Step 3: Result")
-    #     status = PDFReportStatus.PASS
-    #     self.journal.info(f"Result: {status.label}")
-    #     return self._make_template(status, formatted)
-
-    # ------------------------------------------------------------------------
-    # Helpers
-    # -------------------------------------------------------------------------
     def _read_csv(self, path: Path) -> list[list[str]]:
         with open(path, newline="", encoding="utf-8-sig") as file:
             rows = list(csv.reader(file))
